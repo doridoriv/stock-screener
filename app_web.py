@@ -128,6 +128,26 @@ def style_screener_dataframe(df, market_type):
         formatted_df["diff"] = formatted_df["diff"].apply(
             lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
         )
+    
+    # [수정] 최고점대비(peak_diff) 문자열/실수 형태 모두 소수점 아래 2자리로 강제 제한 및 봉인
+    if "peak_diff" in formatted_df.columns:
+        import re
+        def format_peak_diff(v):
+            if pd.isna(v): return "-"
+            v_str = str(v).strip()
+            match = re.search(r"([+-]?\d+\.\d+)", v_str)
+            if match:
+                num_part = match.group(1)
+                return v_str.replace(num_part, f"{float(num_part):.2f}")
+            try:
+                val = float(v)
+                if val > 0: return f"🔴 +{val:.2f}%"
+                elif val < 0: return f"🔵 {val:.2f}%"
+                else: return "⚫ 0.00%"
+            except:
+                return v_str
+        formatted_df["peak_diff"] = formatted_df["peak_diff"].apply(format_peak_diff)
+
     if "rsi" in formatted_df.columns:
         def format_rsi(v):
             if pd.isna(v): return "-"
@@ -167,7 +187,7 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# [수정] 불필요한 공백을 없애고 텍스트 길이에 맞춰 좌우 박스 크기를 타이트하게 고정 배치
+# 불필요한 공백을 없애고 텍스트 길이에 맞춰 좌우 박스 크기를 타이트하게 고정 배치
 link_config = {
     "순위": st.column_config.Column("순위", width=50),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=85),
