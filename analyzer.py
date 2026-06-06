@@ -60,7 +60,8 @@ def get_pbr_grade(val):
 
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
-        if market == "한국":
+        # [개선] 코스피/코스닥을 모두 포함하여 FinanceDataReader 데이터 수집 경로 지원
+        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             df = fdr.DataReader(symbol, start=start_date, end=end_date)
         else:
             df = yf.download(symbol, start=start_date, end=end_date, progress=False)
@@ -80,12 +81,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         tickers_to_screen = []
         kr_fundamental_map = {}
         
-        if market == "한국":
-            app_queue.put({"type": "progress", "value": 5, "text": f"코스피 상위 {top_n}위 종목 로드 중..."})
-            df_kospi = fdr.StockListing('KOSPI')
-            df_kospi = df_kospi.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
+        # [개선] 사용자가 코스피 혹은 코스닥을 선택함에 따라 불러올 FinanceDataReader 소스를 분기 처리
+        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+            market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
+            market_text = "코스닥" if market == "한국(코스닥)" else "코스피"
             
-            for idx, row in enumerate(df_kospi.iterrows(), 1):
+            app_queue.put({"type": "progress", "value": 5, "text": f"{market_text} 상위 {top_n}위 종목 로드 중..."})
+            df_kr = fdr.StockListing(market_type)
+            df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
+            
+            for idx, row in enumerate(df_kr.iterrows(), 1):
                 r_data = row[1]
                 mcap_val = int(r_data['Marcap'] / 100000000) if not pd.isna(r_data['Marcap']) else 0
                 tickers_to_screen.append({
@@ -139,13 +144,15 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
                 per_str, pbr_str = "비활성", "비활성"
                 if opt_fundamental:
-                    if market == "한국":
+                    if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                         f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
                         per_val = f_info.get("per", "N/A")
                         
                         if pd.isna(per_val) or str(per_val) in ["N/A", "0", "nan", "None"]:
                             try:
-                                t_obj = yf.Ticker(f"{symbol}.KS")
+                                # [개선] 야후 파이낸스 정보 보완 시 코스닥은 .KQ, 코스피는 .KS를 붙이도록 정밀 매핑
+                                suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
+                                t_obj = yf.Ticker(f"{symbol}{suffix}")
                                 info = t_obj.info
                                 per_val = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
                             except: per_val = "N/A"

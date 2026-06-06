@@ -17,7 +17,8 @@ st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석�
 
 # 사이드바 설정
 st.sidebar.header("🔍 검색 설정")
-market = st.sidebar.selectbox("시장 선택", ["미국", "한국"])
+# [개선] 시장 선택지를 한국(코스피)과 한국(코스닥)으로 분리하여 총 3개의 세부 선택지로 확장
+market = st.sidebar.selectbox("시장 선택", ["미국", "한국(코스피)", "한국(코스닥)"])
 top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 
 # 사이드바 체크박스를 삭제하고 항상 기본 활성화(True) 상태로 고정
@@ -72,7 +73,7 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [개선] 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
+    # 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
     if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
         urls = []
         for idx, row in formatted_df.iterrows():
@@ -102,7 +103,7 @@ def style_screener_dataframe(df, market_type):
                 # 쿼리 스트링 파라미터로 티커와 종목명을 전달하여 가독성 추출 매핑
                 url = f"{base_url}?ticker={sym}&name={row_name}"
             else:
-                # 한국 주식: 자릿수 정렬을 포함한 네이버 표준 주소 매핑 및 파라미터 결합
+                # 한국 주식 (코스피, 코스닥 모두 네이버 금융 표준 주소 체계 동일하게 호환 적용)
                 code_str = str(sym).zfill(6)
                 url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
             
@@ -166,7 +167,7 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# [개선] 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
+# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
 link_config = {
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
@@ -275,7 +276,7 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [완벽 주입] 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
     st.dataframe(
         styled_final_df,
         width='stretch',
