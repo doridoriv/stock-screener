@@ -6,8 +6,10 @@ import threading
 from datetime import datetime
 import os
 
+# Streamlit 백그라운드 스레드 경고를 완벽히 제거하기 위한 컨텍스트 주입 함수를 임포트합니다.
+from streamlit.runtime.scriptrunner import add_script_run_context
+
 import analyzer
-# 자동 저장 및 불러오기 경로 처리를 위해 CACHE_DIR를 함께 임포트합니다.
 from config import APP_TITLE, CACHE_DIR
 
 # 페이지 설정
@@ -21,7 +23,7 @@ st.sidebar.header("🔍 검색 설정")
 market = st.sidebar.selectbox("시장 선택", ["미국", "한국"])
 top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 
-# [요청사항 1] 사이드바 체크박스를 삭제하고 항상 기본 활성화(True) 상태로 고정
+# 사이드바 체크박스를 삭제하고 항상 기본 활성화(True) 상태로 고정
 opt_fundamental = True
 opt_peak = True
 
@@ -34,29 +36,26 @@ if "stop_event" not in st.session_state:
     st.session_state.stop_event = None
 
 # ==============================================================================
-# [디자인 개선] 버튼 3개를 본문 상단 툴바 형태로 가로 배치 (글씨 잘림 방지 및 우측 여백 제어)
+# 버튼 3개를 본문 상단 툴바 형태로 가로 배치 (글씨 잘림 방지 및 우측 여백 제어)
 # ==============================================================================
 col1, col2, col3, col_empty = st.columns([1.2, 1.2, 1.2, 5])
 
 with col1:
-    # [요청사항 2] 스크리닝 시작 버튼 명칭을 "🔍 검색"으로 변경 및 상단 배치
     btn_search = st.button("🔍 검색", use_container_width=True)
 
 with col2:
-    # [요청사항 4] 검색 버튼 우측에 '📂 불러오기' 버튼 배치
     btn_load = st.button("📂 불러오기", use_container_width=True)
 
 with col3:
-    # [요청사항 5] 불러오기 버튼 우측에 '⏹ 검색 중지' 버튼 배치
     btn_stop = st.button("⏹ 검색 중지", use_container_width=True)
 
-# [요청사항 5] 검색 중지 버튼 클릭 시 작동하는 시각적 피드백 및 백엔드 로직
+# 검색 중지 버튼 클릭 시 작동하는 시각적 피드백 및 백엔드 로직
 if btn_stop:
     if st.session_state.stop_event is not None:
         st.session_state.stop_event.set()
     st.toast("⏹ 스크리닝 중지 신호를 보냈습니다.", icon="⚠️")
 
-# [요청사항 4] 불러오기 버튼 클릭 시 자동 저장된 백업 데이터를 파일에서 읽어오는 로직
+# 불러오기 버튼 클릭 시 자동 저장된 백업 데이터를 파일에서 읽어오는 로직
 if btn_load:
     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
     if os.path.exists(file_path):
@@ -70,13 +69,12 @@ if btn_load:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
 
 # ==============================================================================
-# 데이터 포맷팅 및 스타일러 정의 (원본 함수 형태 100% 완전 유지)
+# 데이터 포맷팅 및 스타일러 정의
 # ==============================================================================
 def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [요청사항 4] 금액 데이터 3자리 콤마 처리 명시
     if "market_cap" in formatted_df.columns:
         formatted_df["market_cap"] = formatted_df["market_cap"].apply(
             lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
@@ -102,11 +100,9 @@ def style_screener_dataframe(df, market_type):
             else: return f"{v:.1f} (침체)"
         formatted_df["rsi"] = formatted_df["rsi"].apply(format_rsi)
         
-    # 모든 컬럼 안전 문자열 변환
     for col in formatted_df.columns:
         formatted_df[col] = formatted_df[col].astype(str)
         
-    # 출력용 한글 헤더 매핑
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
@@ -115,13 +111,11 @@ def style_screener_dataframe(df, market_type):
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
     
-    # [요청사항 2, 3] 전체 수치 항목 가운데 정렬 및 줄바꿈(Wrap) 차단 CSS 주입
     styler = formatted_df.style.set_properties(**{
         'text-align': 'center',
         'white-space': 'nowrap'
     })
     
-    # [요청사항 5] 최고점대비 / 괴리율 양수·음수 컬러링 규칙
     def apply_strict_color_rules(val):
         if isinstance(val, str):
             if "+" in val or "🔴" in val:
@@ -145,10 +139,12 @@ if btn_search:
     table_placeholder = st.empty()
     
     app_queue = queue.Queue()
-    # 다른 버튼이 감지하여 이벤트를 제어할 수 있도록 스레드 중지 플래그를 세션 스토리지에 할당합니다.
     st.session_state.stop_event = threading.Event()
     
     us_market_cap_data = analyzer.load_us_market_cap_cache()
+    
+    # [핵심 수정] 스레드가 우회 참조할 수 있도록 세션 스토리지의 이벤트 객체를 로컬 변수로 바인딩합니다.
+    current_stop_event = st.session_state.stop_event
     
     worker_thread = threading.Thread(
         target=analyzer.screening_worker,
@@ -156,13 +152,15 @@ if btn_search:
             market, 
             top_n, 
             app_queue, 
-            lambda: st.session_state.stop_event.is_set(), 
+            lambda: current_stop_event.is_set(), # st.session_state 대신 로컬 변수를 참조하여 경고 근절
             opt_fundamental, 
             opt_peak, 
             us_market_cap_data
         ),
         daemon=True
     )
+    # [핵심 수정] 백그라운드 스레드에 Streamlit 실행 환경 컨텍스트를 명시적으로 주입합니다.
+    add_script_run_context(worker_thread)
     worker_thread.start()
     
     while True:
@@ -184,7 +182,6 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # 실시간 테이블에도 스타일 포맷 적용 및 [로그 경고 해결] width='stretch' 변경
                 styled_live_df = style_screener_dataframe(df, market)
                 table_placeholder.dataframe(styled_live_df, width='stretch', hide_index=True)
                 
@@ -192,7 +189,6 @@ if btn_search:
                 progress_bar.progress(1.0)
                 status_text.success(msg["text"])
                 
-                # [요청사항 3] 검색 작업이 완벽히 종료된 후 캐시 디렉토리에 실시간 결과 자동 저장
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
@@ -205,7 +201,6 @@ if btn_search:
             elif m_type == "stopped":
                 st.warning(f"분석 중지: {msg['count']}개 완료")
                 
-                # [요청사항 3] 중지 버튼으로 정지했을 때도 그때까지 받아온 결과 누락 없이 자동 저장
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
@@ -228,11 +223,8 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
-    # 최종 결과 스타일 뷰 가공
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [로그 경고 해결] use_container_width=True 대신 표준 width='stretch' 명시 적용
-    # [요청사항 1] hide_index=True 좌측 공백 인덱스 열 제거 완료
     st.dataframe(
         styled_final_df,
         width='stretch',
@@ -240,7 +232,6 @@ if st.session_state.data:
         hide_index=True
     )
     
-    # 다운로드용 데이터프레임 헤더 정리
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
