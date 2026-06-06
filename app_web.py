@@ -225,10 +225,6 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # [수정] 실시간 데이터 수신 시에도 항상 시가총액 순위(rank) 오름차순으로 정렬 유지
-                if "rank" in df.columns:
-                    df = df.sort_values(by="rank", ascending=True)
-                
                 styled_live_df = style_screener_dataframe(df, market)
                 
                 # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
@@ -280,10 +276,6 @@ if st.session_state.data:
     ]
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
-    
-    # [수정] 최종 결과 화면 및 불러오기 시에도 시가총액 순위(rank) 오름차순 정렬 강제 보장
-    if "rank" in final_df.columns:
-        final_df = final_df.sort_values(by="rank", ascending=True)
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
