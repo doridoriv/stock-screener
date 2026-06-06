@@ -113,7 +113,7 @@ def style_screener_dataframe(df, market_type):
         formatted_df["name"] = urls  # ◀ 기존 7칸에서 8칸으로 수정
                     
     # 정렬 작동을 방해하지 않도록 수치 데이터 타입을 원본 상태(int, float)로 보존 및 강제 변환
-    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi", "peak", "peak_diff"]:
+    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi", "per", "pbr"]:
         if col in formatted_df.columns:
             formatted_df[col] = pd.to_numeric(formatted_df[col], errors='coerce')
         
@@ -136,10 +136,6 @@ def style_screener_dataframe(df, market_type):
         format_rules["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
     if "현재가" in formatted_df.columns:
         format_rules["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점" in formatted_df.columns:
-        format_rules["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점대비" in formatted_df.columns:
-        format_rules["최고점대비"] = lambda x: f"🔴 +{x:.2f}%" if pd.notna(x) and x > 0 else f"🔵 {x:.2f}%" if pd.notna(x) and x < 0 else "⚫ 0.00%"
     if "200일선" in formatted_df.columns:
         format_rules["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
     if "200일괴리율(%)" in formatted_df.columns:
@@ -153,7 +149,19 @@ def style_screener_dataframe(df, market_type):
             else: return f"{v:.1f} (침체)"
         format_rules["RSI(14)"] = format_rsi
 
-    styler = styler.format(format_rules, na_rep="-")
+    if "PER 등급" in formatted_df.columns:
+        format_rules["PER 등급"] = lambda x: analyzer.get_per_grade(x)
+    if "PBR 등급" in formatted_df.columns:
+        format_rules["PBR 등급"] = lambda x: analyzer.get_pbr_grade(x)
+
+    # 개별 컬럼의 결측치 처리를 위해 분리하여 포맷팅을 적용 (PER/PBR 등급은 결측 시 '⚪ 정보없음' 유지)
+    if "PER 등급" in formatted_df.columns:
+        styler = styler.format({"PER 등급": format_rules["PER 등급"]}, na_rep="⚪ 정보없음")
+    if "PBR 등급" in formatted_df.columns:
+        styler = styler.format({"PBR 등급": format_rules["PBR 등급"]}, na_rep="⚪ 정보없음")
+        
+    other_rules = {k: v for k, v in format_rules.items() if k not in ["PER 등급", "PBR 등급"]}
+    styler = styler.format(other_rules, na_rep="-")
     
     def apply_strict_color_rules(val):
         if isinstance(val, (int, float)):
@@ -237,7 +245,7 @@ if btn_search:
                     use_container_width=True, 
                     hide_index=True,
                     column_config=link_config,
-                    selection_mode="single_row"
+                    selection_mode="single-row"
                 )
                 
             elif m_type == "done":
@@ -290,7 +298,7 @@ if st.session_state.data:
         height=650,
         hide_index=True,
         column_config=link_config,
-        selection_mode="single_row"
+        selection_mode="single-row"
     )
     
     rename_dict = {
