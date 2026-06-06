@@ -225,9 +225,14 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
+                # [수정] 고정 순위 오류 해결: 실시간 데이터 수신 시 실제 시가총액 기준 내림차순 정렬 후 순위 순차 재부여
+                if "market_cap" in df.columns and len(df) > 0:
+                    df = df.sort_values(by="market_cap", ascending=False)
+                    df["rank"] = range(1, len(df) + 1)
+                
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # [수정] width='stretch' 제거하고 use_container_width=False 적용하여 글자/숫자 크기에 딱 맞게 밀착시킴
+                # 간격 자동 맞춤 설정 유지
                 table_placeholder.dataframe(
                     styled_live_df, 
                     use_container_width=False, 
@@ -277,9 +282,14 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
+    # [수정] 불러오기 및 최종 화면 출력 시에도 실제 시가총액 크기순 정렬 후 순위 재정의
+    if "market_cap" in final_df.columns and len(final_df) > 0:
+        final_df = final_df.sort_values(by="market_cap", ascending=False)
+        final_df["rank"] = range(1, len(final_df) + 1)
+    
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [수정] width='stretch' 제거하고 use_container_width=False를 적용하여 불필요한 공백 제거 및 자동 간격 맞춤 고정
+    # 간격 자동 맞춤 설정 유지
     st.dataframe(
         styled_final_df,
         use_container_width=False,
