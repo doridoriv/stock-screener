@@ -142,11 +142,12 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 diff_val = ((current_price - current_ma200) / current_ma200) * 100
                 rsi_val = calculate_rsi(close_series, 14)
 
-                per_str, pbr_str = "비활성", "비활성"
+                per_val_clean, pbr_val_clean = None, None
                 if opt_fundamental:
                     if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                         f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
                         per_val = f_info.get("per", "N/A")
+                        pbr_val = f_info.get("pbr", "N/A")
                         
                         if pd.isna(per_val) or str(per_val) in ["N/A", "0", "nan", "None"]:
                             try:
@@ -157,8 +158,21 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                 per_val = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
                             except: per_val = "N/A"
                             
-                        per_str = get_per_grade(per_val)
-                        pbr_str = "-"
+                        try:
+                            if pd.isna(per_val) or str(per_val) in ["N/A", "None", "nan"]:
+                                per_val_clean = None
+                            else:
+                                per_val_clean = float(per_val)
+                        except:
+                            per_val_clean = None
+                            
+                        try:
+                            if pd.isna(pbr_val) or str(pbr_val) in ["N/A", "None", "nan", "-"]:
+                                pbr_val_clean = None
+                            else:
+                                pbr_val_clean = float(pbr_val)
+                        except:
+                            pbr_val_clean = None
                     else:
                         try:
                             t_obj = yf.Ticker(symbol)
@@ -172,23 +186,38 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                 except:
                                     pbr_val = 'N/A'
 
-                            per_str = get_per_grade(per_val)
-                            pbr_str = get_pbr_grade(pbr_val)
+                            try:
+                                if pd.isna(per_val) or str(per_val) in ["N/A", "None", "nan"]:
+                                    per_val_clean = None
+                                else:
+                                    per_val_clean = float(per_val)
+                            except:
+                                per_val_clean = None
+                                
+                            try:
+                                if pd.isna(pbr_val) or str(pbr_val) in ["N/A", "None", "nan"]:
+                                    pbr_val_clean = None
+                                else:
+                                    pbr_val_clean = float(pbr_val)
+                            except:
+                                pbr_val_clean = None
                         except: 
-                            per_str, pbr_str = "⚪ 정보없음", "⚪ 정보없음"
+                            per_val_clean, pbr_val_clean = None, None
 
-                peak_val = 0.0
-                peak_diff_val = 0.0
+                peak_str, peak_diff_str = "비활성", "비활성"
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
-                    peak_val = peak_price
-                    peak_diff_val = peak_diff
+                    peak_str = f"${peak_price:.2f}" if market == "미국" else f"{int(peak_price):,}원"
+                    
+                    if peak_diff > 0: peak_diff_str = f"🔴 +{peak_diff:.2f}%"
+                    elif peak_diff < 0: peak_diff_str = f"🔵 {peak_diff:.2f}%"
+                    else: peak_diff_str = "⚫ 0.00%"
 
                 app_queue.put({"type": "data", "data": {
                     "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
-                    "per": per_str, "pbr": pbr_str, "peak": peak_val, "peak_diff": peak_diff_val
+                    "per": per_val_clean, "pbr": pbr_val_clean, "peak": peak_str, "peak_diff": peak_diff_str
                 }})
             except: continue
             time.sleep(0.05)
