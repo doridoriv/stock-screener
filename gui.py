@@ -238,23 +238,11 @@ if st.session_state.current_session_data:
         
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
-    # ==============================================================================
-    # [수정] config.py의 COL_INFOS 설정을 완벽히 반영하여 헤더명 매핑 및 픽셀 width 동적 지정
-    # ==============================================================================
-    gui_column_config = {}
-    for col in COL_INFOS:
-        col_text = col["text"]
-        width = col.get("width", 100)
-        gui_column_config[col_text] = st.column_config.Column(col_text, width=width)
-
     # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
-    # [수정] 빌드한 gui_column_config 정보를 주입하여 의도하신 정밀 너비 제어를 활성화했습니다.
     st.dataframe(
         styler,
         width='content',
         height=680,
         hide_index=True,
-        selection_mode="row",
-        column_config=gui_column_config
+        selection_mode="row"
     )
-}
