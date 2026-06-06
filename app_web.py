@@ -240,7 +240,7 @@ else:
     elif "중지" in st.session_state.progress_text or "중단" in st.session_state.progress_text:
         status_text_placeholder.warning(f"⚠️ {st.session_state.progress_text}")
     else:
-        status_text_placeholder.normal(f"💡 {st.session_state.progress_text}")
+        status_text_placeholder.info(f"💡 {st.session_state.progress_text}")
 
 st.markdown("---")
 st.subheader("📊 스크리닝 실시간 종합 분석 테이블 결과")
@@ -332,12 +332,7 @@ if len(st.session_state.data_list) > 0:
         "최고점대비": format_peak_diff_value
     }
     
-    # -------------------------------------------------------------------------
-    # [정렬 완벽 해결 핵심 포인트] Pandas Styler 객체를 전달하면,
-    # 웹 화면에는 이모지 텍스트 문자열이 예쁘게 포맷팅되어 나타나지만
-    # 사용자가 컬럼 클릭 시 내장 정렬은 "원래의 숫자 데이터 크기 고유 타입"을 기준으로
-    # 완벽하게 오름차순/내림차순 정렬이 보장됩니다.
-    # -------------------------------------------------------------------------
+    # Pandas Styler 렌더링 파이프라인
     styled_df = df_final.style.format(styler_format_map)
     
     # 데이터프레임 컴포넌트 렌더링
@@ -345,7 +340,7 @@ if len(st.session_state.data_list) > 0:
         styled_df,
         use_container_width=True,
         hide_index=True,
-        selection_mode="row"  # 클릭 시 가로 왼쪽 끝부터 오른쪽 끝까지 가로 한 행 전체가 블록 하이라이트 됩니다.
+        selection_mode="row"
     )
 else:
     st.info("스크리닝 시작 버튼을 누르면 실시간으로 데이터가 수집되어 여기에 표시됩니다.")
