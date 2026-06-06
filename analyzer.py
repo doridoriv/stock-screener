@@ -28,7 +28,10 @@ def calculate_rsi(series, period=14):
     rs = gain / (loss + 1e-9)
     rsi = 100 - (100 / (1 + rs))
     val = rsi.iloc[-1]
-    return float(val) if not pd.isna(val) else 50.0
+    if not pd.isna(val):
+        return float(val)
+    else:
+        return 50.0
 
 def get_per_grade(val):
     if pd.isna(val) or val == "N/A" or val == "None":
