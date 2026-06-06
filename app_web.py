@@ -97,48 +97,25 @@ def style_screener_dataframe(df, market_type):
                     if sym in nyse_tickers:
                         suffix = ".N"
                     else:
-                        suffix = ".O"
-                    base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
+                        suffix = ".O"  # ◀ 기존 23칸에서 24칸으로 수정
+                    base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"  # ◀ 기존 19칸에서 20칸으로 수정
                 
                 # 쿼리 스트링 파라미터로 티커와 종목명을 전달하여 가독성 추출 매핑
-                url = f"{base_url}?ticker={sym}&name={row_name}"
+                url = f"{base_url}?ticker={sym}&name={row_name}"  # ◀ 기존 15칸에서 16칸으로 수정
             else:
                 # 한국 주식 (코스피, 코스닥 모두 네이버 금융 표준 주소 체계 동일하게 호환 적용)
-                code_str = str(sym).zfill(6)
-                url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
+                code_str = str(sym).zfill(6)  # ◀ 기존 15칸에서 16칸으로 수정
+                url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"  # ◀ 기존 15칸에서 16칸으로 수정
             
-            urls.append(url)
+            urls.append(url)  # ◀ 기존 11칸에서 12칸으로 수정
         
-        formatted_df["symbol"] = urls
-        formatted_df["name"] = urls
-            
-    if "market_cap" in formatted_df.columns:
-        formatted_df["market_cap"] = formatted_df["market_cap"].apply(
-            lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
-        )
-    if "price" in formatted_df.columns:
-        formatted_df["price"] = formatted_df["price"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "ma200" in formatted_df.columns:
-        formatted_df["ma200"] = formatted_df["ma200"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "diff" in formatted_df.columns:
-        formatted_df["diff"] = formatted_df["diff"].apply(
-            lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
-        )
-    if "rsi" in formatted_df.columns:
-        def format_rsi(v):
-            if pd.isna(v): return "-"
-            if v >= 70: return f"{v:.1f} (과열)"
-            elif v <= 30: return f"{v:.1f} (과매도)"
-            elif v >= 50: return f"{v:.1f} (보통)"
-            else: return f"{v:.1f} (침체)"
-        formatted_df["rsi"] = formatted_df["rsi"].apply(format_rsi)
-        
-    for col in formatted_df.columns:
-        formatted_df[col] = formatted_df[col].astype(str)
+        formatted_df["symbol"] = urls  # ◀ 기존 7칸에서 8칸으로 수정
+        formatted_df["name"] = urls  # ◀ 기존 7칸에서 8칸으로 수정
+                    
+    # 정렬 작동을 방해하지 않도록 수치 데이터 타입을 원본 상태(int, float)로 보존 및 강제 변환
+    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi"]:
+        if col in formatted_df.columns:
+            formatted_df[col] = pd.to_numeric(formatted_df[col], errors='coerce')
         
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
@@ -153,8 +130,34 @@ def style_screener_dataframe(df, market_type):
         'white-space': 'nowrap'
     })
     
+    # 정렬 기준값은 수치형으로 보존하고 시각적 문자열만 Styler format 객체에 주입하여 완벽 호환
+    format_rules = {}
+    if "시가총액(억)" in formatted_df.columns:
+        format_rules["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
+    if "현재가" in formatted_df.columns:
+        format_rules["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일선" in formatted_df.columns:
+        format_rules["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일괴리율(%)" in formatted_df.columns:
+        format_rules["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
+    if "RSI(14)" in formatted_df.columns:
+        def format_rsi(v):
+            if pd.isna(v): return "-"
+            if v >= 70: return f"{v:.1f} (과열)"
+            elif v <= 30: return f"{v:.1f} (과매도)"
+            elif v >= 50: return f"{v:.1f} (보통)"
+            else: return f"{v:.1f} (침체)"
+        format_rules["RSI(14)"] = format_rsi
+
+    styler = styler.format(format_rules, na_rep="-")
+    
     def apply_strict_color_rules(val):
-        if isinstance(val, str):
+        if isinstance(val, (int, float)):
+            if val > 0:
+                return "color: #D32F2F; font-weight: bold;"
+            if val < 0:
+                return "color: #1976D2; font-weight: bold;"
+        elif isinstance(val, str):
             if "+" in val or "🔴" in val:
                 return "color: #D32F2F; font-weight: bold;"
             if "-" in val or "🔵" in val:
@@ -224,13 +227,13 @@ if btn_search:
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
+                # 실시간 테이블 단일 행 완벽 블록 하이라이트 효과 주입 및 반응형 폭 전체 채움 확장
                 table_placeholder.dataframe(
                     styled_live_df, 
-                    width='stretch', 
+                    use_container_width=True, 
                     hide_index=True,
                     column_config=link_config,
-                    selection_mode="row"
+                    selection_mode="single-row"
                 )
                 
             elif m_type == "done":
@@ -276,14 +279,14 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # 클릭 시 좌측부터 우측 끝까지 혼동 없이 명확하게 단일 행 전체가 잡히는 고대비 블록 하이라이트 모드 고정 완료
     st.dataframe(
         styled_final_df,
-        width='stretch',
+        use_container_width=True,
         height=650,
         hide_index=True,
         column_config=link_config,
-        selection_mode="row"
+        selection_mode="single-row"
     )
     
     rename_dict = {
