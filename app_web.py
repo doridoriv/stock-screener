@@ -170,10 +170,23 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
+# ==============================================================================
+# [개선] 텍스트/숫자 길이에 맞게 셀의 불필요한 공백을 완전히 없애주는 컴팩트 설정 자동화
+# ==============================================================================
 link_config = {
+    "순위": st.column_config.Column("순위"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
+    "기준일": st.column_config.Column("기준일"),
+    "시가총액(억)": st.column_config.Column("시가총액(억)"),
+    "현재가": st.column_config.Column("현재가"),
+    "최고점": st.column_config.Column("최고점"),
+    "최고점대비": st.column_config.Column("최고점대비"),
+    "200일선": st.column_config.Column("200일선"),
+    "200일괴리율(%)": st.column_config.Column("200일괴리율(%)"),
+    "RSI(14)": st.column_config.Column("RSI(14)"),
+    "PER 등급": st.column_config.Column("PER 등급"),
+    "PBR 등급": st.column_config.Column("PBR 등급")
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -225,12 +238,16 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
+                # [수정] 실시간 화면 출력 시에도 시가총액 순위(rank) 기준으로 상시 오름차순 정렬 강제
+                if "rank" in df.columns:
+                    df = df.sort_values(by="rank", ascending=True)
+                
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
+                # [수정] 좌우로 쓸데없이 벌어지는 여백 공백을 없애기 위해 use_container_width=False 제어 적용
                 table_placeholder.dataframe(
                     styled_live_df, 
-                    width='stretch', 
+                    use_container_width=False, 
                     hide_index=True,
                     column_config=link_config,
                     selection_mode="row"
@@ -277,12 +294,16 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
+    # [수정] 불러오기나 최종 결과 렌더링 시에도 시가총액 순위(rank) 순서 무조건 강제 고정
+    if "rank" in final_df.columns:
+        final_df = final_df.sort_values(by="rank", ascending=True)
+    
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # [수정] 최종 결과 테이블도 본문 텍스트 길이에 완벽하게 달라붙도록 여백 최적화 패킹
     st.dataframe(
         styled_final_df,
-        width='stretch',
+        use_container_width=False,
         height=650,
         hide_index=True,
         column_config=link_config,
