@@ -14,7 +14,6 @@ def load_us_market_cap_cache():
                 return json.load(f)
         except:
             pass
-            
     initial_cache = {}
     for i, ticker in enumerate(DEFAULT_US_TICKERS, 1):
         initial_cache[ticker] = {
@@ -27,7 +26,6 @@ def load_us_market_cap_cache():
 def calculate_rsi(series, period=14):
     if len(series) < period:
         return 50.0
-        
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -43,18 +41,17 @@ def calculate_rsi(series, period=14):
 def get_per_grade(val):
     if pd.isna(val) or val == "N/A" or val == "None":
         return "정보없음"
-        
     try:
         v = float(val)
-        if v < 0: 
+        if v < 0:
             return f"{v:.1f} (적자)"
-        elif v <= 10: 
+        elif v <= 10:
             return f"{v:.1f} (초저평가)"
-        elif v <= 20: 
+        elif v <= 20:
             return f"{v:.1f} (적정)"
-        elif v <= 40: 
+        elif v <= 40:
             return f"{v:.1f} (고평가)"
-        else: 
+        else:
             return f"{v:.1f} (초고평가)"
     except:
         return "정보없음"
@@ -62,20 +59,19 @@ def get_per_grade(val):
 def get_pbr_grade(val):
     if pd.isna(val) or val == "N/A" or val == "None":
         return "정보없음"
-        
     try:
         if isinstance(val, str):
             val = val.replace(",", "").strip()
         v = float(val)
-        if v < 0: 
+        if v < 0:
             return f"{v:.2f} (자본잠식)"
-        elif v <= 1.0: 
+        elif v <= 1.0:
             return f"{v:.2f} (절대저평가)"
-        elif v <= 1.5: 
+        elif v <= 1.5:
             return f"{v:.2f} (적정)"
-        elif v <= 3.0: 
+        elif v <= 3.0:
             return f"{v:.2f} (고평가)"
-        else: 
+        else:
             return f"{v:.2f} (초고평가)"
     except:
         return "정보없음"
@@ -115,7 +111,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 "value": 5, 
                 "text": f"{market_text} 상위 {top_n}위 종목 로드 중..."
             })
-            
             df_kr = fdr.StockListing(market_type)
             df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
             
@@ -125,14 +120,12 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     mcap_val = int(r_data['Marcap'] / 100000000)
                 else:
                     mcap_val = 0
-                    
                 tickers_to_screen.append({
                     "symbol": r_data['Code'], 
                     "name": r_data['Name'], 
                     "rank": idx, 
                     "market_cap": mcap_val
                 })
-                
                 kr_fundamental_map[r_data['Code']] = {
                     "per": r_data['PER'] if 'PER' in r_data else "N/A",
                     "pbr": r_data['PBR'] if 'PBR' in r_data else "N/A",
@@ -226,8 +219,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             
                             if (pbr_val == 'N/A' or pbr_val is None) and info.get('bookValue'):
                                 try:
-                                    pcap = float(info.get('bookValue'))
-                                    pbr_val = current_price / pcap
+                                    pbr_val = current_price / float(info.get('bookValue'))
                                 except:
                                     pbr_val = 'N/A'
 
@@ -241,18 +233,17 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
-                    
                     if market == "미국":
                         peak_str = f"${peak_price:.2f}"
                     else:
                         peak_str = f"{int(peak_price):,}원"
                     
                     if peak_diff > 0: 
-                        peak_diff_str = f"🔴 +{peak_diff:.2f}%"
+                        peak_diff_str = f"+{peak_diff:.2f}%"
                     elif peak_diff < 0: 
-                        peak_diff_str = f"🔵 {peak_diff:.2f}%"
+                        peak_diff_str = f"{peak_diff:.2f}%"
                     else: 
-                        peak_diff_str = "⚫ 0.00%"
+                        peak_diff_str = "0.00%"
 
                 app_queue.put({
                     "type": "data", 
