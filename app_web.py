@@ -6,9 +6,6 @@ import threading
 from datetime import datetime
 import os
 
-# Streamlit 백그라운드 스레드 경고를 완벽히 제거하기 위한 컨텍스트 주입 함수를 임포트합니다.
-from streamlit.runtime.scriptrunner import add_script_run_context
-
 import analyzer
 from config import APP_TITLE, CACHE_DIR
 
@@ -143,7 +140,7 @@ if btn_search:
     
     us_market_cap_data = analyzer.load_us_market_cap_cache()
     
-    # [핵심 수정] 스레드가 우회 참조할 수 있도록 세션 스토리지의 이벤트 객체를 로컬 변수로 바인딩합니다.
+    # 세션 상태가 아닌, 안전한 파이썬 표준 로컬 변수로 바인딩하여 백그라운드 스레드로 넘겨줍니다.
     current_stop_event = st.session_state.stop_event
     
     worker_thread = threading.Thread(
@@ -152,15 +149,13 @@ if btn_search:
             market, 
             top_n, 
             app_queue, 
-            lambda: current_stop_event.is_set(), # st.session_state 대신 로컬 변수를 참조하여 경고 근절
+            lambda: current_stop_event.is_set(), # 일반 변수를 참조하므로 어떤 버전의 웹 환경에서도 안전합니다.
             opt_fundamental, 
             opt_peak, 
             us_market_cap_data
         ),
         daemon=True
     )
-    # [핵심 수정] 백그라운드 스레드에 Streamlit 실행 환경 컨텍스트를 명시적으로 주입합니다.
-    add_script_run_context(worker_thread)
     worker_thread.start()
     
     while True:
