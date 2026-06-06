@@ -17,7 +17,6 @@ st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석�
 
 # 사이드바 설정
 st.sidebar.header("🔍 검색 설정")
-# [개선] 시장 선택지를 한국(코스피)과 한국(코스닥)으로 분리하여 총 3개의 세부 선택지로 확장
 market = st.sidebar.selectbox("시장 선택", ["미국", "한국(코스피)", "한국(코스닥)"])
 top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 
@@ -118,7 +117,6 @@ def style_screener_dataframe(df, market_type):
     
     styler = formatted_df.style
     
-    # 정렬 작동을 위해 형변환을 가하지 않고 .style.format() 분기를 이용해 렌더링을 처리합니다.
     format_dict = {}
     if "시가총액(억)" in formatted_df.columns:
         format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
@@ -170,10 +168,21 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
+# 각 컬럼의 고정 너비를 정밀 지정하여 가로 간격 맞춤과 자름 현상을 방지합니다.
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
+    "순위": st.column_config.NumberColumn("순위", width=60),
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=100),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width=220),
+    "기준일": st.column_config.TextColumn("기준일", width=110),
+    "시가총액(억)": st.column_config.TextColumn("시가총액(억)", width=130),
+    "현재가": st.column_config.TextColumn("현재가", width=110),
+    "최고점": st.column_config.TextColumn("최고점", width=110),
+    "최고점대비": st.column_config.TextColumn("최고점대비", width=100),
+    "200일선": st.column_config.TextColumn("200일선", width=110),
+    "200일괴리율(%)": st.column_config.TextColumn("200일괴리율(%)", width=120),
+    "RSI(14)": st.column_config.TextColumn("RSI(14)", width=110),
+    "PER 등급": st.column_config.TextColumn("PER 등급", width=100),
+    "PBR 등급": st.column_config.TextColumn("PBR 등급", width=100),
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -225,12 +234,17 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
+                # [수정] 실시간 화면 갱신 시에도 시가총액 기준으로 완벽 내림차순 정렬 후 순위를 재정의
+                if "market_cap" in df.columns and len(df) > 0:
+                    df = df.sort_values(by="market_cap", ascending=False)
+                    df["rank"] = range(1, len(df) + 1)
+                
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
+                # 먹통 문제를 일으키던 width='stretch' 제거 및 고정폭 설정 연동
                 table_placeholder.dataframe(
                     styled_live_df, 
-                    width='stretch', 
+                    use_container_width=False, 
                     hide_index=True,
                     column_config=link_config,
                     selection_mode="row"
@@ -277,12 +291,17 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
+    # [수정] 불러오기 혹은 최종 완료 화면에서도 시가총액 기준으로 정렬 후 1위부터 순차적 재부여
+    if "market_cap" in final_df.columns and len(final_df) > 0:
+        final_df = final_df.sort_values(by="market_cap", ascending=False)
+        final_df["rank"] = range(1, len(final_df) + 1)
+    
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # 먹통을 유발하던 width='stretch' 인자를 표준에 맞추어 제거하여 완벽하게 렌더링하도록 수정
     st.dataframe(
         styled_final_df,
-        width='stretch',
+        use_container_width=False,
         height=650,
         hide_index=True,
         column_config=link_config,
