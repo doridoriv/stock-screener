@@ -72,15 +72,33 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [핵심 추가] 티커 자체를 네이버 증권 클릭 링크 URL 데이터로 치환합니다.
+    # [개선] 티커를 네이버 증권 웹사이트 주소 스타일 규칙에 완벽하게 매칭
     if "symbol" in formatted_df.columns:
         if is_us:
-            # 미국 주식: 네이버 증권 해외 글로벌 시세 페이지 연결
-            formatted_df["symbol"] = formatted_df["symbol"].apply(
-                lambda x: f"https://finance.naver.com/world/sise.naver?symbol={x}"
-            )
+            # 미국 주식: 하이픈 변환 및 뉴욕거래소(NYSE) 종목 접미사 분기 처리 함수 정의
+            def convert_us_symbol(x):
+                sym = str(x).strip()
+                if sym == "BRK-B":
+                    sym = "BRK_B"
+                
+                # 기존 PC 버전의 NYSE 판별용 리스트 원본 그대로 유지
+                nyse_tickers = {
+                    "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
+                    "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
+                    "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
+                    "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
+                    "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
+                }
+                
+                if sym in nyse_tickers or x in nyse_tickers:
+                    suffix = ".N"
+                else:
+                    suffix = ".O"
+                return f"https://finance.naver.com/world/sise.naver?symbol={sym}{suffix}"
+
+            formatted_df["symbol"] = formatted_df["symbol"].apply(convert_us_symbol)
         else:
-            # 한국 주식: 네이버 증권 국내 종목 메인 페이지 연결
+            # 한국 주식: 자릿수 정렬을 포함한 네이버 표준 주소 매핑
             formatted_df["symbol"] = formatted_df["symbol"].apply(
                 lambda x: f"https://finance.naver.com/item/main.naver?code={str(x).zfill(6)}"
             )
@@ -140,9 +158,9 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 링크 컬럼 설정을 공용 변수로 분리하여 가독성을 높입니다. (URL에서 티커 글자만 깔끔하게 추출하는 규칙)
+# [개선] 주소에 접미사(.O, .N)가 붙어도 화면 표에는 순수 티커명만 깨끗하게 표시하도록 정규식 정밀 필터링 적용
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|symbol=)(.*)")
+    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|symbol=)([^.]*)")
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -196,12 +214,13 @@ if btn_search:
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 실시간 테이블 표에 클릭 링크 인터페이스 주입
+                # [개선] 실시간 데이터 그리드 표에도 행 전체 하이라이트 블록 기능 주입
                 table_placeholder.dataframe(
                     styled_live_df, 
                     width='stretch', 
                     hide_index=True,
-                    column_config=link_config
+                    column_config=link_config,
+                    selection_mode="row"
                 )
                 
             elif m_type == "done":
@@ -247,13 +266,14 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 최종 완벽한 스크리닝 결과 테이블 표에 클릭 링크 인터페이스 주입
+    # [개선] 마우스 클릭 시 가로축 데이터가 한눈에 매칭되도록 가시성이 탁월한 '행 전체 선택 블록 모드' 전격 활성화
     st.dataframe(
         styled_final_df,
         width='stretch',
         height=650,
         hide_index=True,
-        column_config=link_config
+        column_config=link_config,
+        selection_mode="row"
     )
     
     rename_dict = {
