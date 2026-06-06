@@ -177,20 +177,18 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         except: 
                             per_str, pbr_str = "⚪ 정보없음", "⚪ 정보없음"
 
-                peak_str, peak_diff_str = "비활성", "비활성"
+                peak_val = 0.0
+                peak_diff_val = 0.0
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
-                    peak_str = f"${peak_price:.2f}" if market == "미국" else f"{int(peak_price):,}원"
-                    
-                    if peak_diff > 0: peak_diff_str = f"🔴 +{peak_diff:.2f}%"
-                    elif peak_diff < 0: peak_diff_str = f"🔵 {peak_diff:.2f}%"
-                    else: peak_diff_str = "⚫ 0.00%"
+                    peak_val = peak_price
+                    peak_diff_val = peak_diff
 
                 app_queue.put({"type": "data", "data": {
                     "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
-                    "per": per_str, "pbr": pbr_str, "peak": peak_str, "peak_diff": peak_diff_str
+                    "per": per_str, "pbr": pbr_str, "peak": peak_val, "peak_diff": peak_diff_val
                 }})
             except: continue
             time.sleep(0.05)
