@@ -40,7 +40,6 @@ def get_csv_filename(market_val):
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(f"🚀 {APP_TITLE}")
 
-# 상단 대시보드 컨트롤 패널 구성
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1.5, 2, 1.5, 1.5, 1.5])
 
 with col_m1:
@@ -58,12 +57,10 @@ with col_m4:
 with col_m5:
     btn_stop = st.button("⏹ 중지", use_container_width=True, disabled=not st.session_state.is_running)
 
-# 중지 버튼 트리거 프로세스
 if btn_stop:
     st.session_state.stop_requested = True
     st.warning("사용자가 중지를 요청했습니다. 현재 종목까지만 처리하고 종료합니다...")
 
-# 불러오기 버튼 백업 복원 프로세스
 if btn_load:
     filename = get_csv_filename(market_var)
     if not os.path.exists(filename):
@@ -77,7 +74,7 @@ if btn_load:
             st.error(f"파일을 불러오는 중 오류가 발생했습니다:\n{e}")
 
 # ==============================================================================
-# 4. 실시간 스크리닝 백그라운드 스레드 및 큐 모니터링 엔진
+# 4. 실시간 스크리닝 백그라운드 스레드 및 모니터링 엔진
 # ==============================================================================
 if btn_run:
     st.session_state.is_running = True
@@ -139,27 +136,28 @@ if btn_run:
     st.rerun()
 
 # ==============================================================================
-# 5. 데이터 가공 및 테이블 인젝션 (정렬 및 행 선택 기능 집중 반영 처리부)
+# 5. 데이터 가공 및 테이블 인젝션
 # ==============================================================================
 if st.session_state.current_session_data:
     raw_records = st.session_state.current_session_data
     is_us = (market_var == "미국")
     
-    # 뼈환 데이터프레임 구조를 수치 형식 그대로 직접 빌드하여 완벽 정렬을 보장합니다.
     display_df = pd.DataFrame(raw_records)
     column_keys = ["rank", "symbol", "name", "data_date", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"]
     display_df = display_df[column_keys]
     
+    # [수정] gui.py 결과 렌더링 시에도 시가총액 순위(rank) 기준으로 오름차순 정렬을 강제 적용합니다.
+    if "rank" in display_df.columns:
+        display_df = display_df.sort_values(by="rank", ascending=True)
+        
     col_headers = [col["text"] for col in COL_INFOS]
     display_df.columns = col_headers
     
     peak_diff_column_name = COL_INFOS[7]["text"]
     diff_column_name = COL_INFOS[9]["text"]
     
-    # Pandas 데이터 프레임 고급 스타일러 선언 및 컬럼별 포맷 바인딩
     styler = display_df.style
     
-    # 각 컬럼의 숫자 고유 타입을 망가뜨리지 않고 화면 포맷만 렌더링하는 포매터 정의
     def format_market_cap(x):
         return f"{x:,}억" if pd.notna(x) and x > 0 else "N/A"
     
@@ -218,13 +216,8 @@ if st.session_state.current_session_data:
         COL_INFOS[12]["text"]: lambda x: analyzer.get_pbr_grade(x)
     })
     
-    # 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
-    styler = styler.set_properties(**{
-        'text-align': 'center',
-        'white-space': 'nowrap'
-    })
+    styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
     
-    # 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
     def apply_strict_color_rules(val):
         try:
             v = float(val)
@@ -238,17 +231,12 @@ if st.session_state.current_session_data:
         
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
-    # ==============================================================================
-    # [수정] config.py의 COL_INFOS 설정을 완벽히 반영하여 헤더명 매핑 및 픽셀 width 동적 지정
-    # ==============================================================================
     gui_column_config = {}
     for col in COL_INFOS:
         col_text = col["text"]
         width = col.get("width", 100)
         gui_column_config[col_text] = st.column_config.Column(col_text, width=width)
 
-    # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
-    # [수정] 빌드한 gui_column_config 정보를 주입하여 의도하신 정밀 너비 제어를 활성화했습니다.
     st.dataframe(
         styler,
         width='content',
