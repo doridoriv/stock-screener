@@ -140,7 +140,6 @@ if btn_search:
     
     us_market_cap_data = analyzer.load_us_market_cap_cache()
     
-    # 세션 상태가 아닌, 안전한 파이썬 표준 로컬 변수로 바인딩하여 백그라운드 스레드로 넘겨줍니다.
     current_stop_event = st.session_state.stop_event
     
     worker_thread = threading.Thread(
@@ -149,7 +148,7 @@ if btn_search:
             market, 
             top_n, 
             app_queue, 
-            lambda: current_stop_event.is_set(), # 일반 변수를 참조하므로 어떤 버전의 웹 환경에서도 안전합니다.
+            lambda: current_stop_event.is_set(), 
             opt_fundamental, 
             opt_peak, 
             us_market_cap_data
@@ -184,6 +183,9 @@ if btn_search:
                 progress_bar.progress(1.0)
                 status_text.success(msg["text"])
                 
+                # [개선 핵심] 검색 완료 즉시 상단의 임시 라이브 표를 화면에서 비워 중복 제거
+                table_placeholder.empty()
+                
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
@@ -191,10 +193,15 @@ if btn_search:
                 
             elif m_type == "error":
                 st.error(msg["text"])
+                # 에러 발생 시에도 임시 표 청소
+                table_placeholder.empty()
                 break
                 
             elif m_type == "stopped":
                 st.warning(f"분석 중지: {msg['count']}개 완료")
+                
+                # [개선 핵심] 중지 버튼 작동 즉시 상단의 임시 라이브 표를 화면에서 비워 중복 제거
+                table_placeholder.empty()
                 
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
