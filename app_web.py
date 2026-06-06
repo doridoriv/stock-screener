@@ -167,21 +167,21 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성 및 좌우 여백 최적화
+# [수정] 불필요한 공백을 없애고 텍스트 길이에 맞춰 좌우 박스 크기를 타이트하게 고정 배치
 link_config = {
-    "순위": st.column_config.Column("순위", width=60),
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=90),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width=160),
-    "기준일": st.column_config.Column("기준일", width=100),
-    "시가총액(억)": st.column_config.Column("시가총액(억)", width=110),
-    "현재가": st.column_config.Column("현재가", width=90),
-    "최고점": st.column_config.Column("최고점", width=90),
-    "최고점대비": st.column_config.Column("최고점대비", width=100),
-    "200일선": st.column_config.Column("200일선", width=90),
+    "순위": st.column_config.Column("순위", width=50),
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=85),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width=150),
+    "기준일": st.column_config.Column("기준일", width=95),
+    "시가총액(억)": st.column_config.Column("시가총액(억)", width=105),
+    "현재가": st.column_config.Column("현재가", width=95),
+    "최고점": st.column_config.Column("최고점", width=95),
+    "최고점대비": st.column_config.Column("최고점대비", width=105),
+    "200일선": st.column_config.Column("200일선", width=95),
     "200일괴리율(%)": st.column_config.Column("200일괴리율(%)", width=120),
-    "RSI(14)": st.column_config.Column("RSI(14)", width=120),
-    "PER 등급": st.column_config.Column("PER 등급", width=90),
-    "PBR 등급": st.column_config.Column("PBR 등급", width=90)
+    "RSI(14)": st.column_config.Column("RSI(14)", width=110),
+    "PER 등급": st.column_config.Column("PER 등급", width=95),
+    "PBR 등급": st.column_config.Column("PBR 등급", width=95)
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
