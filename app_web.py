@@ -170,23 +170,10 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# ==============================================================================
-# [개선] 텍스트/숫자 길이에 맞게 셀의 불필요한 공백을 완전히 없애주는 컴팩트 설정 자동화
-# ==============================================================================
+# 네이버 금융 연동 컬럼 설정 (기존 소스 원본 유지)
 link_config = {
-    "순위": st.column_config.Column("순위"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
-    "기준일": st.column_config.Column("기준일"),
-    "시가총액(억)": st.column_config.Column("시가총액(억)"),
-    "현재가": st.column_config.Column("현재가"),
-    "최고점": st.column_config.Column("최고점"),
-    "최고점대비": st.column_config.Column("최고점대비"),
-    "200일선": st.column_config.Column("200일선"),
-    "200일괴리율(%)": st.column_config.Column("200일괴리율(%)"),
-    "RSI(14)": st.column_config.Column("RSI(14)"),
-    "PER 등급": st.column_config.Column("PER 등급"),
-    "PBR 등급": st.column_config.Column("PBR 등급")
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -238,13 +225,9 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # [수정] 실시간 화면 출력 시에도 시가총액 순위(rank) 기준으로 상시 오름차순 정렬 강제
-                if "rank" in df.columns:
-                    df = df.sort_values(by="rank", ascending=True)
-                
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # [수정] 좌우로 쓸데없이 벌어지는 여백 공백을 없애기 위해 use_container_width=False 제어 적용
+                # [수정] width='stretch' 제거하고 use_container_width=False 적용하여 글자/숫자 크기에 딱 맞게 밀착시킴
                 table_placeholder.dataframe(
                     styled_live_df, 
                     use_container_width=False, 
@@ -294,13 +277,9 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
-    # [수정] 불러오기나 최종 결과 렌더링 시에도 시가총액 순위(rank) 순서 무조건 강제 고정
-    if "rank" in final_df.columns:
-        final_df = final_df.sort_values(by="rank", ascending=True)
-    
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [수정] 최종 결과 테이블도 본문 텍스트 길이에 완벽하게 달라붙도록 여백 최적화 패킹
+    # [수정] width='stretch' 제거하고 use_container_width=False를 적용하여 불필요한 공백 제거 및 자동 간격 맞춤 고정
     st.dataframe(
         styled_final_df,
         use_container_width=False,
