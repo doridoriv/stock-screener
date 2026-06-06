@@ -1,304 +1,351 @@
-import streamlit as st
-import pandas as pd
+import os
+import sys
 import time
 import queue
 import threading
 from datetime import datetime
-import os
+import pandas as pd
+import streamlit as st
 
-import analyzer
-from config import APP_TITLE, CACHE_DIR
+# 엔진 모듈 로드
+from analyzer import load_us_market_cap_cache, screening_worker
 
-# 페이지 설정
-st.set_page_config(page_title=APP_TITLE, layout="wide")
+# 페이지 초기 레이아웃 및 환경 설정
+st.set_page_config(
+    page_title="글로벌 주식 퀀트 스크리너 엔진",
+    page_icon="📈",
+    layout="wide"
+)
 
-st.title(f"🚀 {APP_TITLE}")
-st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석하고 저평가 종목을 찾습니다.")
+# -----------------------------------------------------------------------------
+# [Pandas Styler 전용 포맷터 함수 정의]
+# 텍스트 이모지 등급을 화면에 유지하면서 숫자로 완벽하게 정렬을 지원하기 위함
+# -----------------------------------------------------------------------------
+def format_per_value(val):
+    if pd.isna(val) or val is None:
+        return "⚪ 정보없음"
+    
+    try:
+        v = float(val)
+        if v < 0.0:
+            return f"❌ 적자 ({v:.1f})"
+        elif v <= 10.0:
+            return f"🔵 초저평가 ({v:.1f})"
+        elif v <= 20.0:
+            return f"🟢 적정 ({v:.1f})"
+        elif v <= 40.0:
+            return f"🟡 고평가 ({v:.1f})"
+        else:
+            return f"🔴 초고평가 ({v:.1f})"
+    except:
+        return "⚪ 정보없음"
 
-# 사이드바 설정
-st.sidebar.header("🔍 검색 설정")
-# [개선] 시장 선택지를 한국(코스피)과 한국(코스닥)으로 분리하여 총 3개의 세부 선택지로 확장
-market = st.sidebar.selectbox("시장 선택", ["미국", "한국(코스피)", "한국(코스닥)"])
-top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
+def format_pbr_value(val):
+    if pd.isna(val) or val is None:
+        if st.session_state.get("market_type") == "한국":
+            return "-"
+        else:
+            return "⚪ 정보없음"
+        
+    try:
+        v = float(val)
+        if v < 0.0:
+            return f"❌ 자본잠식 ({v:.2f})"
+        elif v <= 1.0:
+            return f"🔵 절대저평가 ({v:.2f})"
+        elif v <= 1.5:
+            return f"🟢 적정 ({v:.2f})"
+        elif v <= 3.0:
+            return f"🟡 고평가 ({v:.2f})"
+        else:
+            return f"🔴 초고평가 ({v:.2f})"
+    except:
+        return "⚪ 정보없음"
 
-# 사이드바 체크박스를 삭제하고 항상 기본 활성화(True) 상태로 고정
-opt_fundamental = True
-opt_peak = True
+def format_peak_value(val):
+    if pd.isna(val) or val is None:
+        return "비활성"
+    
+    try:
+        v = float(val)
+        if st.session_state.get("market_type") == "미국":
+            return f"${v:.2f}"
+        else:
+            return f"{int(v):,}원"
+    except:
+        return "비활성"
 
-# 세션 상태 초기화
-if "data" not in st.session_state:
-    st.session_state.data = []
+def format_peak_diff_value(val):
+    if pd.isna(val) or val is None:
+        return "비활성"
+        
+    try:
+        v = float(val)
+        if v > 0.0:
+            return f"🔴 +{v:.2f}%"
+        elif v < 0.0:
+            return f"🔵 {v:.2f}%"
+        else:
+            return "⚫ 0.00%"
+    except:
+        return "비활성"
 
-# 검색 중지 연동을 위한 전역 스레드 이벤트 객체 세션 초기화
-if "stop_event" not in st.session_state:
-    st.session_state.stop_event = None
+# -----------------------------------------------------------------------------
+# [세션 상태 관리 초기화 부]
+# -----------------------------------------------------------------------------
+if "data_list" not in st.session_state:
+    st.session_state.data_list = []
 
-# ==============================================================================
-# 버튼 3개를 본문 상단 툴바 형태로 가로 배치 (글씨 잘림 방지 및 우측 여백 제어)
-# ==============================================================================
-col1, col2, col3, col_empty = st.columns([1.2, 1.2, 1.2, 5])
+if "screening_active" not in st.session_state:
+    st.session_state.screening_active = False
 
-with col1:
-    btn_search = st.button("🔍 검색", use_container_width=True)
+if "stop_requested" not in st.session_state:
+    st.session_state.stop_requested = False
 
-with col2:
-    btn_load = st.button("📂 불러오기", use_container_width=True)
+if "progress_val" not in st.session_state:
+    st.session_state.progress_val = 0
 
-with col3:
-    btn_stop = st.button("⏹ 검색 중지", use_container_width=True)
+if "progress_text" not in st.session_state:
+    st.session_state.progress_text = "대기 중"
 
-# 검색 중지 버튼 클릭 시 작동하는 시각적 피드백 및 백엔드 로직
-if btn_stop:
-    if st.session_state.stop_event is not None:
-        st.session_state.stop_event.set()
-    st.toast("⏹ 스크리닝 중지 신호를 보냈습니다.", icon="⚠️")
+if "market_type" not in st.session_state:
+    st.session_state.market_type = "한국"
 
-# 불러오기 버튼 클릭 시 자동 저장된 백업 데이터를 파일에서 읽어오는 로직
-if btn_load:
-    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-    if os.path.exists(file_path):
+if "opt_fundamental" not in st.session_state:
+    st.session_state.opt_fundamental = True
+
+if "opt_peak" not in st.session_state:
+    st.session_state.opt_peak = True
+
+if "us_cache" not in st.session_state:
+    st.session_state.us_cache = load_us_market_cap_cache()
+
+if "app_queue" not in st.session_state:
+    st.session_state.app_queue = queue.Queue()
+
+# -----------------------------------------------------------------------------
+# [스레드 제어 및 콜백 백엔드 함수 함수]
+# -----------------------------------------------------------------------------
+def check_stop_status():
+    return st.session_state.stop_requested
+
+def execute_start_screening(market, top_n, opt_fundamental, opt_peak):
+    st.session_state.data_list = []
+    st.session_state.screening_active = True
+    st.session_state.stop_requested = False
+    st.session_state.progress_val = 0
+    st.session_state.progress_text = "스크리닝 작업을 시작합니다..."
+    st.session_state.market_type = market
+    st.session_state.opt_fundamental = opt_fundamental
+    st.session_state.opt_peak = opt_peak
+    
+    while not st.session_state.app_queue.empty():
         try:
-            loaded_df = pd.read_csv(file_path)
-            st.session_state.data = loaded_df.to_dict(orient='records')
-            st.toast(f"📂 {market} 시장의 최근 자동저장 데이터를 불러왔습니다.", icon="✅")
-        except Exception as e:
-            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
-    else:
-        st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
-
-# ==============================================================================
-# 데이터 포맷팅 및 스타일러 정의
-# ==============================================================================
-def style_screener_dataframe(df, market_type):
-    formatted_df = df.copy()
-    is_us = (market_type == "미국")
-    
-    # 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
-    if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
-        urls = []
-        for idx, row in formatted_df.iterrows():
-            sym = str(row["symbol"]).strip()
-            row_name = str(row["name"]).strip()
+            st.session_state.app_queue.get_nowait()
+        except queue.Empty:
+            break
             
-            if is_us:
-                # BRK-B 종목은 네이버 실제 확인 주소인 BRKb 구조로 완벽히 치환
-                if sym == "BRK-B":
-                    base_url = "https://m.stock.naver.com/worldstock/stock/BRKb/total"
-                else:
-                    # 기존 PC 버전의 NYSE 판별용 리스트 원본 구조 유지
-                    nyse_tickers = {
-                        "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
-                        "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
-                        "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
-                        "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
-                        "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
-                    }
-                    
-                    if sym in nyse_tickers:
-                        suffix = ".N"
-                    else:
-                        suffix = ".O"
-                    base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
-                
-                # 쿼리 스트링 파라미터로 티커와 종목명을 전달하여 가독성 추출 매핑
-                url = f"{base_url}?ticker={sym}&name={row_name}"
-            else:
-                # 한국 주식 (코스피, 코스닥 모두 네이버 금융 표준 주소 체계 동일하게 호환 적용)
-                code_str = str(sym).zfill(6)
-                url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
-            
-            urls.append(url)
-        
-        formatted_df["symbol"] = urls
-        formatted_df["name"] = urls
-            
-    if "market_cap" in formatted_df.columns:
-        formatted_df["market_cap"] = formatted_df["market_cap"].apply(
-            lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
-        )
-    if "price" in formatted_df.columns:
-        formatted_df["price"] = formatted_df["price"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "ma200" in formatted_df.columns:
-        formatted_df["ma200"] = formatted_df["ma200"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "diff" in formatted_df.columns:
-        formatted_df["diff"] = formatted_df["diff"].apply(
-            lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
-        )
-    if "rsi" in formatted_df.columns:
-        def format_rsi(v):
-            if pd.isna(v): return "-"
-            if v >= 70: return f"{v:.1f} (과열)"
-            elif v <= 30: return f"{v:.1f} (과매도)"
-            elif v >= 50: return f"{v:.1f} (보통)"
-            else: return f"{v:.1f} (침체)"
-        formatted_df["rsi"] = formatted_df["rsi"].apply(format_rsi)
-        
-    for col in formatted_df.columns:
-        formatted_df[col] = formatted_df[col].astype(str)
-        
-    rename_dict = {
-        "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
-        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
-        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
-    }
-    formatted_df = formatted_df.rename(columns=rename_dict)
-    
-    styler = formatted_df.style.set_properties(**{
-        'text-align': 'center',
-        'white-space': 'nowrap'
-    })
-    
-    def apply_strict_color_rules(val):
-        if isinstance(val, str):
-            if "+" in val or "🔴" in val:
-                return "color: #D32F2F; font-weight: bold;"
-            if "-" in val or "🔵" in val:
-                return "color: #1976D2; font-weight: bold;"
-        return "color: #212121;"
-        
-    target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
-    if target_cols:
-        styler = styler.map(apply_strict_color_rules, subset=target_cols)
-        
-    return styler
-
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
-link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
-}
-
-# 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
-if btn_search:
-    st.session_state.data = []  
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    table_placeholder = st.empty()
-    
-    app_queue = queue.Queue()
-    st.session_state.stop_event = threading.Event()
-    
-    us_market_cap_data = analyzer.load_us_market_cap_cache()
-    
-    current_stop_event = st.session_state.stop_event
-    
     worker_thread = threading.Thread(
-        target=analyzer.screening_worker,
+        target=screening_worker,
         args=(
-            market, 
-            top_n, 
-            app_queue, 
-            lambda: current_stop_event.is_set(), 
-            opt_fundamental, 
-            opt_peak, 
-            us_market_cap_data
+            market,
+            top_n,
+            st.session_state.app_queue,
+            check_stop_status,
+            opt_fundamental,
+            opt_peak,
+            st.session_state.us_cache
         ),
         daemon=True
     )
     worker_thread.start()
-    
-    while True:
-        try:
-            msg = app_queue.get_nowait()
-            m_type = msg.get("type")
-            
-            if m_type == "progress":
-                progress_bar.progress(msg["value"] / 100)
-                status_text.text(msg["text"])
-                
-            elif m_type == "data":
-                st.session_state.data.append(msg["data"])
-                df = pd.DataFrame(st.session_state.data)
-                column_order = [
-                    "rank", "symbol", "name", "data_date", "market_cap", "price", 
-                    "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
-                ]
-                available_cols = [c for c in column_order if c in df.columns]
-                df = df[available_cols]
-                
-                styled_live_df = style_screener_dataframe(df, market)
-                
-                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
-                table_placeholder.dataframe(
-                    styled_live_df, 
-                    width='stretch', 
-                    hide_index=True,
-                    column_config=link_config,
-                    selection_mode="row"
-                )
-                
-            elif m_type == "done":
-                progress_bar.progress(1.0)
-                status_text.success(msg["text"])
-                table_placeholder.empty()
-                
-                if st.session_state.data:
-                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
-                break
-                
-            elif m_type == "error":
-                st.error(msg["text"])
-                table_placeholder.empty()
-                break
-                
-            elif m_type == "stopped":
-                st.warning(f"분석 중지: {msg['count']}개 완료")
-                table_placeholder.empty()
-                
-                if st.session_state.data:
-                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
-                break
-                
-        except queue.Empty:
-            time.sleep(0.1)
-            if not worker_thread.is_alive() and app_queue.empty():
-                break
 
-# 최종 결과 출력부
-if st.session_state.data:
-    st.subheader("📊 분석 결과")
-    final_df = pd.DataFrame(st.session_state.data)
+def execute_stop_screening():
+    st.session_state.stop_requested = True
+    st.session_state.progress_text = "사용자 중지 요청 처리 중..."
+
+# -----------------------------------------------------------------------------
+# [사이드바 웹 컨트롤 인터페이스 레이아웃]
+# -----------------------------------------------------------------------------
+st.sidebar.title("⚙️ 스크리닝 컨트롤 타워")
+st.sidebar.markdown("---")
+
+selected_market = st.sidebar.selectbox(
+    "📍 대상 시장 선택",
+    ["한국", "미국"],
+    index=0 if st.session_state.market_type == "한국" else 1
+)
+
+selected_top_n = st.sidebar.slider(
+    "📊 분석 대상 종목 수 (시총 상위 순)",
+    min_value=10,
+    max_value=500,
+    value=50,
+    step=10
+)
+
+st.sidebar.markdown("🔬 **추가 옵션 데이터 활성화**")
+chk_fundamental = st.sidebar.checkbox("밸류에이션 지표 분석 (PER/PBR)", value=st.session_state.opt_fundamental)
+chk_peak = st.sidebar.checkbox("최고점 대비 하락률 분석", value=st.session_state.opt_peak)
+
+st.sidebar.markdown("---")
+
+col_btn1, col_btn2 = st.sidebar.columns(2)
+with col_btn1:
+    btn_start = st.button(
+        "🚀 스크리닝 시작",
+        use_container_width=True,
+        disabled=st.session_state.screening_active
+    )
+with col_btn2:
+    btn_stop = st.button(
+        "🛑 작업 중지",
+        use_container_width=True,
+        disabled=not st.session_state.screening_active
+    )
+
+if btn_start:
+    execute_start_screening(selected_market, selected_top_n, chk_fundamental, chk_peak)
+    st.rerun()
+
+if btn_stop:
+    execute_stop_screening()
+    st.rerun()
+
+# -----------------------------------------------------------------------------
+# [메인 화면 UI 대시보드 구조 레이아웃]
+# -----------------------------------------------------------------------------
+st.title("📈 대형주 실시간 퀀트 모니터링 시스템")
+st.markdown("시가총액 상위 주식의 200일 이동평균선 이격도 및 RSI 상태 분석 대시보드")
+
+# 상단 상태 대시보드 지표 컨테이너
+metric_col1, metric_col2, metric_col3 = st.columns(3)
+with metric_col1:
+    st.metric("선택된 시장", st.session_state.market_type)
+with metric_col2:
+    st.metric("실시간 수집된 종목 수", f"{len(st.session_state.data_list)}개")
+with metric_col3:
+    st.metric("엔진 작동 상태", "RUNNING" if st.session_state.screening_active else "IDLE")
+
+# 프로그레스바 지시 영역 컨테이너
+progress_bar_placeholder = st.empty()
+status_text_placeholder = st.empty()
+
+if st.session_state.screening_active:
+    progress_bar_placeholder.progress(st.session_state.progress_val)
+    status_text_placeholder.info(f"⏳ {st.session_state.progress_text}")
+else:
+    if "완료" in st.session_state.progress_text:
+        status_text_placeholder.success(f"✅ {st.session_state.progress_text}")
+    elif "중지" in st.session_state.progress_text or "중단" in st.session_state.progress_text:
+        status_text_placeholder.warning(f"⚠️ {st.session_state.progress_text}")
+    else:
+        status_text_placeholder.normal(f"💡 {st.session_state.progress_text}")
+
+st.markdown("---")
+st.subheader("📊 스크리닝 실시간 종합 분석 테이블 결과")
+
+# -----------------------------------------------------------------------------
+# [실시간 백엔드 큐 데이터 폴링 루프 프로세스]
+# -----------------------------------------------------------------------------
+if st.session_state.screening_active:
+    time.sleep(0.1)
+    queue_processed = False
     
-    column_order = [
-        "rank", "symbol", "name", "data_date", "market_cap", "price", 
-        "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
-    ]
-    available_cols = [c for c in column_order if c in final_df.columns]
-    final_df = final_df[available_cols]
+    while not st.session_state.app_queue.empty():
+        try:
+            msg = st.session_state.app_queue.get_nowait()
+            queue_processed = True
+            
+            if msg["type"] == "progress":
+                st.session_state.progress_val = msg["value"]
+                st.session_state.progress_text = msg["text"]
+            elif msg["type"] == "data":
+                st.session_state.data_list.append(msg["data"])
+            elif msg["type"] == "done":
+                st.session_state.screening_active = False
+                st.session_state.progress_val = 100
+                st.session_state.progress_text = msg["text"]
+            elif msg["type"] == "stopped":
+                st.session_state.screening_active = False
+                st.session_state.progress_text = f"사용자 요청으로 스크리닝이 중단되었습니다. (분석 완료: {msg['count']}개)"
+            elif msg["type"] == "error":
+                st.session_state.screening_active = False
+                st.session_state.progress_text = msg["text"]
+        except queue.Empty:
+            break
+            
+    if queue_processed:
+        st.rerun()
+
+# -----------------------------------------------------------------------------
+# [메인 데이터프레임 구조화 및 정렬/하이라이트 처리]
+# -----------------------------------------------------------------------------
+if len(st.session_state.data_list) > 0:
+    df_raw = pd.DataFrame(st.session_state.data_list)
     
-    styled_final_df = style_screener_dataframe(final_df, market)
-    
-    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
-    st.dataframe(
-        styled_final_df,
-        width='stretch',
-        height=650,
-        hide_index=True,
-        column_config=link_config,
-        selection_mode="row"
+    # 순수 숫자 매핑 가상 변환 테이블 구성
+    df_renamed = df_raw.rename(
+        columns={
+            "rank": "순위",
+            "symbol": "티커",
+            "name": "종목명",
+            "data_date": "기준일자",
+            "market_cap": "시가총액(억)",
+            "price": "현재가",
+            "ma200": "200일선",
+            "diff": "이격도(%)",
+            "rsi": "RSI(14)",
+            "per_num": "PER 등급",
+            "pbr_num": "PBR 등급",
+            "peak_num": "최고점",
+            "peak_diff_num": "최고점대비"
+        }
     )
     
-    rename_dict = {
-        "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
-        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
-        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
+    # 출력 컬럼 선택 기준 처리
+    display_columns = [
+        "순위", "티커", "종목명", "기준일자", "시가총액(억)", 
+        "현재가", "200일선", "이격도(%)", "RSI(14)"
+    ]
+    
+    if st.session_state.opt_fundamental:
+        display_columns.append("PER 등급")
+        display_columns.append("PBR 등급")
+        
+    if st.session_state.opt_peak:
+        display_columns.append("최고점")
+        display_columns.append("최고점대비")
+        
+    df_final = df_renamed[display_columns]
+    
+    # 포맷 지정 딕셔너리 연동 매핑
+    styler_format_map = {
+        "시가총액(억)": "{:,}",
+        "현재가": lambda v: f"${v:.2f}" if st.session_state.market_type == "미국" else f"{int(v):,}원",
+        "200일선": lambda v: f"${v:.2f}" if st.session_state.market_type == "미국" else f"{int(v):,}원",
+        "이격도(%)": "{:+.2f}%",
+        "RSI(14)": "{:.1f}",
+        "PER 등급": format_per_value,
+        "PBR 등급": format_pbr_value,
+        "최고점": format_peak_value,
+        "최고점대비": format_peak_diff_value
     }
-    csv_df = final_df.rename(columns=rename_dict)
-    csv = csv_df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 결과 다운로드 (CSV)",
-        data=csv,
-        file_name=f"screener_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv",
+    
+    # -------------------------------------------------------------------------
+    # [정렬 완벽 해결 핵심 포인트] Pandas Styler 객체를 전달하면,
+    # 웹 화면에는 이모지 텍스트 문자열이 예쁘게 포맷팅되어 나타나지만
+    # 사용자가 컬럼 클릭 시 내장 정렬은 "원래의 숫자 데이터 크기 고유 타입"을 기준으로
+    # 완벽하게 오름차순/내림차순 정렬이 보장됩니다.
+    # -------------------------------------------------------------------------
+    styled_df = df_final.style.format(styler_format_map)
+    
+    # 데이터프레임 컴포넌트 렌더링
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        hide_index=True,
+        selection_mode="row"  # 클릭 시 가로 왼쪽 끝부터 오른쪽 끝까지 가로 한 행 전체가 블록 하이라이트 됩니다.
     )
 else:
-    st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
+    st.info("스크리닝 시작 버튼을 누르면 실시간으로 데이터가 수집되어 여기에 표시됩니다.")
