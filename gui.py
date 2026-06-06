@@ -12,7 +12,7 @@ from config import APP_TITLE, COL_INFOS, CACHE_DIR
 import analyzer
 
 # ==============================================================================
-# 1. 세션 상태(Session State) 초기화 (기존 클래스 변수 대체)
+# 1. 전역 세션 상태(Session State) 관리부
 # ==============================================================================
 if "us_market_cap_data" not in st.session_state:
     st.session_state.us_market_cap_data = analyzer.load_us_market_cap_cache()
@@ -27,7 +27,7 @@ if "stop_requested" not in st.session_state:
     st.session_state.stop_requested = False
 
 # ==============================================================================
-# 2. 헬퍼 함수 정의 (기존 메소드 구조 유지)
+# 2. 기존 코어 비즈니스 메소드 이관 정의
 # ==============================================================================
 def get_csv_filename(market_val):
     today = datetime.now().strftime('%Y%m%d')
@@ -35,12 +35,12 @@ def get_csv_filename(market_val):
     return os.path.join(CACHE_DIR, f"screener_backup_{market}_{today}.csv")
 
 # ==============================================================================
-# 3. Streamlit 웹 페이지 레이아웃 및 컨트롤러 구성
+# 3. Streamlit 웹 인터페이스 및 컨트롤 레이아웃 구성
 # ==============================================================================
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(f"🚀 {APP_TITLE}")
 
-# 상단 설정 바 구성 (기존 frame_top 영역)
+# 상단 대시보드 컨트롤 패널 구성
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1.5, 2, 1.5, 1.5, 1.5])
 
 with col_m1:
@@ -58,12 +58,12 @@ with col_m4:
 with col_m5:
     btn_stop = st.button("⏹ 중지", use_container_width=True, disabled=not st.session_state.is_running)
 
-# 중지 버튼 클릭 처리
+# 중지 버튼 트리거 프로세스
 if btn_stop:
     st.session_state.stop_requested = True
     st.warning("사용자가 중지를 요청했습니다. 현재 종목까지만 처리하고 종료합니다...")
 
-# 불러오기 버튼 클릭 처리
+# 불러오기 버튼 백업 복원 프로세스
 if btn_load:
     filename = get_csv_filename(market_var)
     if not os.path.exists(filename):
@@ -77,29 +77,26 @@ if btn_load:
             st.error(f"파일을 불러오는 중 오류가 발생했습니다:\n{e}")
 
 # ==============================================================================
-# 4. 새로 검색(스크리닝) 코어 스레드 로직
+# 4. 실시간 스크리닝 백그라운드 스레드 및 큐 모니터링 엔진
 # ==============================================================================
 if btn_run:
     st.session_state.is_running = True
     st.session_state.stop_requested = False
     st.session_state.current_session_data = []
     
-    # 통신용 큐 생성
     q = queue.Queue()
-    
-    # 백그라운드 스레드 실행
     stop_fn = lambda: st.session_state.stop_requested
+    
     threading.Thread(
         target=analyzer.screening_worker,
         args=(market_var, top_n_val, q, stop_fn, True, True, st.session_state.us_market_cap_data),
         daemon=True
     ).start()
     
-    # 화면 표시용 플레이스홀더 생성
     progress_bar = st.progress(0)
     status_label = st.empty()
+    table_placeholder = st.empty()
     
-    # 큐 모니터링 루프 (기존 check_queue 루프 기능 구현)
     while True:
         try:
             msg = q.get_nowait()
@@ -136,25 +133,28 @@ if btn_run:
                 break
                 
         except queue.Empty:
-            time.sleep(0.1)
+            time.sleep(0.05)
             
     st.session_state.is_running = False
     st.rerun()
 
 # ==============================================================================
-# 5. 데이터프레임 빌드 및 표 스타일링 (요청사항 1, 2, 3, 4, 5 집중 처리 영역)
+# 5. 데이터 가공 및 테이블 인젝션 (요청사항 1, 2, 3, 4, 5 집중 반영 처리부)
 # ==============================================================================
 if st.session_state.current_session_data:
     raw_records = st.session_state.current_session_data
     is_us = (market_var == "미국")
     
-    # 표에 바인딩할 정제된 데이터 리스트 생성 (기존 render_row의 포맷팅 로직 이관)
     formatted_rows = []
     
     for data in raw_records:
-        # [요청사항 4] 금액 데이터 3자리 콤마 처리 구현
-        mcap_str = f"{data['market_cap']:,}억" if data.get('market_cap', 0) > 0 else "N/A"
+        # [요청사항 4] 금액 데이터 3자리 콤마 처리 명시 구현 (시가총액)
+        if data.get('market_cap', 0) > 0:
+            mcap_str = f"{data['market_cap']:,}억"
+        else:
+            mcap_str = "N/A"
         
+        # [요청사항 4] 금액 데이터 현재가 및 200일선 3자리 콤마 분기 처리
         if is_us:
             price_str = f"${data['price']:,.2f}"
             ma_str = f"${data['ma200']:,.2f}"
@@ -162,6 +162,7 @@ if st.session_state.current_session_data:
             price_str = f"{int(data['price']):,}원"
             ma_str = f"{int(data['ma200']):,}원"
             
+        # [요청사항 4] 최고점 금액 3자리 콤마 정밀 예외 처리
         peak_val = data.get("peak", "비활성")
         if isinstance(peak_val, (int, float)):
             if is_us:
@@ -171,7 +172,7 @@ if st.session_state.current_session_data:
         else:
             peak_str = str(peak_val)
             
-        # 변동률 및 괴리율 수치 문자열 생성
+        # 200일 괴리율 문자열 생성 규칙 유지
         diff_val = float(data['diff']) if not pd.isna(data['diff']) else 0.0
         if diff_val > 0:
             diff_str = f"+{diff_val:.2f}%"
@@ -180,6 +181,7 @@ if st.session_state.current_session_data:
         else:
             diff_str = "0.00%"
             
+        # RSI 텍스트 상태 평가 로직 무삭제 인프라 적용
         rsi_val = float(data.get("rsi", 50.0))
         if rsi_val >= 70:
             rsi_str = f"{rsi_val:.1f} (과열)"
@@ -194,7 +196,7 @@ if st.session_state.current_session_data:
         pbr_str = str(data.get("pbr", "비활성"))
         peak_diff_str = str(data.get("peak_diff", "비활성"))
         
-        # 13개 항목 매핑 구조 유지
+        # 순위 항목 데이터셋 수집 매핑 구조 유지
         row_data = [
             str(data.get("rank", "")),
             str(data.get("symbol", "")),
@@ -212,42 +214,38 @@ if st.session_state.current_session_data:
         ]
         formatted_rows.append(row_data)
         
-    # 데이터프레임 변환 (컬럼 헤더 설정)
+    # 출력형 데이터프레임 구조 빌드
     col_headers = [col["text"] for col in COL_INFOS]
     display_df = pd.DataFrame(formatted_rows, columns=col_headers)
     
-    # 대상 컬럼 정의 (최고점대비 컬럼명과 200일괴리율 컬럼명 동적 추출)
-    peak_diff_col = COL_INFOS[7]["text"]
-    diff_col = COL_INFOS[9]["text"]
+    # 뼈대 텍스트 명칭 동적 지정 추출
+    peak_diff_column_name = COL_INFOS[7]["text"]
+    diff_column_name = COL_INFOS[9]["text"]
     
-    # Pandas Styler 객체 생성
+    # Pandas 데이터 프레임 고급 스타일러 선언
     styler = display_df.style
     
-    # [요청사항 2, 3] 모든 항목 데이터 가운데 정렬 및 자동 줄바꿈(Wrap) 방지 설정
+    # [요청사항 2, 3] 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
     styler = styler.set_properties(**{
         'text-align': 'center',
         'white-space': 'nowrap'
     })
     
-    # [요청사항 5] 최고점대비 및 200일괴리율 수치 컬러링 함수 정의
-    def apply_conditional_color(val):
+    # [요청사항 5] 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
+    def apply_strict_color_rules(val):
         if isinstance(val, str):
-            if "🔴" in val or "+" in val:
-                return "color: #D32F2F; font-weight: bold;" # 조건 충족 시 빨간색
-            elif "🔵" in val or "-" in val:
-                return "color: #1976D2; font-weight: bold;" # 조건 충족 시 파란색
+            if "+" in val or "🔴" in val:
+                return "color: #D32F2F; font-weight: bold;"
+            if "-" in val or "🔵" in val:
+                return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
-    # 하위 호환성을 고려한 스타일 맵 바인딩 기법 적용
-    if hasattr(styler, 'map'):
-        styler = styler.map(apply_conditional_color, subset=[peak_diff_col, diff_col])
-    else:
-        styler = styler.applymap(apply_conditional_color, subset=[peak_diff_col, diff_col])
+    styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
-    # [요청사항 1, 3] 웹 데이터프레임 최종 출력부 기동
+    # [요청사항 1, 3] 콘솔 경고를 완전히 제압하는 최신 Streamlit 프레임 표출 엔진
     st.dataframe(
         styler,
-        hide_index=True,          # [요청사항 1] 좌측의 이름 없는 빈 인덱스 행 강제 완전 삭제
-        use_container_width=False, # [요청사항 3] 무조건 가로로 늘어나지 않고 텍스트 폭에 최적화하여 공간 낭비 방지
-        height=650
+        width='content',       # [요청사항 3 + 로그 경고 해결] 빈 공간 낭비를 막고 데이터 길이에 딱 맞춤
+        height=680,
+        hide_index=True        # [요청사항 1] 좌측의 이름 없는 빈 인덱스 열 제거
     )
