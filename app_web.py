@@ -17,7 +17,8 @@ st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석�
 
 # 사이드바 설정
 st.sidebar.header("🔍 검색 설정")
-market = st.sidebar.selectbox("시장 선택", ["미국", "한국"])
+# [개선] 시장 선택지를 한국(코스피)과 한국(코스닥)으로 분리하여 총 3개의 세부 선택지로 확장
+market = st.sidebar.selectbox("시장 선택", ["미국", "한국(코스피)", "한국(코스닥)"])
 top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 
 # 사이드바 체크박스를 삭제하고 항상 기본 활성화(True) 상태로 고정
@@ -66,13 +67,13 @@ if btn_load:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
 
 # ==============================================================================
-# 데이터 포맷팅 및 스타일러 정의
+# 데이터 포맷팅 및 스타일러 정의 (숫자 원본 정렬 시스템 반영)
 # ==============================================================================
 def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [개선] 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
+    # 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
     if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
         urls = []
         for idx, row in formatted_df.iterrows():
@@ -80,11 +81,9 @@ def style_screener_dataframe(df, market_type):
             row_name = str(row["name"]).strip()
             
             if is_us:
-                # BRK-B 종목은 네이버 실제 확인 주소인 BRKb 구조로 완벽히 치환
                 if sym == "BRK-B":
                     base_url = "https://m.stock.naver.com/worldstock/stock/BRKb/total"
                 else:
-                    # 기존 PC 버전의 NYSE 판별용 리스트 원본 구조 유지
                     nyse_tickers = {
                         "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
                         "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
@@ -99,10 +98,8 @@ def style_screener_dataframe(df, market_type):
                         suffix = ".O"
                     base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
                 
-                # 쿼리 스트링 파라미터로 티커와 종목명을 전달하여 가독성 추출 매핑
                 url = f"{base_url}?ticker={sym}&name={row_name}"
             else:
-                # 한국 주식: 자릿수 정렬을 포함한 네이버 표준 주소 매핑 및 파라미터 결합
                 code_str = str(sym).zfill(6)
                 url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
             
@@ -111,34 +108,6 @@ def style_screener_dataframe(df, market_type):
         formatted_df["symbol"] = urls
         formatted_df["name"] = urls
             
-    if "market_cap" in formatted_df.columns:
-        formatted_df["market_cap"] = formatted_df["market_cap"].apply(
-            lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
-        )
-    if "price" in formatted_df.columns:
-        formatted_df["price"] = formatted_df["price"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "ma200" in formatted_df.columns:
-        formatted_df["ma200"] = formatted_df["ma200"].apply(
-            lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-        )
-    if "diff" in formatted_df.columns:
-        formatted_df["diff"] = formatted_df["diff"].apply(
-            lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
-        )
-    if "rsi" in formatted_df.columns:
-        def format_rsi(v):
-            if pd.isna(v): return "-"
-            if v >= 70: return f"{v:.1f} (과열)"
-            elif v <= 30: return f"{v:.1f} (과매도)"
-            elif v >= 50: return f"{v:.1f} (보통)"
-            else: return f"{v:.1f} (침체)"
-        formatted_df["rsi"] = formatted_df["rsi"].apply(format_rsi)
-        
-    for col in formatted_df.columns:
-        formatted_df[col] = formatted_df[col].astype(str)
-        
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
@@ -147,17 +116,52 @@ def style_screener_dataframe(df, market_type):
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
     
-    styler = formatted_df.style.set_properties(**{
+    styler = formatted_df.style
+    
+    # 정렬 작동을 위해 형변환을 가하지 않고 .style.format() 분기를 이용해 렌더링을 처리합니다.
+    format_dict = {}
+    if "시가총액(억)" in formatted_df.columns:
+        format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
+    if "현재가" in formatted_df.columns:
+        format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일선" in formatted_df.columns:
+        format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점" in formatted_df.columns:
+        format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점대비" in formatted_df.columns:
+        format_dict["최고점대비"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
+    if "200일괴리율(%)" in formatted_df.columns:
+        format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%"
+    if "RSI(14)" in formatted_df.columns:
+        def format_rsi_web(v):
+            if pd.isna(v): return "-"
+            v = float(v)
+            if v >= 70: return f"{v:.1f} (과열)"
+            elif v <= 30: return f"{v:.1f} (과매도)"
+            elif v >= 50: return f"{v:.1f} (보통)"
+            else: return f"{v:.1f} (침체)"
+        format_dict["RSI(14)"] = format_rsi_web
+    if "PER 등급" in formatted_df.columns:
+        format_dict["PER 등급"] = lambda x: analyzer.get_per_grade(x)
+    if "PBR 등급" in formatted_df.columns:
+        format_dict["PBR 등급"] = lambda x: analyzer.get_pbr_grade(x)
+        
+    styler = styler.format(format_dict)
+    
+    styler = styler.set_properties(**{
         'text-align': 'center',
         'white-space': 'nowrap'
     })
     
     def apply_strict_color_rules(val):
-        if isinstance(val, str):
-            if "+" in val or "🔴" in val:
-                return "color: #D32F2F; font-weight: bold;"
-            if "-" in val or "🔵" in val:
-                return "color: #1976D2; font-weight: bold;"
+        try:
+            v = float(val)
+            if v > 0: return "color: #D32F2F; font-weight: bold;"
+            elif v < 0: return "color: #1976D2; font-weight: bold;"
+        except:
+            if isinstance(val, str):
+                if "+" in val: return "color: #D32F2F; font-weight: bold;"
+                if "-" in val: return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
     target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
@@ -166,7 +170,7 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# [개선] 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
+# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
 link_config = {
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
@@ -275,7 +279,7 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [완벽 주입] 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
     st.dataframe(
         styled_final_df,
         width='stretch',
