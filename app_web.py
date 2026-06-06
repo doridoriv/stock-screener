@@ -56,26 +56,31 @@ if btn_load:
 
 
 # ==============================================================================
-# 컬럼 정의: (데이터키, 헤더명, 픽셀너비, 정렬, 정렬가능여부)
+# HTML 테이블 렌더러
+# st.dataframe은 Canvas 기반 Shadow DOM이라 외부 CSS가 전혀 침투하지 못합니다.
+# st.html()로 순수 HTML <table>을 직접 렌더링하여 컬럼 너비를 완전 제어합니다.
 # ==============================================================================
+
+# 컬럼 헤더 라벨 / 너비(px) / 정렬 정의
 COL_DEFS = [
-    ("rank",       "순위",          48,  "center", True),
-    ("symbol",     "티커",          72,  "center", False),
-    ("name",       "종목명",       155,  "left",   False),
-    ("data_date",  "기준일",        88,  "center", False),
-    ("market_cap", "시가총액(억)", 105,  "right",  True),
-    ("price",      "현재가",        88,  "right",  True),
-    ("peak",       "최고점",        88,  "right",  True),
-    ("peak_diff",  "최고점대비",    88,  "center", True),
-    ("ma200",      "200일선",       88,  "right",  True),
-    ("diff",       "200일괴리율",  100,  "center", True),
-    ("rsi",        "RSI(14)",      100,  "center", True),
-    ("per",        "PER 등급",     125,  "left",   True),
-    ("pbr",        "PBR 등급",     125,  "left",   True),
+    ("rank",       "순위",          48,  "center"),
+    ("symbol",     "티커",          72,  "center"),
+    ("name",       "종목명",       155,  "left"),
+    ("data_date",  "기준일",        88,  "center"),
+    ("market_cap", "시가총액(억)", 105,  "right"),
+    ("price",      "현재가",        88,  "right"),
+    ("peak",       "최고점",        88,  "right"),
+    ("peak_diff",  "최고점대비",    88,  "center"),
+    ("ma200",      "200일선",       88,  "right"),
+    ("diff",       "200일괴리율",  100,  "center"),
+    ("rsi",        "RSI(14)",      100,  "center"),
+    ("per",        "PER 등급",     125,  "left"),
+    ("pbr",        "PBR 등급",     125,  "left"),
 ]
 
 def build_url(sym, name, is_us):
     sym = str(sym).strip()
+    name = str(name).strip()
     if is_us:
         if sym == "BRK-B":
             base = "https://m.stock.naver.com/worldstock/stock/BRKb/total"
@@ -95,31 +100,28 @@ def build_url(sym, name, is_us):
         return f"https://finance.naver.com/item/main.naver?code={code}"
 
 def fmt_value(key, val, is_us):
-    """표시 문자열, 색상, 정렬용 숫자값 반환 → (text, color, sort_num)"""
+    """각 컬럼 키에 맞는 표시 문자열과 색상 반환 → (text, color)"""
     color = "#212121"
-    sort_num = 0
-
     if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "N/A", color, -999999
+        return "N/A", color
 
     if key == "rank":
-        v = int(val)
-        return str(v), color, v
+        return str(int(val)), color
 
     if key == "market_cap":
-        v = float(val)
-        return (f"{int(v):,}억" if v > 0 else "N/A"), color, v
+        return (f"{int(val):,}억" if val > 0 else "N/A"), color
 
     if key in ("price", "ma200", "peak"):
-        v = float(val)
-        text = f"${v:,.2f}" if is_us else f"{int(v):,}원"
-        return text, color, v
+        if is_us:
+            return f"${float(val):,.2f}", color
+        else:
+            return f"{int(val):,}원", color
 
     if key in ("peak_diff", "diff"):
         v = float(val)
         text = f"+{v:.2f}%" if v > 0 else f"{v:.2f}%"
         color = "#D32F2F" if v > 0 else ("#1976D2" if v < 0 else "#212121")
-        return text, color, v
+        return text, color
 
     if key == "rsi":
         v = float(val)
@@ -127,78 +129,34 @@ def fmt_value(key, val, is_us):
         elif v <= 30: label = "과매도"
         elif v >= 50: label = "보통"
         else:         label = "침체"
-        return f"{v:.1f} ({label})", color, v
+        return f"{v:.1f} ({label})", color
 
     if key == "per":
-        text = analyzer.get_per_grade(val)
-        try:    sort_num = float(val)
-        except: sort_num = -999999
-        return text, color, sort_num
+        return analyzer.get_per_grade(val), color
 
     if key == "pbr":
-        text = analyzer.get_pbr_grade(val)
-        try:    sort_num = float(val)
-        except: sort_num = -999999
-        return text, color, sort_num
+        return analyzer.get_pbr_grade(val), color
 
-    return str(val), color, 0
+    return str(val), color
 
 
-def render_html_table(records, market_type):
-    is_us = (market_type == "미국")
-
-    # 헤더 생성 (정렬 가능 컬럼은 onclick 부여)
-    header_cells = ""
-    for i, (key, label, width, align, sortable) in enumerate(COL_DEFS):
-        if sortable:
-            header_cells += (
-                f'<th style="width:{width}px;text-align:{align};cursor:pointer;" '
-                f'onclick="sortTable({i})" data-col="{i}" data-asc="1">'
-                f'{label} <span class="sort-icon" id="icon-{i}">⇅</span></th>'
-            )
-        else:
-            header_cells += f'<th style="width:{width}px;text-align:{align};">{label}</th>'
-
-    # 바디 생성 — data-sort 속성에 정렬용 숫자값 저장
-    rows_html = ""
-    for row in records:
-        cells = ""
-        url = build_url(row.get("symbol",""), row.get("name",""), is_us)
-        for i, (key, label, width, align, sortable) in enumerate(COL_DEFS):
-            val = row.get(key)
-            text, color, sort_num = fmt_value(key, val, is_us)
-            bold = "bold" if color != "#212121" else "normal"
-
-            if key == "symbol":
-                sym_display = str(row.get("symbol","")).strip()
-                cells += (f'<td style="width:{width}px;text-align:{align};" data-sort="{sort_num}">'
-                          f'<a href="{url}" target="_blank">{sym_display}</a></td>')
-            elif key == "name":
-                name_display = str(row.get("name","")).strip()
-                cells += (f'<td style="width:{width}px;text-align:{align};" data-sort="{sort_num}">'
-                          f'<a href="{url}" target="_blank">{name_display}</a></td>')
-            else:
-                cells += (f'<td style="width:{width}px;text-align:{align};" data-sort="{sort_num}">'
-                          f'<span style="color:{color};font-weight:{bold};">{text}</span></td>')
-        rows_html += f"<tr>{cells}</tr>"
-
-    html = f"""
+TABLE_CSS = """
 <style>
-.screener-wrap {{
+.screener-wrap {
     overflow-x: auto;
     overflow-y: auto;
     max-height: 650px;
     border: 1px solid #e0e0e0;
     border-radius: 6px;
-}}
-.screener-table {{
+}
+.screener-table {
     border-collapse: collapse;
     font-size: 13px;
     font-family: 'Noto Sans KR', sans-serif;
     table-layout: fixed;
     width: max-content;
-}}
-.screener-table thead th {{
+}
+.screener-table thead th {
     position: sticky;
     top: 0;
     background: #f5f7fa;
@@ -208,74 +166,73 @@ def render_html_table(records, market_type):
     font-weight: 600;
     color: #24292f;
     z-index: 2;
-    user-select: none;
-}}
-.screener-table thead th:hover {{
-    background: #e8ecf2;
-}}
-.screener-table tbody tr:hover {{
-    background: #f0f4ff !important;
-}}
-.screener-table tbody tr:nth-child(even) {{
+}
+.screener-table tbody tr:hover {
+    background: #f0f4ff;
+}
+.screener-table tbody tr:nth-child(even) {
     background: #fafafa;
-}}
-.screener-table td {{
+}
+.screener-table tbody tr:nth-child(even):hover {
+    background: #f0f4ff;
+}
+.screener-table td {
     padding: 5px 8px;
     border-bottom: 1px solid #ebebeb;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}}
-.screener-table a {{
-    color: #1565C0;
+}
+.screener-table a {
+    color: #1976D2;
     text-decoration: none;
     font-weight: 500;
-}}
-.screener-table a:hover {{
+}
+.screener-table a:hover {
     text-decoration: underline;
-}}
-.sort-icon {{
-    font-size: 11px;
-    opacity: 0.5;
-}}
+}
 </style>
+"""
 
+def render_html_table(records, market_type):
+    is_us = (market_type == "미국")
+
+    # 헤더
+    header_cells = ""
+    for _, label, width, align in COL_DEFS:
+        header_cells += f'<th style="width:{width}px;text-align:{align};">{label}</th>'
+
+    # 바디
+    rows_html = ""
+    for row in records:
+        cells = ""
+        url = build_url(row.get("symbol",""), row.get("name",""), is_us)
+        for key, label, width, align in COL_DEFS:
+            val = row.get(key)
+            text, color = fmt_value(key, val, is_us)
+
+            if key == "symbol":
+                sym_display = str(row.get("symbol","")).strip()
+                cells += (f'<td style="width:{width}px;text-align:{align};color:{color};">'
+                          f'<a href="{url}" target="_blank">{sym_display}</a></td>')
+            elif key == "name":
+                name_display = str(row.get("name","")).strip()
+                cells += (f'<td style="width:{width}px;text-align:{align};color:{color};">'
+                          f'<a href="{url}" target="_blank">{name_display}</a></td>')
+            else:
+                cells += (f'<td style="width:{width}px;text-align:{align};">'
+                          f'<span style="color:{color};font-weight:{"bold" if color != "#212121" else "normal"};">'
+                          f'{text}</span></td>')
+        rows_html += f"<tr>{cells}</tr>"
+
+    html = f"""
+{TABLE_CSS}
 <div class="screener-wrap">
-  <table class="screener-table" id="screenerTable">
+  <table class="screener-table">
     <thead><tr>{header_cells}</tr></thead>
-    <tbody id="screenerBody">{rows_html}</tbody>
+    <tbody>{rows_html}</tbody>
   </table>
 </div>
-
-<script>
-function sortTable(colIdx) {{
-    const table = document.getElementById('screenerTable');
-    const tbody = document.getElementById('screenerBody');
-    const th = table.querySelectorAll('thead th')[colIdx];
-    const asc = th.getAttribute('data-asc') === '1';
-
-    // 아이콘 리셋
-    table.querySelectorAll('.sort-icon').forEach(el => {{
-        el.textContent = '⇅';
-        el.style.opacity = '0.5';
-    }});
-    const icon = document.getElementById('icon-' + colIdx);
-    if (icon) {{
-        icon.textContent = asc ? '▲' : '▼';
-        icon.style.opacity = '1';
-    }}
-
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.sort((a, b) => {{
-        const aVal = parseFloat(a.querySelectorAll('td')[colIdx].getAttribute('data-sort'));
-        const bVal = parseFloat(b.querySelectorAll('td')[colIdx].getAttribute('data-sort'));
-        return asc ? aVal - bVal : bVal - aVal;
-    }});
-
-    rows.forEach(r => tbody.appendChild(r));
-    th.setAttribute('data-asc', asc ? '0' : '1');
-}}
-</script>
 """
     return html
 
