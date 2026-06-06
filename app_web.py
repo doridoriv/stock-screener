@@ -113,7 +113,7 @@ def style_screener_dataframe(df, market_type):
         formatted_df["name"] = urls  # ◀ 기존 7칸에서 8칸으로 수정
                     
     # 정렬 작동을 방해하지 않도록 수치 데이터 타입을 원본 상태(int, float)로 보존 및 강제 변환
-    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi"]:
+    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi", "peak", "peak_diff"]:
         if col in formatted_df.columns:
             formatted_df[col] = pd.to_numeric(formatted_df[col], errors='coerce')
         
@@ -136,6 +136,10 @@ def style_screener_dataframe(df, market_type):
         format_rules["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
     if "현재가" in formatted_df.columns:
         format_rules["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점" in formatted_df.columns:
+        format_rules["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점대비" in formatted_df.columns:
+        format_rules["최고점대비"] = lambda x: f"🔴 +{x:.2f}%" if pd.notna(x) and x > 0 else f"🔵 {x:.2f}%" if pd.notna(x) and x < 0 else "⚫ 0.00%"
     if "200일선" in formatted_df.columns:
         format_rules["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
     if "200일괴리율(%)" in formatted_df.columns:
@@ -233,7 +237,7 @@ if btn_search:
                     use_container_width=True, 
                     hide_index=True,
                     column_config=link_config,
-                    selection_mode="single-row"
+                    selection_mode="single_row"
                 )
                 
             elif m_type == "done":
@@ -286,7 +290,7 @@ if st.session_state.data:
         height=650,
         hide_index=True,
         column_config=link_config,
-        selection_mode="single-row"
+        selection_mode="single_row"
     )
     
     rename_dict = {
