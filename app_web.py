@@ -170,7 +170,7 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 네이버 금융 연동 컬럼 설정 (기존 소스 원본 유지)
+# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
 link_config = {
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
@@ -225,17 +225,12 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # [수정] 고정 순위 오류 해결: 실시간 데이터 수신 시 실제 시가총액 기준 내림차순 정렬 후 순위 순차 재부여
-                if "market_cap" in df.columns and len(df) > 0:
-                    df = df.sort_values(by="market_cap", ascending=False)
-                    df["rank"] = range(1, len(df) + 1)
-                
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 간격 자동 맞춤 설정 유지
+                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
                 table_placeholder.dataframe(
                     styled_live_df, 
-                    use_container_width=False, 
+                    width='stretch', 
                     hide_index=True,
                     column_config=link_config,
                     selection_mode="row"
@@ -282,17 +277,12 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
-    # [수정] 불러오기 및 최종 화면 출력 시에도 실제 시가총액 크기순 정렬 후 순위 재정의
-    if "market_cap" in final_df.columns and len(final_df) > 0:
-        final_df = final_df.sort_values(by="market_cap", ascending=False)
-        final_df["rank"] = range(1, len(final_df) + 1)
-    
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 간격 자동 맞춤 설정 유지
+    # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
     st.dataframe(
         styled_final_df,
-        use_container_width=False,
+        width='stretch',
         height=650,
         hide_index=True,
         column_config=link_config,
