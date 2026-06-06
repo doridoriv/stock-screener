@@ -139,7 +139,7 @@ if btn_run:
     st.rerun()
 
 # ==============================================================================
-# 5. 데이터 가공 및 테이블 인젝션 (요청사항 1, 2, 3, 4, 5 집중 반영 처리부)
+# 5. 데이터 가공 및 테이블 인젝션
 # ==============================================================================
 if st.session_state.current_session_data:
     raw_records = st.session_state.current_session_data
@@ -148,40 +148,32 @@ if st.session_state.current_session_data:
     formatted_rows = []
     
     for data in raw_records:
-        # [요청사항 4] 금액 데이터 3자리 콤마 처리 명시 구현 (시가총액)
-        if data.get('market_cap', 0) > 0:
-            mcap_str = f"{data['market_cap']:,}억"
-        else:
-            mcap_str = "N/A"
+        # 데이터 정렬을 위해 수치형 항목을 파싱하여 순수 float/int 형태로 데이터프레임 내 주입
+        rank_val = int(data.get("rank", 0)) if str(data.get("rank", "")).isdigit() else data.get("rank", 0)
+        mcap_val = float(data.get('market_cap', 0)) if data.get('market_cap', 0) is not None else 0.0
+        price_val = float(data.get('price', 0)) if data.get('price', 0) is not None else 0.0
+        ma_val = float(data.get('ma200', 0)) if data.get('ma200', 0) is not None else 0.0
         
-        # [요청사항 4] 금액 데이터 현재가 및 200일선 3자리 콤마 분기 처리
-        if is_us:
-            price_str = f"${data['price']:,.2f}"
-            ma_str = f"${data['ma200']:,.2f}"
+        # 최고점 수치 가공
+        raw_peak = data.get("peak", 0)
+        if isinstance(raw_peak, str):
+            cleaned_peak = re.sub(r'[^\d.]', '', raw_peak)
+            peak_val = float(cleaned_peak) if cleaned_peak else 0.0
         else:
-            price_str = f"{int(data['price']):,}원"
-            ma_str = f"{int(data['ma200']):,}원"
+            peak_val = float(raw_peak) if raw_peak is not None else 0.0
             
-        # [요청사항 4] 최고점 금액 3자리 콤마 정밀 예외 처리
-        peak_val = data.get("peak", "비활성")
-        if isinstance(peak_val, (int, float)):
-            if is_us:
-                peak_str = f"${peak_val:,.2f}"
-            else:
-                peak_str = f"{int(peak_val):,}원"
+        # 200일 괴리율 수치화
+        diff_val = float(data.get('diff', 0.0)) if not pd.isna(data.get('diff')) else 0.0
+        
+        # 최고점대비 수치 가공 (방해되는 동그라미 기호 등 삭제 및 숫자 우선 추출)
+        raw_peak_diff = data.get("peak_diff", 0.0)
+        if isinstance(raw_peak_diff, str):
+            cleaned_peak_diff = re.sub(r'[^\d.-]', '', raw_peak_diff)
+            peak_diff_val = float(cleaned_peak_diff) if cleaned_peak_diff else 0.0
         else:
-            peak_str = str(peak_val)
+            peak_diff_val = float(raw_peak_diff) if raw_peak_diff is not None else 0.0
             
-        # 200일 괴리율 문자열 생성 규칙 유지
-        diff_val = float(data['diff']) if not pd.isna(data['diff']) else 0.0
-        if diff_val > 0:
-            diff_str = f"+{diff_val:.2f}%"
-        elif diff_val < 0:
-            diff_str = f"{diff_val:.2f}%"
-        else:
-            diff_str = "0.00%"
-            
-        # RSI 텍스트 상태 평가 로직 무삭제 인프라 적용
+        # RSI 수치화 및 텍스트 분할 기법 적용
         rsi_val = float(data.get("rsi", 50.0))
         if rsi_val >= 70:
             rsi_str = f"{rsi_val:.1f} (과열)"
@@ -192,22 +184,58 @@ if st.session_state.current_session_data:
         else:
             rsi_str = f"{rsi_val:.1f} (침체)"
             
-        per_str = str(data.get("per", "비활성"))
-        pbr_str = str(data.get("pbr", "비활성"))
-        peak_diff_str = str(data.get("peak_diff", "비활성"))
+        # PER / PBR 등급 항목 정렬 방해 요소인 동그라미 기호 제거 및 숫자가 제일 먼저 오도록 재정렬
+        raw_per = str(data.get("per", "정보없음"))
+        raw_pbr = str(data.get("pbr", "정보없음"))
         
-        # 순위 항목 데이터셋 수집 매핑 구조 유지
+        cleaned_per = re.sub(r'[^\d.-]', '', raw_per)
+        cleaned_pbr = re.sub(r'[^\d.-]', '', raw_pbr)
+        
+        per_num = float(cleaned_per) if cleaned_per else None
+        pbr_num = float(cleaned_pbr) if cleaned_pbr else None
+        
+        # 정렬에 영향이 없도록 문자열의 시작 부분을 숫자로만 구성하여 바인딩
+        if per_num is not None:
+            if "적자" in raw_per:
+                per_str = f"{per_num:.1f} (적자)"
+            elif "초저평가" in raw_per:
+                per_str = f"{per_num:.1f} (초저평가)"
+            elif "적정" in raw_per:
+                per_str = f"{per_num:.1f} (적정)"
+            elif "고평가" in raw_per:
+                per_str = f"{per_num:.1f} (고평가)"
+            elif "초고평가" in raw_per:
+                per_str = f"{per_num:.1f} (초고평가)"
+            else:
+                per_str = f"{per_num:.1f}"
+        else:
+            per_str = "정보없음"
+            
+        if pbr_num is not None:
+            if "적자" in raw_pbr:
+                pbr_str = f"{pbr_num:.1f} (적자)"
+            elif "저평가" in raw_pbr:
+                pbr_str = f"{pbr_num:.1f} (저평가)"
+            elif "적정" in raw_pbr:
+                pbr_str = f"{pbr_num:.1f} (적정)"
+            elif "고평가" in raw_pbr:
+                pbr_str = f"{pbr_num:.1f} (고평가)"
+            else:
+                pbr_str = f"{pbr_num:.1f}"
+        else:
+            pbr_str = "정보없음"
+        
         row_data = [
-            str(data.get("rank", "")),
+            rank_val,
             str(data.get("symbol", "")),
             str(data.get("name", "")),
             str(data.get("data_date", "-")),
-            mcap_str,
-            price_str,
-            peak_str,
-            peak_diff_str,
-            ma_str,
-            diff_str,
+            mcap_val,
+            price_val,
+            peak_val,
+            peak_diff_val,
+            ma_val,
+            diff_val,
             rsi_str,
             per_str,
             pbr_str
@@ -222,30 +250,54 @@ if st.session_state.current_session_data:
     peak_diff_column_name = COL_INFOS[7]["text"]
     diff_column_name = COL_INFOS[9]["text"]
     
-    # Pandas 데이터 프레임 고급 스타일러 선언
+    # Pandas 데이터 프레임 고급 스타일러 선언 및 포맷터를 활용한 표기 처리 (정렬 인프라 유지 보장)
     styler = display_df.style
     
-    # [요청사항 2, 3] 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
+    # 포맷 지정 딕셔너리 동적 빌드 (데이터는 숫자 고유의 형태로 유지하고 표기만 3자리 콤마 처리 기법)
+    fmt_dict = {}
+    if is_us:
+        fmt_dict[COL_INFOS[4]["text"]] = "{:,.0f}억"
+        fmt_dict[COL_INFOS[5]["text"]] = "${:,.2f}"
+        fmt_dict[COL_INFOS[6]["text"]] = "${:,.2f}"
+        fmt_dict[COL_INFOS[7]["text"]] = "{:+.2f}%"
+        fmt_dict[COL_INFOS[8]["text"]] = "${:,.2f}"
+        fmt_dict[COL_INFOS[9]["text"]] = "{:+.2f}%"
+    else:
+        fmt_dict[COL_INFOS[4]["text"]] = "{:,.0f}억"
+        fmt_dict[COL_INFOS[5]["text"]] = "{:,.0f}원"
+        fmt_dict[COL_INFOS[6]["text"]] = "{:,.0f}원"
+        fmt_dict[COL_INFOS[7]["text"]] = "{:+.2f}%"
+        fmt_dict[COL_INFOS[8]["text"]] = "{:,.0f}원"
+        fmt_dict[COL_INFOS[9]["text"]] = "{:+.2f}%"
+        
+    styler = styler.format(fmt_dict, na_rep="N/A")
+    
+    # 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
     styler = styler.set_properties(**{
         'text-align': 'center',
         'white-space': 'nowrap'
     })
     
-    # [요청사항 5] 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
+    # 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
     def apply_strict_color_rules(val):
-        if isinstance(val, str):
-            if "+" in val or "🔴" in val:
+        if isinstance(val, (int, float)):
+            if val > 0:
                 return "color: #D32F2F; font-weight: bold;"
-            if "-" in val or "🔵" in val:
+            if val < 0:
+                return "color: #1976D2; font-weight: bold;"
+        elif isinstance(val, str):
+            if "+" in val:
+                return "color: #D32F2F; font-weight: bold;"
+            if "-" in val:
                 return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
-    # [요청사항 1, 3] 콘솔 경고를 완전히 제압하는 최신 Streamlit 프레임 표출 엔진
+    # 콘솔 경고를 완전히 제압하는 최신 Streamlit 프레임 표출 엔진
     st.dataframe(
         styler,
-        width='content',       # [요청사항 3 + 로그 경고 해결] 빈 공간 낭비를 막고 데이터 길이에 딱 맞춤
+        width='content',
         height=680,
-        hide_index=True        # [요청사항 1] 좌측의 이름 없는 빈 인덱스 열 제거
+        hide_index=True
     )
