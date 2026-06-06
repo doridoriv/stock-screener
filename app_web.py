@@ -72,6 +72,19 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
+    # [핵심 추가] 티커 자체를 네이버 증권 클릭 링크 URL 데이터로 치환합니다.
+    if "symbol" in formatted_df.columns:
+        if is_us:
+            # 미국 주식: 네이버 증권 해외 글로벌 시세 페이지 연결
+            formatted_df["symbol"] = formatted_df["symbol"].apply(
+                lambda x: f"https://finance.naver.com/world/sise.naver?symbol={x}"
+            )
+        else:
+            # 한국 주식: 네이버 증권 국내 종목 메인 페이지 연결
+            formatted_df["symbol"] = formatted_df["symbol"].apply(
+                lambda x: f"https://finance.naver.com/item/main.naver?code={str(x).zfill(6)}"
+            )
+            
     if "market_cap" in formatted_df.columns:
         formatted_df["market_cap"] = formatted_df["market_cap"].apply(
             lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
@@ -127,6 +140,11 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
+# 링크 컬럼 설정을 공용 변수로 분리하여 가독성을 높입니다. (URL에서 티커 글자만 깔끔하게 추출하는 규칙)
+link_config = {
+    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|symbol=)(.*)")
+}
+
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
 if btn_search:
     st.session_state.data = []  
@@ -177,13 +195,18 @@ if btn_search:
                 df = df[available_cols]
                 
                 styled_live_df = style_screener_dataframe(df, market)
-                table_placeholder.dataframe(styled_live_df, width='stretch', hide_index=True)
+                
+                # 실시간 테이블 표에 클릭 링크 인터페이스 주입
+                table_placeholder.dataframe(
+                    styled_live_df, 
+                    width='stretch', 
+                    hide_index=True,
+                    column_config=link_config
+                )
                 
             elif m_type == "done":
                 progress_bar.progress(1.0)
                 status_text.success(msg["text"])
-                
-                # [개선 핵심] 검색 완료 즉시 상단의 임시 라이브 표를 화면에서 비워 중복 제거
                 table_placeholder.empty()
                 
                 if st.session_state.data:
@@ -193,14 +216,11 @@ if btn_search:
                 
             elif m_type == "error":
                 st.error(msg["text"])
-                # 에러 발생 시에도 임시 표 청소
                 table_placeholder.empty()
                 break
                 
             elif m_type == "stopped":
                 st.warning(f"분석 중지: {msg['count']}개 완료")
-                
-                # [개선 핵심] 중지 버튼 작동 즉시 상단의 임시 라이브 표를 화면에서 비워 중복 제거
                 table_placeholder.empty()
                 
                 if st.session_state.data:
@@ -227,11 +247,13 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
+    # 최종 완벽한 스크리닝 결과 테이블 표에 클릭 링크 인터페이스 주입
     st.dataframe(
         styled_final_df,
         width='stretch',
         height=650,
-        hide_index=True
+        hide_index=True,
+        column_config=link_config
     )
     
     rename_dict = {
