@@ -72,36 +72,44 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [개선] 직접 확인해주신 네이버 주식 실제 검증 주소 스타일 규칙 매핑 설계
-    if "symbol" in formatted_df.columns:
-        if is_us:
-            def convert_us_symbol(x):
-                sym = str(x).strip()
+    # [개선] 티커와 종목명 모두 클릭 시 네이버 실제 확인 주소로 완벽 매핑 및 텍스트 유지 자동화
+    if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
+        urls = []
+        for idx, row in formatted_df.iterrows():
+            sym = str(row["symbol"]).strip()
+            row_name = str(row["name"]).strip()
+            
+            if is_us:
                 # BRK-B 종목은 네이버 실제 확인 주소인 BRKb 구조로 완벽히 치환
                 if sym == "BRK-B":
-                    return "https://m.stock.naver.com/worldstock/stock/BRKb/total"
-                
-                # 기존 PC 버전의 NYSE 판별용 리스트 원본 구조 유지
-                nyse_tickers = {
-                    "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
-                    "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
-                    "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
-                    "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
-                    "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
-                }
-                
-                if sym in nyse_tickers:
-                    suffix = ".N"
+                    base_url = "https://m.stock.naver.com/worldstock/stock/BRKb/total"
                 else:
-                    suffix = ".O"
-                return f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
-
-            formatted_df["symbol"] = formatted_df["symbol"].apply(convert_us_symbol)
-        else:
-            # 한국 주식: 자릿수 정렬을 포함한 네이버 표준 주소 매핑
-            formatted_df["symbol"] = formatted_df["symbol"].apply(
-                lambda x: f"https://finance.naver.com/item/main.naver?code={str(x).zfill(6)}"
-            )
+                    # 기존 PC 버전의 NYSE 판별용 리스트 원본 구조 유지
+                    nyse_tickers = {
+                        "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
+                        "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
+                        "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
+                        "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
+                        "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
+                    }
+                    
+                    if sym in nyse_tickers:
+                        suffix = ".N"
+                    else:
+                        suffix = ".O"
+                    base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
+                
+                # 쿼리 스트링 파라미터로 티커와 종목명을 전달하여 가독성 추출 매핑
+                url = f"{base_url}?ticker={sym}&name={row_name}"
+            else:
+                # 한국 주식: 자릿수 정렬을 포함한 네이버 표준 주소 매핑 및 파라미터 결합
+                code_str = str(sym).zfill(6)
+                url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
+            
+            urls.append(url)
+        
+        formatted_df["symbol"] = urls
+        formatted_df["name"] = urls
             
     if "market_cap" in formatted_df.columns:
         formatted_df["market_cap"] = formatted_df["market_cap"].apply(
@@ -158,9 +166,10 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# [개선] 실제 확인 주소 구조에 맞게 화면 표 내부에는 군더더기 없는 순수 티커 텍스트만 표시되도록 정규식 필터 고도화
+# [개선] 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|stock/)([^./?]*)")
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -214,7 +223,7 @@ if btn_search:
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 실시간 테이블 표에도 행 클릭 하이라이트 활성화 명시
+                # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
                 table_placeholder.dataframe(
                     styled_live_df, 
                     width='stretch', 
@@ -266,7 +275,7 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [완벽 주입] 행의 빈 바운더리를 클릭 시 왼쪽 끝부터 오른쪽 끝까지 가로 라인 전체를 하이라이트 블록화하는 설정 유지
+    # [완벽 주입] 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
     st.dataframe(
         styled_final_df,
         width='stretch',
