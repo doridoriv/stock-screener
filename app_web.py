@@ -225,14 +225,15 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # [수정] 고정 순위 오류 해결: 실시간 데이터 수신 시 실제 시가총액 기준 내림차순 정렬 후 순위 순차 재부여
+                # 고정 순위 오류 해결: 실제 시가총액 기준 내림차순 정렬 후 순위 순차 재부여
                 if "market_cap" in df.columns and len(df) > 0:
                     df = df.sort_values(by="market_cap", ascending=False)
                     df["rank"] = range(1, len(df) + 1)
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 간격 자동 맞춤 설정 유지
+                # [수정] 데이터 추가 시 문자열 길이에 맞게 좌우 너비가 자동으로 재계산되도록 강제 청소 후 렌더링
+                table_placeholder.empty()
                 table_placeholder.dataframe(
                     styled_live_df, 
                     use_container_width=False, 
@@ -248,70 +249,4 @@ if btn_search:
                 
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
-                break
-                
-            elif m_type == "error":
-                st.error(msg["text"])
-                table_placeholder.empty()
-                break
-                
-            elif m_type == "stopped":
-                st.warning(f"분석 중지: {msg['count']}개 완료")
-                table_placeholder.empty()
-                
-                if st.session_state.data:
-                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
-                break
-                
-        except queue.Empty:
-            time.sleep(0.1)
-            if not worker_thread.is_alive() and app_queue.empty():
-                break
-
-# 최종 결과 출력부
-if st.session_state.data:
-    st.subheader("📊 분석 결과")
-    final_df = pd.DataFrame(st.session_state.data)
-    
-    column_order = [
-        "rank", "symbol", "name", "data_date", "market_cap", "price", 
-        "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
-    ]
-    available_cols = [c for c in column_order if c in final_df.columns]
-    final_df = final_df[available_cols]
-    
-    # [수정] 불러오기 및 최종 화면 출력 시에도 실제 시가총액 크기순 정렬 후 순위 재정의
-    if "market_cap" in final_df.columns and len(final_df) > 0:
-        final_df = final_df.sort_values(by="market_cap", ascending=False)
-        final_df["rank"] = range(1, len(final_df) + 1)
-    
-    styled_final_df = style_screener_dataframe(final_df, market)
-    
-    # 간격 자동 맞춤 설정 유지
-    st.dataframe(
-        styled_final_df,
-        use_container_width=False,
-        height=650,
-        hide_index=True,
-        column_config=link_config,
-        selection_mode="row"
-    )
-    
-    rename_dict = {
-        "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
-        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
-        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
-    }
-    csv_df = final_df.rename(columns=rename_dict)
-    csv = csv_df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 결과 다운로드 (CSV)",
-        data=csv,
-        file_name=f"screener_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv",
-    )
-else:
-    st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
+                    pd.DataFrame(st.
