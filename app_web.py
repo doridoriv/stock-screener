@@ -72,16 +72,16 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
     
-    # [개선] 티커를 네이버 증권 웹사이트 주소 스타일 규칙에 완벽하게 매칭
+    # [개선] 직접 확인해주신 네이버 주식 실제 검증 주소 스타일 규칙 매핑 설계
     if "symbol" in formatted_df.columns:
         if is_us:
-            # 미국 주식: 하이픈 변환 및 뉴욕거래소(NYSE) 종목 접미사 분기 처리 함수 정의
             def convert_us_symbol(x):
                 sym = str(x).strip()
+                # BRK-B 종목은 네이버 실제 확인 주소인 BRKb 구조로 완벽히 치환
                 if sym == "BRK-B":
-                    sym = "BRK_B"
+                    return "https://m.stock.naver.com/worldstock/stock/BRKb/total"
                 
-                # 기존 PC 버전의 NYSE 판별용 리스트 원본 그대로 유지
+                # 기존 PC 버전의 NYSE 판별용 리스트 원본 구조 유지
                 nyse_tickers = {
                     "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
                     "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
@@ -90,11 +90,11 @@ def style_screener_dataframe(df, market_type):
                     "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
                 }
                 
-                if sym in nyse_tickers or x in nyse_tickers:
+                if sym in nyse_tickers:
                     suffix = ".N"
                 else:
                     suffix = ".O"
-                return f"https://finance.naver.com/world/sise.naver?symbol={sym}{suffix}"
+                return f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
 
             formatted_df["symbol"] = formatted_df["symbol"].apply(convert_us_symbol)
         else:
@@ -158,9 +158,9 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# [개선] 주소에 접미사(.O, .N)가 붙어도 화면 표에는 순수 티커명만 깨끗하게 표시하도록 정규식 정밀 필터링 적용
+# [개선] 실제 확인 주소 구조에 맞게 화면 표 내부에는 군더더기 없는 순수 티커 텍스트만 표시되도록 정규식 필터 고도화
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|symbol=)([^.]*)")
+    "티커": st.column_config.LinkColumn("티커", display_text=r"(?:code=|stock/)([^./?]*)")
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -214,7 +214,7 @@ if btn_search:
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # [개선] 실시간 데이터 그리드 표에도 행 전체 하이라이트 블록 기능 주입
+                # 실시간 테이블 표에도 행 클릭 하이라이트 활성화 명시
                 table_placeholder.dataframe(
                     styled_live_df, 
                     width='stretch', 
@@ -266,7 +266,7 @@ if st.session_state.data:
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # [개선] 마우스 클릭 시 가로축 데이터가 한눈에 매칭되도록 가시성이 탁월한 '행 전체 선택 블록 모드' 전격 활성화
+    # [완벽 주입] 행의 빈 바운더리를 클릭 시 왼쪽 끝부터 오른쪽 끝까지 가로 라인 전체를 하이라이트 블록화하는 설정 유지
     st.dataframe(
         styled_final_df,
         width='stretch',
