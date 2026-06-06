@@ -42,47 +42,46 @@ def calculate_rsi(series, period=14):
 
 def get_per_grade(val):
     if pd.isna(val) or val == "N/A" or val == "None":
-        return "⚪ 정보없음"
+        return "정보없음"
         
     try:
         v = float(val)
         if v < 0: 
-            return f"❌ 적자 ({v:.1f})"
+            return f"{v:.1f} (적자)"
         elif v <= 10: 
-            return f"🔵 초저평가 ({v:.1f})"
+            return f"{v:.1f} (초저평가)"
         elif v <= 20: 
-            return f"🟢 적정 ({v:.1f})"
+            return f"{v:.1f} (적정)"
         elif v <= 40: 
-            return f"🟡 고평가 ({v:.1f})"
+            return f"{v:.1f} (고평가)"
         else: 
-            return f"🔴 초고평가 ({v:.1f})"
+            return f"{v:.1f} (초고평가)"
     except:
-        return "⚪ 정보없음"
+        return "정보없음"
 
 def get_pbr_grade(val):
     if pd.isna(val) or val == "N/A" or val == "None":
-        return "⚪ 정보없음"
+        return "정보없음"
         
     try:
         if isinstance(val, str):
             val = val.replace(",", "").strip()
         v = float(val)
         if v < 0: 
-            return f"❌ 자본잠식 ({v:.2f})"
+            return f"{v:.2f} (자본잠식)"
         elif v <= 1.0: 
-            return f"🔵 절대저평가 ({v:.2f})"
+            return f"{v:.2f} (절대저평가)"
         elif v <= 1.5: 
-            return f"🟢 적정 ({v:.2f})"
+            return f"{v:.2f} (적정)"
         elif v <= 3.0: 
-            return f"🟡 고평가 ({v:.2f})"
+            return f"{v:.2f} (고평가)"
         else: 
-            return f"🔴 초고평가 ({v:.2f})"
+            return f"{v:.2f} (초고평가)"
     except:
-        return "⚪ 정보없음"
+        return "정보없음"
 
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
-        # [개선] 코스피/코스닥을 모두 포함하여 FinanceDataReader 데이터 수집 경로 지원
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             df = fdr.DataReader(symbol, start=start_date, end=end_date)
         else:
@@ -103,7 +102,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         tickers_to_screen = []
         kr_fundamental_map = {}
         
-        # [개선] 사용자가 코스피 혹은 코스닥을 선택함에 따라 불러올 FinanceDataReader 소스를 분기 처리
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             if market == "한국(코스닥)":
                 market_type = 'KOSDAQ'
@@ -207,7 +205,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         
                         if pd.isna(per_val) or str(per_val) in ["N/A", "0", "nan", "None"]:
                             try:
-                                # [개선] 야후 파이낸스 정보 보완 시 코스닥은 .KQ, 코스피는 .KS를 붙이도록 정밀 매핑
                                 if market == "한국(코스닥)":
                                     suffix = ".KQ"
                                 else:
@@ -237,8 +234,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             per_str = get_per_grade(per_val)
                             pbr_str = get_pbr_grade(pbr_val)
                         except: 
-                            per_str = "⚪ 정보없음"
-                            pbr_str = "⚪ 정보없음"
+                            per_str = "정보없음"
+                            pbr_str = "정보없음"
 
                 peak_str, peak_diff_str = "비활성", "비활성"
                 if opt_peak:
