@@ -40,6 +40,47 @@ def get_csv_filename(market_val):
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(f"🚀 {APP_TITLE}")
 
+# ==============================================================================
+# CSS 주입: 컬럼 너비를 헤더 텍스트 기준으로 타이트하게 최적화
+# Streamlit column_config의 width는 small/medium/large 문자열만 지원하므로
+# 실제 픽셀 제어는 CSS nth-child 셀렉터로 직접 처리합니다.
+# ==============================================================================
+st.markdown("""
+<style>
+[data-testid="stDataFrame"] div[role="gridcell"],
+[data-testid="stDataFrame"] div[role="columnheader"] {
+    white-space: nowrap !important;
+}
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(1),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(1)  { min-width:48px;  max-width:48px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(2),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(2)  { min-width:70px;  max-width:70px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(3),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(3)  { min-width:150px; max-width:150px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(4),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(4)  { min-width:90px;  max-width:90px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(5),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(5)  { min-width:105px; max-width:105px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(6),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(6)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(7),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(7)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(8),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(8)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(9),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(9)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(10),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(10) { min-width:100px; max-width:100px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(11),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(11) { min-width:100px; max-width:100px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(12),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(12) { min-width:125px; max-width:125px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(13),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(13) { min-width:125px; max-width:125px; }
+</style>
+""", unsafe_allow_html=True)
+
+
 # 상단 대시보드 컨트롤 패널 구성
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1.5, 2, 1.5, 1.5, 1.5])
 
@@ -239,6 +280,7 @@ if st.session_state.current_session_data:
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
     # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
+    # 너비 제어는 페이지 상단의 CSS 주입으로 처리합니다.
     st.dataframe(
         styler,
         width='content',
