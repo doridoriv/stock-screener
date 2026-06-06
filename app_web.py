@@ -170,10 +170,21 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
+# 컬럼별 너비를 텍스트 길이에 맞춰 타이트하게 최적화한 column_config
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
+    "순위":         st.column_config.NumberColumn ("순위",         width=55),
+    "티커":         st.column_config.LinkColumn   ("티커",         display_text=r"ticker=([^&]*)", width=75),
+    "종목명":       st.column_config.LinkColumn   ("종목명",       display_text=r"name=([^&]*)",   width=160),
+    "기준일":       st.column_config.TextColumn   ("기준일",       width=95),
+    "시가총액(억)": st.column_config.TextColumn   ("시가총액(억)", width=110),
+    "현재가":       st.column_config.TextColumn   ("현재가",       width=90),
+    "최고점":       st.column_config.TextColumn   ("최고점",       width=90),
+    "최고점대비":   st.column_config.TextColumn   ("최고점대비",   width=90),
+    "200일선":      st.column_config.TextColumn   ("200일선",      width=90),
+    "200일괴리율(%)": st.column_config.TextColumn ("200일괴리율(%)", width=105),
+    "RSI(14)":      st.column_config.TextColumn   ("RSI(14)",      width=105),
+    "PER 등급":     st.column_config.TextColumn   ("PER 등급",     width=130),
+    "PBR 등급":     st.column_config.TextColumn   ("PBR 등급",     width=130),
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
