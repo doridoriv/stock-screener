@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 
 import analyzer
-from config import APP_TITLE, CACHE_DIR
+from config import APP_TITLE, CACHE_DIR, COL_INFOS  # [수정] 너비 설정을 읽어오기 위해 COL_INFOS 추가
 
 # 페이지 설정
 st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -170,11 +170,28 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 파라미터 영역을 역추적하여 티커와 종목명의 한글/영문 깨짐 현상 없이 화면에 완벽 렌더링하도록 링커 구성
-link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
+# ==============================================================================
+# [수정] config.py의 COL_INFOS 설정을 완벽하게 빌드하여 정밀한 픽셀 너비를 전달하는 링커 맵 생성
+# ==============================================================================
+id_to_web_name = {
+    "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
+    "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
+    "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
+    "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
 }
+
+link_config = {}
+for col in COL_INFOS:
+    col_id = col["id"]
+    web_name = id_to_web_name.get(col_id, col_id)
+    width = col.get("width", 100)
+    
+    if col_id == "symbol":
+        link_config[web_name] = st.column_config.LinkColumn(web_name, display_text=r"ticker=([^&]*)", width=width)
+    elif col_id == "name":
+        link_config[web_name] = st.column_config.LinkColumn(web_name, display_text=r"name=([^&]*)", width=width)
+    else:
+        link_config[web_name] = st.column_config.Column(web_name, width=width)
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
 if btn_search:
@@ -228,9 +245,10 @@ if btn_search:
                 styled_live_df = style_screener_dataframe(df, market)
                 
                 # 실시간 테이블 표 행 클릭 하이라이트 및 더블 링크 모드 주입
+                # [수정] 무분별하게 늘어나는 stretch 대신 정밀 너비 제어가 먹히도록 'content'로 전환
                 table_placeholder.dataframe(
                     styled_live_df, 
-                    width='stretch', 
+                    width='content', 
                     hide_index=True,
                     column_config=link_config,
                     selection_mode="row"
@@ -280,9 +298,10 @@ if st.session_state.data:
     styled_final_df = style_screener_dataframe(final_df, market)
     
     # 행의 빈 영역 클릭 시 가로 전체 블록 하이라이트 고정 적용 완료
+    # [수정] 무분별하게 늘어나는 stretch 대신 정밀 너비 제어가 먹히도록 'content'로 전환
     st.dataframe(
         styled_final_df,
-        width='stretch',
+        width='content',
         height=650,
         hide_index=True,
         column_config=link_config,
