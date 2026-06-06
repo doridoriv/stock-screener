@@ -170,10 +170,25 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 네이버 금융 연동 컬럼 설정 (기존 소스 원본 유지)
+# ==============================================================================
+# 네이버 금융 연동 및 좌우너비 자동 맞춤 안정화 컬럼 설정
+# ==============================================================================
+# 각 항목들의 너비를 명시적으로 지정(width)하여 실시간으로 데이터 내용이 길어져도 
+# 글자가 잘리지 않고 깔끔하게 표기되도록 강제 고정합니다.
 link_config = {
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)")
+    "순위": st.column_config.NumberColumn("순위", width=60),
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=100),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width=220),
+    "기준일": st.column_config.TextColumn("기준일", width=110),
+    "시가총액(억)": st.column_config.TextColumn("시가총액(억)", width=130),
+    "현재가": st.column_config.TextColumn("현재가", width=110),
+    "최고점": st.column_config.TextColumn("최고점", width=110),
+    "최고점대비": st.column_config.TextColumn("최고점대비", width=100),
+    "200일선": st.column_config.TextColumn("200일선", width=110),
+    "200일괴리율(%)": st.column_config.TextColumn("200일괴리율(%)", width=120),
+    "RSI(14)": st.column_config.TextColumn("RSI(14)", width=110),
+    "PER 등급": st.column_config.TextColumn("PER 등급", width=100),
+    "PBR 등급": st.column_config.TextColumn("PBR 등급", width=100),
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -232,8 +247,7 @@ if btn_search:
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # [수정] 데이터 추가 시 문자열 길이에 맞게 좌우 너비가 자동으로 재계산되도록 강제 청소 후 렌더링
-                table_placeholder.empty()
+                # 렌더링을 멈추게 만들던 empty() 리셋 코드를 제거하고 안정적인 고정폭 시스템으로 렌더링
                 table_placeholder.dataframe(
                     styled_live_df, 
                     use_container_width=False, 
@@ -249,4 +263,70 @@ if btn_search:
                 
                 if st.session_state.data:
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.
+                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
+                break
+                
+            elif m_type == "error":
+                st.error(msg["text"])
+                table_placeholder.empty()
+                break
+                
+            elif m_type == "stopped":
+                st.warning(f"분석 중지: {msg['count']}개 완료")
+                table_placeholder.empty()
+                
+                if st.session_state.data:
+                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
+                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
+                break
+                
+        except queue.Empty:
+            time.sleep(0.1)
+            if not worker_thread.is_alive() and app_queue.empty():
+                break
+
+# 최종 결과 출력부
+if st.session_state.data:
+    st.subheader("📊 분석 결과")
+    final_df = pd.DataFrame(st.session_state.data)
+    
+    column_order = [
+        "rank", "symbol", "name", "data_date", "market_cap", "price", 
+        "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
+    ]
+    available_cols = [c for c in column_order if c in final_df.columns]
+    final_df = final_df[available_cols]
+    
+    # 불러오기 및 최종 화면 출력 시에도 실제 시가총액 크기순 정렬 후 순위 재정의
+    if "market_cap" in final_df.columns and len(final_df) > 0:
+        final_df = final_df.sort_values(by="market_cap", ascending=False)
+        final_df["rank"] = range(1, len(final_df) + 1)
+    
+    styled_final_df = style_screener_dataframe(final_df, market)
+    
+    # 간격 자동 맞춤 설정 및 가독성 확보 보장
+    st.dataframe(
+        styled_final_df,
+        use_container_width=False,
+        height=650,
+        hide_index=True,
+        column_config=link_config,
+        selection_mode="row"
+    )
+    
+    rename_dict = {
+        "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
+        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
+        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
+        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
+    }
+    csv_df = final_df.rename(columns=rename_dict)
+    csv = csv_df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="📥 결과 다운로드 (CSV)",
+        data=csv,
+        file_name=f"screener_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime="text/csv",
+    )
+else:
+    st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
