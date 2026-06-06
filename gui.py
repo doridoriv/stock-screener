@@ -1,378 +1,305 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-import webbrowser
-import threading
+import streamlit as st
+import pandas as pd
 import queue
+import threading
+import time
 import os
 import re
-import pandas as pd
 from datetime import datetime
 import yfinance as yf
 
 from config import APP_TITLE, COL_INFOS, CACHE_DIR
 import analyzer
 
-class ScreenerApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title(APP_TITLE)
-        self.root.geometry("1440x700")
-        
-        self.queue = queue.Queue()
-        self.is_running = False
-        self.stop_requested = False
-        self.us_market_cap_data = analyzer.load_us_market_cap_cache()
-        self.current_session_data = []
-        
-        self.selected_row_idx = -1
-        self.row_widgets = {} 
-        
-        self.top_n_int = tk.IntVar(value=50)
-        self.top_n_var = tk.StringVar(value="50")
-        self.top_n_var.trace_add("write", self.sync_scale_from_entry)
-        
-        self.col_infos = COL_INFOS
-        
-        self.create_widgets()
-        self.check_queue()
+# ==============================================================================
+# 1. 웹페이지 기본 설정 및 스타일 정의
+# ==============================================================================
+st.set_page_config(page_title=APP_TITLE, layout="wide")
 
-    def sync_scale_from_entry(self, *args):
+def get_csv_filename(market_var):
+    today = datetime.now().strftime('%Y%m%d')
+    market = "US" if market_var == "미국" else "KR"
+    return os.path.join(CACHE_DIR, f"screener_backup_{market}_{today}.csv")
+
+# ==============================================================================
+# 2. 원본의 항목별 세부 글자색상 디테일 구현 (Pandas Styler용)
+# ==============================================================================
+def style_formatted_dataframe(df):
+    # 빈 스타일 데이터프레임 생성 (기본 글자색 #212121 지정)
+    style_df = pd.DataFrame('color: #212121;', index=df.index, columns=df.columns)
+    
+    for idx, row in df.iterrows():
+        # [디테일 1] 기준일(data_date) 색상 적용 (#2E7D32)
+        if 'data_date' in df.columns:
+            style_df.at[idx, 'data_date'] = 'color: #2E7D32;'
+            
+        # [디테일 2] 괴리율(diff) 값에 따른 색상 분기
+        diff_str = str(row.get('diff', ''))
+        if diff_str.startswith('+'):
+            style_df.at[idx, 'diff'] = 'color: #D32F2F; font-weight: bold;'  # 빨간색 (양수)
+        elif diff_str.startswith('-'):
+            style_df.at[idx, 'diff'] = 'color: #1976D2; font-weight: bold;'  # 파란색 (음수)
+        else:
+            style_df.at[idx, 'diff'] = 'color: #212121;'
+            
+        # [디테일 3] RSI 과열/공포 조건별 색상 분기
+        rsi_str = str(row.get('rsi', ''))
+        if "(과열)" in rsi_str:
+            style_df.at[idx, 'rsi'] = 'color: #D32F2F; font-weight: bold;'
+        elif "(과매도)" in rsi_str:
+            style_df.at[idx, 'rsi'] = 'color: #1976D2; font-weight: bold;'
+        elif "(보통)" in rsi_str:
+            style_df.at[idx, 'rsi'] = 'color: #E65100; font-weight: bold;'
+        else:
+            style_df.at[idx, 'rsi'] = 'color: #555555;'
+            
+        # [디테일 4] PER 등급별 5단계 정밀 색상 분기
+        per_text = str(row.get('per', ''))
+        if "적자" in per_text or "자본잠식" in per_text:
+            style_df.at[idx, 'per'] = 'color: #B71C1C; font-weight: bold;'
+        elif "초저평가" in per_text or "절대저평가" in per_text:
+            style_df.at[idx, 'per'] = 'color: #1976D2; font-weight: bold;'
+        elif "적정" in per_text:
+            style_df.at[idx, 'per'] = 'color: #388E3C; font-weight: bold;'
+        elif "초고평가" in per_text:
+            style_df.at[idx, 'per'] = 'color: #D32F2F; font-weight: bold;'
+        elif "고평가" in per_text:
+            style_df.at[idx, 'per'] = 'color: #F57C00; font-weight: bold;'
+        else:
+            style_df.at[idx, 'per'] = 'color: #757575;'
+            
+        # [디테일 5] PBR 등급별 5단계 정밀 색상 분기
+        pbr_text = str(row.get('pbr', ''))
+        if "적자" in pbr_text or "자본잠식" in pbr_text:
+            style_df.at[idx, 'pbr'] = 'color: #B71C1C; font-weight: bold;'
+        elif "초저평가" in pbr_text or "절대저평가" in pbr_text:
+            style_df.at[idx, 'pbr'] = 'color: #1976D2; font-weight: bold;'
+        elif "적정" in pbr_text:
+            style_df.at[idx, 'pbr'] = 'color: #388E3C; font-weight: bold;'
+        elif "초고평가" in pbr_text:
+            style_df.at[idx, 'pbr'] = 'color: #D32F2F; font-weight: bold;'
+        elif "고평가" in pbr_text:
+            style_df.at[idx, 'pbr'] = 'color: #F57C00; font-weight: bold;'
+        else:
+            style_df.at[idx, 'pbr'] = 'color: #757575;'
+            
+        # [디테일 6] 최고점 대비 하락률(peak_diff) 색상 분기
+        peak_diff_str = str(row.get('peak_diff', ''))
+        if "🔴" in peak_diff_str or "+" in peak_diff_str:
+            style_df.at[idx, 'peak_diff'] = 'color: #D32F2F; font-weight: bold;'
+        elif "🔵" in peak_diff_str or "-" in peak_diff_str:
+            style_df.at[idx, 'peak_diff'] = 'color: #1976D2; font-weight: bold;'
+        else:
+            style_df.at[idx, 'peak_diff'] = 'color: #212121;'
+            
+    return style_df
+
+# ==============================================================================
+# 3. 원본의 데이터 텍스트 포맷팅 규칙 파싱 함수
+# ==============================================================================
+def format_raw_records(records, market_var):
+    formatted_list = []
+    is_us = (market_var == "미국")
+    
+    for data in records:
+        mcap_str = f"{data.get('market_cap', 0):,}억" if data.get('market_cap', 0) > 0 else "N/A"
+        
         try:
-            val = int(self.top_n_var.get())
-            if 1 <= val <= 100:
-                self.top_n_int.set(val)
+            price_val = float(data.get('price', 0))
+            price_str = f"${price_val:.2f}" if is_us else f"{int(price_val):,}원"
+        except:
+            price_str = str(data.get('price', ''))
+            
+        try:
+            ma_val = float(data.get('ma200', 0))
+            ma_str = f"${ma_val:.2f}" if is_us else f"{int(ma_val):,}원"
+        except:
+            ma_str = str(data.get('ma200', ''))
+            
+        try:
+            diff_val = float(data.get('diff', 0))
+            if diff_val > 0:
+                diff_str = f"+{diff_val:.2f}%"
+            elif diff_val < 0:
+                diff_str = f"{diff_val:.2f}%"
+            else:
+                diff_str = "0.00%"
+        except:
+            diff_str = str(data.get('diff', ''))
+            
+        try:
+            rsi_val = float(data.get("rsi", 50.0))
+            if rsi_val >= 70:
+                rsi_str = f"{rsi_val:.1f} (과열)"
+            elif rsi_val <= 30:
+                rsi_str = f"{rsi_val:.1f} (과매도)"
+            elif rsi_val >= 50:
+                rsi_str = f"{rsi_val:.1f} (보통)"
+            else:
+                rsi_str = f"{rsi_val:.1f} (침체)"
+        except:
+            rsi_str = str(data.get('rsi', ''))
+            
+        formatted_list.append({
+            "rank": data.get("rank", ""),
+            "symbol": data.get("symbol", ""),
+            "name": data.get("name", ""),
+            "data_date": data.get("data_date", "-"),
+            "market_cap": mcap_str,
+            "price": price_str,
+            "peak": data.get("peak", "비활성"),
+            "peak_diff": data.get("peak_diff", "비활성"),
+            "ma200": ma_str,
+            "diff": diff_str,
+            "rsi": rsi_str,
+            "per": data.get("per", "비활성"),
+            "pbr": data.get("pbr", "비활성")
+        })
+        
+    return formatted_list
+
+# ==============================================================================
+# 4. 세션 상태 관리 선언
+# ==============================================================================
+if "current_session_data" not in st.session_state:
+    st.session_state.current_session_data = []
+if "status_text" not in st.session_state:
+    st.session_state.status_text = "대기 중..."
+if "progress_val" not in st.session_state:
+    st.session_state.progress_val = 0
+
+# ==============================================================================
+# 5. 웹 대시보드 레이아웃 UI 설계
+# ==============================================================================
+st.title(f"🚀 {APP_TITLE}")
+st.markdown("브라우저 웹에서 양방향으로 주식 데이터를 분석하고 저평가를 찾고 있습니다.")
+
+# 사이드바 컨트롤 컴포넌트 구성
+st.sidebar.header("🔍 검색 설정")
+market = st.sidebar.selectbox("시장 선택", ["한국", "미국"], index=1)
+top_n = st.sidebar.slider("분석할 수 있다(상위)", min_value=1, max_value=100, value=50)
+
+opt_fundamental = st.sidebar.checkbox("기본적 분석을 포함한다(PER/PBR)", value=True)
+opt_peak = st.sidebar.checkbox("고정 비교율을 포함한다", value=True)
+
+# 레이아웃 정렬용 컬럼 배치
+col_btn1, col_btn2 = st.sidebar.columns(2)
+with col_btn1:
+    start_button = st.button("⚡ 스크리닝 시작")
+with col_btn2:
+    load_button = st.button("📂 불러오기")
+
+# ------------------------------------------------------------------------------
+# 기능 로직 A: 로컬 CSV 파일 백업 불러오기 (fast_load_from_csv)
+# ------------------------------------------------------------------------------
+if load_button:
+    filename = get_csv_filename(market)
+    if not os.path.exists(filename):
+        st.sidebar.warning("오늘 저장된 스크리닝 결과가 없습니다.\n[스크리닝 시작]을 먼저 진행해 주세요.")
+    else:
+        try:
+            df_loaded = pd.read_csv(filename, encoding='utf-8-sig')
+            st.session_state.current_session_data = df_loaded.to_dict('records')
+            st.session_state.status_text = f"✅ 저장된 결과를 1초 만에 불러왔습니다! ({len(df_loaded)} 종목)"
+            st.session_state.progress_val = 100
+        except Exception as e:
+            st.sidebar.error(f"파일을 불러오는 중 오류가 발생했습니다: {e}")
+
+# ------------------------------------------------------------------------------
+# 기능 로직 B: 엔진 연동 실시간 스크리닝 시작 (start_screening)
+# ------------------------------------------------------------------------------
+if start_button:
+    st.session_state.current_session_data = []
+    st.session_state.progress_val = 0
+    st.session_state.status_text = "준비 중..."
+    
+    q = queue.Queue()
+    stop_requested = False
+    us_market_cap_data = analyzer.load_us_market_cap_cache()
+    
+    # analyzer 스크리닝 백엔드 스레드 생성
+    t = threading.Thread(
+        target=analyzer.screening_worker,
+        args=(market, top_n, q, lambda: stop_requested, opt_fundamental, opt_peak, us_market_cap_data),
+        daemon=True
+    )
+    t.start()
+    
+    # 동적 렌더링을 위한 윈도우 프리셋 컴포넌트 선언
+    progress_bar = st.progress(0)
+    status_label = st.empty()
+    table_placeholder = st.empty()
+    
+    while t.is_alive() or not q.empty():
+        try:
+            while True:
+                msg = q.get_nowait()
+                m_type = msg.get("type")
+                
+                if m_type == "progress":
+                    st.session_state.progress_val = msg["value"]
+                    st.session_state.status_text = msg["text"]
+                elif m_type == "data":
+                    st.session_state.current_session_data.append(msg["data"])
+                elif m_type == "done" or m_type == "stopped":
+                    st.session_state.status_text = f"완료! 총 {msg.get('count', 0)}개 종목 분석 완료"
+                    st.session_state.progress_val = 100
+                elif m_type == "error":
+                    st.session_state.status_text = f"오류 발생: {msg.get('text')}"
+                    st.session_state.progress_val = 100
+        except queue.Empty:
+            pass
+            
+        progress_bar.progress(st.session_state.progress_val)
+        status_label.info(st.session_state.status_text)
+        
+        if st.session_state.current_session_data:
+            formatted_list = format_raw_records(st.session_state.current_session_data, market)
+            df_current = pd.DataFrame(formatted_list)
+            
+            # config에 정의된 순서대로 정렬 및 출력
+            col_ids = [c["id"] for c in COL_INFOS if c["id"] in df_current.columns]
+            df_current = df_current[col_ids]
+            
+            # 실시간 스타일링 테이핑 로드
+            styled_df = df_current.style.apply(style_formatted_dataframe, axis=None)
+            table_placeholder.dataframe(styled_df, use_container_width=True, height=500)
+            
+        time.sleep(0.1)
+        
+    # 완료 시 자동 로컬 CSV 백업 기능 작동
+    if st.session_state.current_session_data:
+        try:
+            df_save = pd.DataFrame(st.session_state.current_session_data)
+            df_save.to_csv(get_csv_filename(market), index=False, encoding='utf-8-sig')
         except:
             pass
 
-    def sync_entry_from_scale(self, val):
-        self.top_n_var.set(val)
-
-    def create_widgets(self):
-        frame_top = tk.Frame(self.root, padx=10, pady=10)
-        frame_top.pack(fill=tk.X)
-        
-        tk.Label(frame_top, text="시장:").pack(side=tk.LEFT, padx=2)
-        self.market_var = tk.StringVar(value="미국")
-        combo_market = ttk.Combobox(frame_top, textvariable=self.market_var, values=["한국", "미국"], width=5, state="readonly")
-        combo_market.pack(side=tk.LEFT, padx=2)
-        
-        tk.Label(frame_top, text="순위:").pack(side=tk.LEFT, padx=(10, 2))
-        self.scale_rank = tk.Scale(frame_top, from_=1, to=100, orient=tk.HORIZONTAL, variable=self.top_n_int, showvalue=0, length=150, command=self.sync_entry_from_scale)
-        self.scale_rank.pack(side=tk.LEFT, padx=2)
-        self.ent_rank = tk.Entry(frame_top, textvariable=self.top_n_var, width=5)
-        self.ent_rank.pack(side=tk.LEFT, padx=2)
-        
-        self.opt_fundamental = tk.BooleanVar(value=True)
-        self.opt_peak = tk.BooleanVar(value=True)
-        
-        self.btn_run = tk.Button(frame_top, text="🔄 새로 검색", bg="#4CAF50", fg="white", font=("맑은 고딕", 9, "bold"), command=self.start_screening)
-        self.btn_run.pack(side=tk.LEFT, padx=5)
-
-        self.btn_load = tk.Button(frame_top, text="📂 불러오기", bg="#FF9800", fg="white", font=("맑은 고딕", 9, "bold"), command=self.fast_load_from_csv)
-        self.btn_load.pack(side=tk.LEFT, padx=5)
-
-        self.btn_stop = tk.Button(frame_top, text="⏹ 중지", bg="#F44336", fg="white", font=("맑은 고딕", 9, "bold"), command=self.stop_screening, state=tk.DISABLED)
-        self.btn_stop.pack(side=tk.LEFT, padx=5)
-        
-        frame_progress = tk.Frame(self.root, padx=10, pady=5)
-        frame_progress.pack(fill=tk.X)
-        
-        self.lbl_status = tk.Label(frame_progress, text="대기 중...", font=("맑은 고딕", 9), fg="#666666")
-        self.lbl_status.pack(side=tk.LEFT, padx=5)
-        
-        self.progress = ttk.Progressbar(frame_progress, orient="horizontal", mode="determinate")
-        self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-        frame_table = tk.Frame(self.root, padx=10, pady=10)
-        frame_table.pack(fill=tk.BOTH, expand=True)
-        
-        self.frame_header = tk.Frame(frame_table, height=30, bg="#E0E0E0")
-        self.frame_header.pack(fill=tk.X, side=tk.TOP) 
-        
-        for idx, col in enumerate(self.col_infos):
-            self.frame_header.grid_columnconfigure(idx, minsize=col["width"])
-            btn = tk.Button(
-                self.frame_header, text=col["text"], font=("맑은 고딕", 9, "bold"),
-                command=lambda c=col["id"]: self.sort_by_column(c),
-                relief="flat", bg="#EBEBEB", activebackground="#D6D6D6"
-            )
-            btn.grid(row=0, column=idx, sticky="nsew", padx=1, pady=1)
-            
-        self.canvas = tk.Canvas(frame_table, bd=0, highlightthickness=0, bg="white")
-        self.scrollbar = ttk.Scrollbar(frame_table, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas, bg="white")
-        
-        for idx, col in enumerate(self.col_infos):
-            self.scrollable_frame.grid_columnconfigure(idx, minsize=col["width"])
-            
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        self.sort_ascending = True
-
-    def select_row(self, row_idx):
-        if self.selected_row_idx != -1 and self.selected_row_idx in self.row_widgets:
-            old_bg = "#FFFFFF" if self.selected_row_idx % 2 == 0 else "#F9F9F9"
-            for lbl in self.row_widgets[self.selected_row_idx]:
-                lbl.config(bg=old_bg)
-        
-        self.selected_row_idx = row_idx
-        if row_idx in self.row_widgets:
-            for lbl in self.row_widgets[row_idx]:
-                lbl.config(bg="#FFF9C4") 
-
-    def get_csv_filename(self):
-        today = datetime.now().strftime('%Y%m%d')
-        market = "US" if self.market_var.get() == "미국" else "KR"
-        return os.path.join(CACHE_DIR, f"screener_backup_{market}_{today}.csv")
-
-    def fast_load_from_csv(self):
-        if self.is_running: return
-        filename = self.get_csv_filename()
-        
-        if not os.path.exists(filename):
-            messagebox.showinfo("알림", "오늘 저장된 스크리닝 결과가 없습니다.\n[새로 검색]을 먼저 진행해 주세요.")
-            return
-            
-        try:
-            df = pd.read_csv(filename, encoding='utf-8-sig')
-            records = df.to_dict('records')
-            self.current_session_data = records
-            self.redraw_table()
-            self.lbl_status.config(text=f"✅ 저장된 결과를 1초 만에 불러왔습니다! ({len(records)} 종목)")
-        except Exception as e:
-            messagebox.showerror("오류", f"파일을 불러오는 중 오류가 발생했습니다:\n{e}")
-
-    def stop_screening(self):
-        if self.is_running:
-            self.stop_requested = True
-            self.lbl_status.config(text="사용자가 중지를 요청했습니다. 현재 종목까지만 처리하고 종료합니다...")
-            self.btn_stop.config(state=tk.DISABLED)
-
-    def check_queue(self):
-        try:
-            while True:
-                msg = self.queue.get_nowait()
-                m_type = msg.get("type")
-                if m_type == "progress":
-                    self.progress["value"] = msg["value"]
-                    self.lbl_status.config(text=msg["text"])
-                elif m_type == "data":
-                    self.current_session_data.append(msg["data"])
-                    self.insert_row_from_dict(msg["data"])
-                elif m_type == "done" or m_type == "stopped":
-                    if self.current_session_data and not self.stop_requested:
-                        try:
-                            df = pd.DataFrame(self.current_session_data)
-                            df.to_csv(self.get_csv_filename(), index=False, encoding='utf-8-sig')
-                        except: pass
-                    
-                    self.is_running = False
-                    self.btn_run.config(state=tk.NORMAL)
-                    self.btn_load.config(state=tk.NORMAL)
-                    self.btn_stop.config(state=tk.DISABLED)
-                    
-                    today_str = datetime.now().strftime('%Y-%m-%d')
-                    
-                    if m_type == "stopped":
-                        self.lbl_status.config(text=f"중지됨: 총 {msg['count']}개 종목까지만 분석되었습니다.")
-                    else:
-                        self.lbl_status.config(text=f"완료! (기준일: {today_str}) 총 {msg['count']}개 종목 분석 완료 (자동 백업됨)")
-                        messagebox.showinfo("완료", msg["text"])
-                        
-                elif m_type == "error":
-                    self.is_running = False
-                    self.btn_run.config(state=tk.NORMAL)
-                    self.btn_load.config(state=tk.NORMAL)
-                    self.btn_stop.config(state=tk.DISABLED)
-                    messagebox.showerror("오류", msg["text"])
-        except queue.Empty: pass
-        self.root.after(100, self.check_queue)
-
-    def insert_row_from_dict(self, data):
-        row_idx = len(self.current_session_data) - 1
-        if row_idx < 0: row_idx = 0
-        self.render_row(data, row_idx)
-
-    def render_row(self, data, row_idx):
-        is_us = self.market_var.get() == "미국"
-        mcap_str = f"{data['market_cap']:,}억" if data.get('market_cap', 0) > 0 else "N/A"
-        price_str = f"${data['price']:.2f}" if is_us else f"{int(data['price']):,}원"
-        ma_str = f"${data['ma200']:.2f}" if is_us else f"{int(data['ma200']):,}원"
-        
-        diff_val = float(data['diff']) if not pd.isna(data['diff']) else 0.0
-        if diff_val > 0:
-            diff_str = f"+{diff_val:.2f}%"
-            diff_color = "#D32F2F"
-        elif diff_val < 0:
-            diff_str = f"{diff_val:.2f}%"
-            diff_color = "#1976D2"
-        else:
-            diff_str = "0.00%"
-            diff_color = "#212121"
-        
-        rsi_val = float(data.get("rsi", 50.0))
-        if rsi_val >= 70:
-            rsi_str = f"{rsi_val:.1f} (과열)"
-            rsi_color = "#D32F2F"
-        elif rsi_val <= 30:
-            rsi_str = f"{rsi_val:.1f} (과매도)"
-            rsi_color = "#1976D2"
-        elif rsi_val >= 50:
-            rsi_str = f"{rsi_val:.1f} (보통)"
-            rsi_color = "#E65100"
-        else:
-            rsi_str = f"{rsi_val:.1f} (침체)"
-            rsi_color = "#555555"
-            
-        per_str = str(data.get("per", "비활성"))
-        pbr_str = str(data.get("pbr", "비활성"))
-        
-        def parse_grade_color(text):
-            if "적자" in text or "자본잠식" in text: return "#B71C1C"
-            elif "초저평가" in text or "절대저평가" in text: return "#1976D2"
-            elif "적정" in text: return "#388E3C"
-            elif "초고평가" in text: return "#D32F2F"
-            elif "고평가" in text: return "#F57C00"
-            return "#757575"
-            
-        per_color = parse_grade_color(per_str)
-        pbr_color = parse_grade_color(pbr_str)
-        
-        peak_str = str(data.get("peak", "비활성"))
-        peak_diff_str = str(data.get("peak_diff", "비활성"))
-        
-        if "🔴" in peak_diff_str or "+" in peak_diff_str: peak_diff_color = "#D32F2F"
-        elif "🔵" in peak_diff_str or "-" in peak_diff_str: peak_diff_color = "#1976D2"
-        else: peak_diff_color = "#212121"
-        
-        row_cells = [
-            (str(data.get("rank", "")), "#212121"),
-            (str(data.get("symbol", "")), "#212121"),
-            (str(data.get("name", "")), "#212121"),
-            (str(data.get("data_date", "-")), "#2E7D32"), 
-            (mcap_str, "#212121"),
-            (price_str, "#212121"),
-            (peak_str, "#212121"),
-            (peak_diff_str, peak_diff_color),
-            (ma_str, "#212121"),
-            (diff_str, diff_color),
-            (rsi_str, rsi_color),
-            (per_str, per_color),
-            (pbr_str, pbr_color)
-        ]
-        
-        bg_color = "#FFFFFF" if row_idx % 2 == 0 else "#F9F9F9"
-        
-        current_row_labels = []
-        
-        for col_idx, (text_val, color_val) in enumerate(row_cells):
-            col_info = self.col_infos[col_idx]
-            lbl = tk.Label(
-                self.scrollable_frame, text=text_val, bg=bg_color, fg=color_val,
-                font=("맑은 고딕", 9), anchor=col_info["anchor"], padx=5, pady=4,
-                wraplength=col_info["width"] - 10
-            )
-            lbl.grid(row=row_idx, column=col_idx, sticky="nsew")
-            
-            lbl.bind("<Button-1>", lambda e, r=row_idx: self.select_row(r))
-            lbl.bind("<Double-1>", lambda e, sym=data["symbol"]: self.open_browser(sym))
-            
-            current_row_labels.append(lbl)
-            
-        self.row_widgets[row_idx] = current_row_labels
-
-    def redraw_table(self):
-        self.row_widgets = {} 
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        for idx, data in enumerate(self.current_session_data):
-            self.render_row(data, idx)
-
-    def start_screening(self):
-        if self.is_running: return
-        self.is_running = True
-        self.stop_requested = False
-        self.current_session_data = [] 
-        self.row_widgets = {}
-        
-        self.btn_run.config(state=tk.DISABLED)
-        self.btn_load.config(state=tk.DISABLED)
-        self.btn_stop.config(state=tk.NORMAL)
-        
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-            
-        market = self.market_var.get()
-        top_n = int(self.top_n_var.get())
-        
-        threading.Thread(
-            target=analyzer.screening_worker,
-            args=(market, top_n, self.queue, lambda: self.stop_requested, self.opt_fundamental.get(), self.opt_peak.get(), self.us_market_cap_data),
-            daemon=True
-        ).start()
-
-    def sort_by_column(self, col):
-        rev = self.sort_ascending
-        
-        def convert_val(d):
-            val = d.get(col, "")
-            is_num = False
-            num_val = 0.0
-            
-            if isinstance(val, (int, float)):
-                is_num = True
-                num_val = float(val)
-            else:
-                cleaned = re.sub(r'[^\d\.\-]', '', str(val))
-                if cleaned not in ('', '-', '.', '-.'):
-                    try:
-                        num_val = float(cleaned)
-                        is_num = True
-                    except ValueError:
-                        pass
-            
-            if is_num:
-                primary = 1 if rev else 0
-                return (primary, num_val)
-            else:
-                primary = 0 if rev else 1
-                return (primary, str(val).lower())
-                    
-        self.current_session_data.sort(key=convert_val, reverse=rev)
-        self.sort_ascending = not rev
-        self.redraw_table()
-
-    def open_browser(self, symbol):
-        if self.market_var.get() == "미국":
-            suffix = ".O"
-            sym = symbol
-            if sym == "BRK-B": sym = "BRK_B"
-            try:
-                ticker_info = yf.Ticker(symbol).info
-                exchange = ticker_info.get('exchange', '').upper()
-                if 'NYQ' in exchange or 'NYSE' in exchange: suffix = ".N"
-                elif 'ASE' in exchange or 'AMEX' in exchange: suffix = ".A"
-            except:
-                nyse_tickers = {
-                    "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
-                    "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
-                    "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
-                    "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
-                    "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY", "MDT",
-                    "BA", "ELV", "CI", "CB", "MMC", "SYK", "DE"
-                }
-                if symbol in nyse_tickers: suffix = ".N"
-            url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
-        else:
-            url = f"https://finance.naver.com/item/main.naver?code={symbol}"
-        webbrowser.open(url)
+# ==============================================================================
+# 6. 최종 뷰어 화면 렌더링 단락
+# ==============================================================================
+if st.session_state.current_session_data and not start_button:
+    st.info(st.session_state.status_text)
+    
+    formatted_list = format_raw_records(st.session_state.current_session_data, market)
+    df_display = pd.DataFrame(formatted_list)
+    
+    col_ids = [c["id"] for c in COL_INFOS if c["id"] in df_display.columns]
+    df_display = df_display[col_ids]
+    
+    styled_df = df_display.style.apply(style_formatted_dataframe, axis=None)
+    
+    st.subheader("📊 분석 결과")
+    # 대화형 테이블 및 칼럼 클릭 정렬 기능 제공
+    st.dataframe(styled_df, use_container_width=True, height=500)
+    
+    # 엑셀 변환 결과 다운로드 (CSV) 기능 구현
+    csv_data = df_display.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+    st.download_button(
+        label="📥 결과 다운로드 (CSV)",
+        data=csv_data,
+        file_name=f"screener_result_{market}_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime="text/csv"
+    )
+elif not start_button:
+    st.info(st.session_state.status_text)
