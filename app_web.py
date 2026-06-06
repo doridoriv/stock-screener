@@ -113,7 +113,7 @@ def style_screener_dataframe(df, market_type):
         formatted_df["name"] = urls  # ◀ 기존 7칸에서 8칸으로 수정
                     
     # 정렬 작동을 방해하지 않도록 수치 데이터 타입을 원본 상태(int, float)로 보존 및 강제 변환
-    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi", "per", "pbr"]:
+    for col in ["rank", "market_cap", "price", "ma200", "diff", "rsi"]:
         if col in formatted_df.columns:
             formatted_df[col] = pd.to_numeric(formatted_df[col], errors='coerce')
         
@@ -149,19 +149,7 @@ def style_screener_dataframe(df, market_type):
             else: return f"{v:.1f} (침체)"
         format_rules["RSI(14)"] = format_rsi
 
-    if "PER 등급" in formatted_df.columns:
-        format_rules["PER 등급"] = lambda x: analyzer.get_per_grade(x)
-    if "PBR 등급" in formatted_df.columns:
-        format_rules["PBR 등급"] = lambda x: analyzer.get_pbr_grade(x)
-
-    # 개별 컬럼의 결측치 처리를 위해 분리하여 포맷팅을 적용 (PER/PBR 등급은 결측 시 '⚪ 정보없음' 유지)
-    if "PER 등급" in formatted_df.columns:
-        styler = styler.format({"PER 등급": format_rules["PER 등급"]}, na_rep="⚪ 정보없음")
-    if "PBR 등급" in formatted_df.columns:
-        styler = styler.format({"PBR 등급": format_rules["PBR 등급"]}, na_rep="⚪ 정보없음")
-        
-    other_rules = {k: v for k, v in format_rules.items() if k not in ["PER 등급", "PBR 등급"]}
-    styler = styler.format(other_rules, na_rep="-")
+    styler = styler.format(format_rules, na_rep="-")
     
     def apply_strict_color_rules(val):
         if isinstance(val, (int, float)):
@@ -179,6 +167,24 @@ def style_screener_dataframe(df, market_type):
     target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
     if target_cols:
         styler = styler.map(apply_strict_color_rules, subset=target_cols)
+        
+    def apply_fundamental_color_rules(val):
+        if isinstance(val, str):
+            if "초저평가" in val or "절대저평가" in val:
+                return "color: #1976D2; font-weight: bold;"
+            elif "적정" in val:
+                return "color: #388E3C; font-weight: bold;"
+            elif "고평가" in val:
+                return "color: #F57C00; font-weight: bold;"
+            elif "초고평가" in val:
+                return "color: #D32F2F; font-weight: bold;"
+            elif "적자" in val or "자본잠식" in val:
+                return "color: #9C27B0; font-weight: bold;"
+        return "color: #212121;"
+        
+    fundamental_cols = [c for c in ["PER 등급", "PBR 등급"] if c in formatted_df.columns]
+    if fundamental_cols:
+        styler = styler.map(apply_fundamental_color_rules, subset=fundamental_cols)
         
     return styler
 
