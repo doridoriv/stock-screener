@@ -238,11 +238,30 @@ if st.session_state.current_session_data:
         
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
+    # 컬럼별 너비를 텍스트 길이에 맞춰 타이트하게 최적화한 column_config
+    col_names = [col["text"] for col in COL_INFOS]  # config.py COL_INFOS 순서 그대로 매핑
+    tight_col_config = {
+        col_names[0]:  st.column_config.NumberColumn(col_names[0],  width=55),   # 순위
+        col_names[1]:  st.column_config.TextColumn  (col_names[1],  width=75),   # 티커
+        col_names[2]:  st.column_config.TextColumn  (col_names[2],  width=160),  # 종목명
+        col_names[3]:  st.column_config.TextColumn  (col_names[3],  width=95),   # 자료기준일
+        col_names[4]:  st.column_config.TextColumn  (col_names[4],  width=110),  # 시가총액
+        col_names[5]:  st.column_config.TextColumn  (col_names[5],  width=90),   # 현재가
+        col_names[6]:  st.column_config.TextColumn  (col_names[6],  width=90),   # 최고점
+        col_names[7]:  st.column_config.TextColumn  (col_names[7],  width=90),   # 최고점대비
+        col_names[8]:  st.column_config.TextColumn  (col_names[8],  width=90),   # 200일선
+        col_names[9]:  st.column_config.TextColumn  (col_names[9],  width=105),  # 200일괴리율
+        col_names[10]: st.column_config.TextColumn  (col_names[10], width=105),  # RSI(14)
+        col_names[11]: st.column_config.TextColumn  (col_names[11], width=130),  # PER 등급
+        col_names[12]: st.column_config.TextColumn  (col_names[12], width=130),  # PBR 등급
+    }
+
     # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
     st.dataframe(
         styler,
         width='content',
         height=680,
         hide_index=True,
+        column_config=tight_col_config,
         selection_mode="row"
     )
