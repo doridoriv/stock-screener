@@ -118,6 +118,8 @@ def style_screener_dataframe(df, market_type):
     styler = formatted_df.style
     
     format_dict = {}
+    if "순위" in formatted_df.columns:
+        format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "시가총액(억)" in formatted_df.columns:
         format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "N/A"
     if "현재가" in formatted_df.columns:
@@ -170,17 +172,17 @@ def style_screener_dataframe(df, market_type):
 
 # 각 컬럼의 고정 너비를 정밀 지정하여 가로 간격 맞춤과 자름 현상을 방지합니다.
 link_config = {
-    "순위": st.column_config.NumberColumn("순위", width=60),
+    "순위": st.column_config.NumberColumn("순위", width=60, format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width=100),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width=220),
     "기준일": st.column_config.TextColumn("기준일", width=110),
-    "시가총액(억)": st.column_config.TextColumn("시가총액(억)", width=130),
-    "현재가": st.column_config.TextColumn("현재가", width=110),
-    "최고점": st.column_config.TextColumn("최고점", width=110),
-    "최고점대비": st.column_config.TextColumn("최고점대비", width=100),
-    "200일선": st.column_config.TextColumn("200일선", width=110),
-    "200일괴리율(%)": st.column_config.TextColumn("200일괴리율(%)", width=120),
-    "RSI(14)": st.column_config.TextColumn("RSI(14)", width=110),
+    "시가총액(억)": st.column_config.NumberColumn("시가총액(억)", width=130),
+    "현재가": st.column_config.NumberColumn("현재가", width=110),
+    "최고점": st.column_config.NumberColumn("최고점", width=110),
+    "최고점대비": st.column_config.NumberColumn("최고점대비", width=100),
+    "200일선": st.column_config.NumberColumn("200일선", width=110),
+    "200일괴리율(%)": st.column_config.NumberColumn("200일괴리율(%)", width=120),
+    "RSI(14)": st.column_config.NumberColumn("RSI(14)", width=110),
     "PER 등급": st.column_config.TextColumn("PER 등급", width=100),
     "PBR 등급": st.column_config.TextColumn("PBR 등급", width=100),
 }
@@ -234,14 +236,14 @@ if btn_search:
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
                 
-                # [수정] 실시간 화면 갱신 시에도 시가총액 기준으로 완벽 내림차순 정렬 후 순위를 재정의
+                # [핵심 교정] 시가총액 기준으로 완벽히 정렬하여 순위를 각 행의 고유 데이터로 부여
                 if "market_cap" in df.columns and len(df) > 0:
                     df = df.sort_values(by="market_cap", ascending=False)
                     df["rank"] = range(1, len(df) + 1)
                 
                 styled_live_df = style_screener_dataframe(df, market)
                 
-                # 먹통 문제를 일으키던 width='stretch' 제거 및 고정폭 설정 연동
+                # 사용자의 인터랙티브 클릭 정렬이 독립적으로 작동하도록 구조화
                 table_placeholder.dataframe(
                     styled_live_df, 
                     use_container_width=False, 
@@ -256,8 +258,13 @@ if btn_search:
                 table_placeholder.empty()
                 
                 if st.session_state.data:
+                    # 최종 저장 전 시총 정렬 및 고유 데이터화 완료 후 백업 저장
+                    final_save_df = pd.DataFrame(st.session_state.data)
+                    if "market_cap" in final_save_df.columns and len(final_save_df) > 0:
+                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
+                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
+                    final_save_df.to_csv(file_path, index=False, encoding='utf-8-sig')
                 break
                 
             elif m_type == "error":
@@ -270,8 +277,12 @@ if btn_search:
                 table_placeholder.empty()
                 
                 if st.session_state.data:
+                    final_save_df = pd.DataFrame(st.session_state.data)
+                    if "market_cap" in final_save_df.columns and len(final_save_df) > 0:
+                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
+                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    pd.DataFrame(st.session_state.data).to_csv(file_path, index=False, encoding='utf-8-sig')
+                    final_save_df.to_csv(file_path, index=False, encoding='utf-8-sig')
                 break
                 
         except queue.Empty:
@@ -291,14 +302,15 @@ if st.session_state.data:
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
-    # [수정] 불러오기 혹은 최종 완료 화면에서도 시가총액 기준으로 정렬 후 1위부터 순차적 재부여
+    # [핵심 교정] 화면 출력 전에 시가총액 기준으로 랭킹 데이터를 매핑 고정시킴
+    # 이렇게 하면 사용자가 웹뷰에서 'RSI'나 '괴리율' 헤더를 눌러 재정렬해도, 엔비디아의 순위(1)는 유지된 채 행 전체가 움직입니다.
     if "market_cap" in final_df.columns and len(final_df) > 0:
         final_df = final_df.sort_values(by="market_cap", ascending=False)
         final_df["rank"] = range(1, len(final_df) + 1)
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 먹통을 유발하던 width='stretch' 인자를 표준에 맞추어 제거하여 완벽하게 렌더링하도록 수정
+    # 간격 자동 맞춤 설정 및 가독성 확보 보장 (인터랙티브 정렬 완벽 작동형)
     st.dataframe(
         styled_final_df,
         use_container_width=False,
