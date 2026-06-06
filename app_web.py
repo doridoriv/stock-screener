@@ -15,6 +15,47 @@ st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(f"🚀 {APP_TITLE}")
 st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석하고 저평가 종목을 찾습니다.")
 
+# ==============================================================================
+# CSS 주입: 컬럼 너비를 헤더 텍스트 기준으로 타이트하게 최적화
+# Streamlit column_config의 width는 small/medium/large 문자열만 지원하므로
+# 실제 픽셀 제어는 CSS nth-child 셀렉터로 직접 처리합니다.
+# ==============================================================================
+st.markdown("""
+<style>
+[data-testid="stDataFrame"] div[role="gridcell"],
+[data-testid="stDataFrame"] div[role="columnheader"] {
+    white-space: nowrap !important;
+}
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(1),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(1)  { min-width:48px;  max-width:48px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(2),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(2)  { min-width:70px;  max-width:70px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(3),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(3)  { min-width:150px; max-width:150px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(4),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(4)  { min-width:90px;  max-width:90px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(5),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(5)  { min-width:105px; max-width:105px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(6),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(6)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(7),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(7)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(8),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(8)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(9),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(9)  { min-width:88px;  max-width:88px;  }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(10),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(10) { min-width:100px; max-width:100px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(11),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(11) { min-width:100px; max-width:100px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(12),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(12) { min-width:125px; max-width:125px; }
+[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(13),
+[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(13) { min-width:125px; max-width:125px; }
+</style>
+""", unsafe_allow_html=True)
+
+
 # 사이드바 설정
 st.sidebar.header("🔍 검색 설정")
 # [개선] 시장 선택지를 한국(코스피)과 한국(코스닥)으로 분리하여 총 3개의 세부 선택지로 확장
@@ -170,21 +211,10 @@ def style_screener_dataframe(df, market_type):
         
     return styler
 
-# 컬럼별 너비를 텍스트 길이에 맞춰 타이트하게 최적화한 column_config
+# column_config: 링크 컬럼 설정 (너비는 CSS로 제어)
 link_config = {
-    "순위":         st.column_config.NumberColumn ("순위",         width=55),
-    "티커":         st.column_config.LinkColumn   ("티커",         display_text=r"ticker=([^&]*)", width=75),
-    "종목명":       st.column_config.LinkColumn   ("종목명",       display_text=r"name=([^&]*)",   width=160),
-    "기준일":       st.column_config.TextColumn   ("기준일",       width=95),
-    "시가총액(억)": st.column_config.TextColumn   ("시가총액(억)", width=110),
-    "현재가":       st.column_config.TextColumn   ("현재가",       width=90),
-    "최고점":       st.column_config.TextColumn   ("최고점",       width=90),
-    "최고점대비":   st.column_config.TextColumn   ("최고점대비",   width=90),
-    "200일선":      st.column_config.TextColumn   ("200일선",      width=90),
-    "200일괴리율(%)": st.column_config.TextColumn ("200일괴리율(%)", width=105),
-    "RSI(14)":      st.column_config.TextColumn   ("RSI(14)",      width=105),
-    "PER 등급":     st.column_config.TextColumn   ("PER 등급",     width=130),
-    "PBR 등급":     st.column_config.TextColumn   ("PBR 등급",     width=130),
+    "티커":   st.column_config.LinkColumn("티커",   display_text=r"ticker=([^&]*)"),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
