@@ -139,138 +139,84 @@ if btn_run:
     st.rerun()
 
 # ==============================================================================
-# 5. 데이터 가공 및 테이블 인젝션
+# 5. 데이터 가공 및 테이블 인젝션 (정렬 및 행 선택 기능 집중 반영 처리부)
 # ==============================================================================
 if st.session_state.current_session_data:
     raw_records = st.session_state.current_session_data
     is_us = (market_var == "미국")
     
-    formatted_rows = []
+    # 뼈환 데이터프레임 구조를 수치 형식 그대로 직접 빌드하여 완벽 정렬을 보장합니다.
+    display_df = pd.DataFrame(raw_records)
+    column_keys = ["rank", "symbol", "name", "data_date", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"]
+    display_df = display_df[column_keys]
     
-    for data in raw_records:
-        # 데이터 정렬을 위해 수치형 항목을 파싱하여 순수 float/int 형태로 데이터프레임 내 주입
-        rank_val = int(data.get("rank", 0)) if str(data.get("rank", "")).isdigit() else data.get("rank", 0)
-        mcap_val = float(data.get('market_cap', 0)) if data.get('market_cap', 0) is not None else 0.0
-        price_val = float(data.get('price', 0)) if data.get('price', 0) is not None else 0.0
-        ma_val = float(data.get('ma200', 0)) if data.get('ma200', 0) is not None else 0.0
-        
-        # 최고점 수치 가공
-        raw_peak = data.get("peak", 0)
-        if isinstance(raw_peak, str):
-            cleaned_peak = re.sub(r'[^\d.]', '', raw_peak)
-            peak_val = float(cleaned_peak) if cleaned_peak else 0.0
-        else:
-            peak_val = float(raw_peak) if raw_peak is not None else 0.0
-            
-        # 200일 괴리율 수치화
-        diff_val = float(data.get('diff', 0.0)) if not pd.isna(data.get('diff')) else 0.0
-        
-        # 최고점대비 수치 가공 (방해되는 동그라미 기호 등 삭제 및 숫자 우선 추출)
-        raw_peak_diff = data.get("peak_diff", 0.0)
-        if isinstance(raw_peak_diff, str):
-            cleaned_peak_diff = re.sub(r'[^\d.-]', '', raw_peak_diff)
-            peak_diff_val = float(cleaned_peak_diff) if cleaned_peak_diff else 0.0
-        else:
-            peak_diff_val = float(raw_peak_diff) if raw_peak_diff is not None else 0.0
-            
-        # RSI 수치화 및 텍스트 분할 기법 적용
-        rsi_val = float(data.get("rsi", 50.0))
-        if rsi_val >= 70:
-            rsi_str = f"{rsi_val:.1f} (과열)"
-        elif rsi_val <= 30:
-            rsi_str = f"{rsi_val:.1f} (과매도)"
-        elif rsi_val >= 50:
-            rsi_str = f"{rsi_val:.1f} (보통)"
-        else:
-            rsi_str = f"{rsi_val:.1f} (침체)"
-            
-        # PER / PBR 등급 항목 정렬 방해 요소인 동그라미 기호 제거 및 숫자가 제일 먼저 오도록 재정렬
-        raw_per = str(data.get("per", "정보없음"))
-        raw_pbr = str(data.get("pbr", "정보없음"))
-        
-        cleaned_per = re.sub(r'[^\d.-]', '', raw_per)
-        cleaned_pbr = re.sub(r'[^\d.-]', '', raw_pbr)
-        
-        per_num = float(cleaned_per) if cleaned_per else None
-        pbr_num = float(cleaned_pbr) if cleaned_pbr else None
-        
-        # 정렬에 영향이 없도록 문자열의 시작 부분을 숫자로만 구성하여 바인딩
-        if per_num is not None:
-            if "적자" in raw_per:
-                per_str = f"{per_num:.1f} (적자)"
-            elif "초저평가" in raw_per:
-                per_str = f"{per_num:.1f} (초저평가)"
-            elif "적정" in raw_per:
-                per_str = f"{per_num:.1f} (적정)"
-            elif "고평가" in raw_per:
-                per_str = f"{per_num:.1f} (고평가)"
-            elif "초고평가" in raw_per:
-                per_str = f"{per_num:.1f} (초고평가)"
-            else:
-                per_str = f"{per_num:.1f}"
-        else:
-            per_str = "정보없음"
-            
-        if pbr_num is not None:
-            if "적자" in raw_pbr:
-                pbr_str = f"{pbr_num:.1f} (적자)"
-            elif "저평가" in raw_pbr:
-                pbr_str = f"{pbr_num:.1f} (저평가)"
-            elif "적정" in raw_pbr:
-                pbr_str = f"{pbr_num:.1f} (적정)"
-            elif "고평가" in raw_pbr:
-                pbr_str = f"{pbr_num:.1f} (고평가)"
-            else:
-                pbr_str = f"{pbr_num:.1f}"
-        else:
-            pbr_str = "정보없음"
-        
-        row_data = [
-            rank_val,
-            str(data.get("symbol", "")),
-            str(data.get("name", "")),
-            str(data.get("data_date", "-")),
-            mcap_val,
-            price_val,
-            peak_val,
-            peak_diff_val,
-            ma_val,
-            diff_val,
-            rsi_str,
-            per_str,
-            pbr_str
-        ]
-        formatted_rows.append(row_data)
-        
-    # 출력형 데이터프레임 구조 빌드
     col_headers = [col["text"] for col in COL_INFOS]
-    display_df = pd.DataFrame(formatted_rows, columns=col_headers)
+    display_df.columns = col_headers
     
-    # 뼈대 텍스트 명칭 동적 지정 추출
     peak_diff_column_name = COL_INFOS[7]["text"]
     diff_column_name = COL_INFOS[9]["text"]
     
-    # Pandas 데이터 프레임 고급 스타일러 선언 및 포맷터를 활용한 표기 처리 (정렬 인프라 유지 보장)
+    # Pandas 데이터 프레임 고급 스타일러 선언 및 컬럼별 포맷 바인딩
     styler = display_df.style
     
-    # 포맷 지정 딕셔너리 동적 빌드 (데이터는 숫자 고유의 형태로 유지하고 표기만 3자리 콤마 처리 기법)
-    fmt_dict = {}
-    if is_us:
-        fmt_dict[COL_INFOS[4]["text"]] = "{:,.0f}억"
-        fmt_dict[COL_INFOS[5]["text"]] = "${:,.2f}"
-        fmt_dict[COL_INFOS[6]["text"]] = "${:,.2f}"
-        fmt_dict[COL_INFOS[7]["text"]] = "{:+.2f}%"
-        fmt_dict[COL_INFOS[8]["text"]] = "${:,.2f}"
-        fmt_dict[COL_INFOS[9]["text"]] = "{:+.2f}%"
-    else:
-        fmt_dict[COL_INFOS[4]["text"]] = "{:,.0f}억"
-        fmt_dict[COL_INFOS[5]["text"]] = "{:,.0f}원"
-        fmt_dict[COL_INFOS[6]["text"]] = "{:,.0f}원"
-        fmt_dict[COL_INFOS[7]["text"]] = "{:+.2f}%"
-        fmt_dict[COL_INFOS[8]["text"]] = "{:,.0f}원"
-        fmt_dict[COL_INFOS[9]["text"]] = "{:+.2f}%"
+    # 각 컬럼의 숫자 고유 타입을 망가뜨리지 않고 화면 포맷만 렌더링하는 포매터 정의
+    def format_market_cap(x):
+        return f"{x:,}억" if pd.notna(x) and x > 0 else "N/A"
+    
+    def format_price(x):
+        if pd.isna(x): return "-"
+        return f"${x:,.2f}" if is_us else f"{int(x):,}원"
         
-    styler = styler.format(fmt_dict, na_rep="N/A")
+    def format_peak(x):
+        if pd.isna(x) or x == "비활성": return "비활성"
+        try:
+            val = float(x)
+            return f"${val:,.2f}" if is_us else f"{int(val):,}원"
+        except:
+            return str(x)
+            
+    def format_peak_diff(x):
+        if pd.isna(x) or x == "비활성": return "비활성"
+        try:
+            val = float(x)
+            return f"+{val:.2f}%" if val > 0 else f"{val:.2f}%"
+        except:
+            return str(x)
+            
+    def format_ma200(x):
+        if pd.isna(x): return "-"
+        return f"${x:,.2f}" if is_us else f"{int(x):,}원"
+        
+    def format_diff(x):
+        if pd.isna(x): return "0.00%"
+        try:
+            val = float(x)
+            return f"+{val:.2f}%" if val > 0 else f"{val:.2f}%"
+        except:
+            return "0.00%"
+            
+    def format_rsi(x):
+        if pd.isna(x): return "-"
+        try:
+            rsi_val = float(x)
+            if rsi_val >= 70: return f"{rsi_val:.1f} (과열)"
+            elif rsi_val <= 30: return f"{rsi_val:.1f} (과매도)"
+            elif rsi_val >= 50: return f"{rsi_val:.1f} (보통)"
+            else: return f"{rsi_val:.1f} (침체)"
+        except:
+            return str(x)
+            
+    styler = styler.format({
+        COL_INFOS[4]["text"]: format_market_cap,
+        COL_INFOS[5]["text"]: format_price,
+        COL_INFOS[6]["text"]: format_peak,
+        COL_INFOS[7]["text"]: format_peak_diff,
+        COL_INFOS[8]["text"]: format_ma200,
+        COL_INFOS[9]["text"]: format_diff,
+        COL_INFOS[10]["text"]: format_rsi,
+        COL_INFOS[11]["text"]: lambda x: analyzer.get_per_grade(x),
+        COL_INFOS[12]["text"]: lambda x: analyzer.get_pbr_grade(x)
+    })
     
     # 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
     styler = styler.set_properties(**{
@@ -280,24 +226,23 @@ if st.session_state.current_session_data:
     
     # 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
     def apply_strict_color_rules(val):
-        if isinstance(val, (int, float)):
-            if val > 0:
-                return "color: #D32F2F; font-weight: bold;"
-            if val < 0:
-                return "color: #1976D2; font-weight: bold;"
-        elif isinstance(val, str):
-            if "+" in val:
-                return "color: #D32F2F; font-weight: bold;"
-            if "-" in val:
-                return "color: #1976D2; font-weight: bold;"
+        try:
+            v = float(val)
+            if v > 0: return "color: #D32F2F; font-weight: bold;"
+            elif v < 0: return "color: #1976D2; font-weight: bold;"
+        except:
+            if isinstance(val, str):
+                if "+" in val: return "color: #D32F2F; font-weight: bold;"
+                if "-" in val: return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
     styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
         
-    # 콘솔 경고를 완전히 제압하는 최신 Streamlit 프레임 표출 엔진
+    # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
     st.dataframe(
         styler,
         width='content',
         height=680,
-        hide_index=True
+        hide_index=True,
+        selection_mode="row"
     )
