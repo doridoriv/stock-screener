@@ -55,6 +55,7 @@ COL_INFOS = [
     {"id": "ma200", "text": "200일선", "width": 90, "anchor": "e"},
     {"id": "diff", "text": "200일괴리율", "width": 110, "anchor": "center"},
     {"id": "rsi", "text": "RSI(14)", "width": 110, "anchor": "center"},
-    {"id": "per", "text": "PER 등급", "width": 140, "anchor": "w"},
-    {"id": "pbr", "text": "PBR 등급", "width": 140, "anchor": "w"}
+    {"id": "per", "text": "PER", "width": 100, "anchor": "center"},
+    {"id": "pbr", "text": "PBR", "width": 100, "anchor": "center"},
+    {"id": "roe", "text": "ROE", "width": 100, "anchor": "center"}
 ]

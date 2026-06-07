@@ -111,7 +111,7 @@ def style_screener_dataframe(df, market_type):
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
         "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
+        "rsi": "RSI(14)", "per": "PER", "pbr": "PBR", "roe": "ROE"
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
     
@@ -141,10 +141,12 @@ def style_screener_dataframe(df, market_type):
             elif v >= 50: return f"{v:.1f} (보통)"
             else: return f"{v:.1f} (침체)"
         format_dict["RSI(14)"] = format_rsi_web
-    if "PER 등급" in formatted_df.columns:
-        format_dict["PER 등급"] = lambda x: analyzer.get_per_grade(x)
-    if "PBR 등급" in formatted_df.columns:
-        format_dict["PBR 등급"] = lambda x: analyzer.get_pbr_grade(x)
+    if "PER" in formatted_df.columns:
+        format_dict["PER"] = lambda x: analyzer.get_per_grade(x)
+    if "PBR" in formatted_df.columns:
+        format_dict["PBR"] = lambda x: analyzer.get_pbr_grade(x)
+    if "ROE" in formatted_df.columns:
+        format_dict["ROE"] = lambda x: f"{x:.1f}%" if pd.notna(x) and not pd.isna(x) and str(x) != "-" else "-"
         
     styler = styler.format(format_dict)
     
@@ -163,10 +165,43 @@ def style_screener_dataframe(df, market_type):
                 if "+" in val: return "color: #D32F2F; font-weight: bold;"
                 if "-" in val: return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
+
+    def apply_per_color_rules(val):
+        try:
+            if pd.isna(val) or str(val) in ["N/A", "None", "-", "정보없음", ""]:
+                return "color: #212121;"
+            v = float(val)
+            if v < 0: return "color: #C62828; font-weight: bold;"  # 적자 (진빨강)
+            if v <= 5: return "color: #0D47A1; font-weight: bold;"  # 진파랑
+            elif v <= 10: return "color: #1976D2; font-weight: bold;"  # 파랑
+            elif v <= 15: return "color: #0288D1; font-weight: bold;"  # 하늘
+            elif v <= 20: return "color: #EF6C00; font-weight: bold;"  # 주황
+            else: return "color: #D32F2F; font-weight: bold;"  # 빨강
+        except:
+            return "color: #212121;"
+
+    def apply_roe_color_rules(val):
+        try:
+            if pd.isna(val) or str(val) in ["N/A", "None", "-", "정보없음", ""]:
+                return "color: #212121;"
+            v = float(val)
+            if v >= 20: return "color: #0D47A1; font-weight: bold;"  # 진파랑
+            elif v >= 15: return "color: #1976D2; font-weight: bold;"  # 파랑
+            elif v >= 10: return "color: #0288D1; font-weight: bold;"  # 하늘
+            elif v >= 5: return "color: #EF6C00; font-weight: bold;"  # 주황
+            else: return "color: #D32F2F; font-weight: bold;"  # 빨강
+        except:
+            return "color: #212121;"
         
     target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
     if target_cols:
         styler = styler.map(apply_strict_color_rules, subset=target_cols)
+        
+    if "PER" in formatted_df.columns:
+        styler = styler.map(apply_per_color_rules, subset=["PER"])
+        
+    if "ROE" in formatted_df.columns:
+        styler = styler.map(apply_roe_color_rules, subset=["ROE"])
         
     return styler
 
@@ -183,8 +218,9 @@ link_config = {
     "200일선": st.column_config.NumberColumn("200일선", width=110),
     "200일괴리율(%)": st.column_config.NumberColumn("200일괴리율(%)", width=120),
     "RSI(14)": st.column_config.NumberColumn("RSI(14)", width=110),
-    "PER 등급": st.column_config.TextColumn("PER 등급", width=100),
-    "PBR 등급": st.column_config.TextColumn("PBR 등급", width=100),
+    "PER": st.column_config.TextColumn("PER", width=90),
+    "PBR": st.column_config.TextColumn("PBR", width=90),
+    "ROE": st.column_config.TextColumn("ROE", width=90),
 }
 
 # 검색 버튼 트래킹 및 메인 코어 루프 엔진 실행
@@ -231,7 +267,7 @@ if btn_search:
                 df = pd.DataFrame(st.session_state.data)
                 column_order = [
                     "rank", "symbol", "name", "data_date", "market_cap", "price", 
-                    "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
+                    "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe"
                 ]
                 available_cols = [c for c in column_order if c in df.columns]
                 df = df[available_cols]
@@ -258,7 +294,6 @@ if btn_search:
                 table_placeholder.empty()
                 
                 if st.session_state.data:
-                    # 최종 저장 전 시총 정렬 및 고유 데이터화 완료 후 백업 저장
                     final_save_df = pd.DataFrame(st.session_state.data)
                     if "market_cap" in final_save_df.columns and len(final_save_df) > 0:
                         final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
@@ -297,20 +332,17 @@ if st.session_state.data:
     
     column_order = [
         "rank", "symbol", "name", "data_date", "market_cap", "price", 
-        "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"
+        "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe"
     ]
     available_cols = [c for c in column_order if c in final_df.columns]
     final_df = final_df[available_cols]
     
-    # [핵심 교정] 화면 출력 전에 시가총액 기준으로 랭킹 데이터를 매핑 고정시킴
-    # 이렇게 하면 사용자가 웹뷰에서 'RSI'나 '괴리율' 헤더를 눌러 재정렬해도, 엔비디아의 순위(1)는 유지된 채 행 전체가 움직입니다.
     if "market_cap" in final_df.columns and len(final_df) > 0:
         final_df = final_df.sort_values(by="market_cap", ascending=False)
         final_df["rank"] = range(1, len(final_df) + 1)
     
     styled_final_df = style_screener_dataframe(final_df, market)
     
-    # 간격 자동 맞춤 설정 및 가독성 확보 보장 (인터랙티브 정렬 완벽 작동형)
     st.dataframe(
         styled_final_df,
         use_container_width=False,
@@ -324,7 +356,7 @@ if st.session_state.data:
         "rank": "순위", "symbol": "티커", "name": "종목명", "data_date": "기준일",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
         "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI(14)", "per": "PER 등급", "pbr": "PBR 등급"
+        "rsi": "RSI(14)", "per": "PER", "pbr": "PBR", "roe": "ROE"
     }
     csv_df = final_df.rename(columns=rename_dict)
     csv = csv_df.to_csv(index=False).encode('utf-8-sig')
