@@ -11,9 +11,6 @@ import yfinance as yf
 from config import APP_TITLE, COL_INFOS, CACHE_DIR
 import analyzer
 
-# ==============================================================================
-# 1. 전역 세션 상태(Session State) 관리부
-# ==============================================================================
 if "us_market_cap_data" not in st.session_state:
     st.session_state.us_market_cap_data = analyzer.load_us_market_cap_cache()
 
@@ -26,62 +23,23 @@ if "is_running" not in st.session_state:
 if "stop_requested" not in st.session_state:
     st.session_state.stop_requested = False
 
-# ==============================================================================
-# 2. 기존 코어 비즈니스 메소드 이관 정의
-# ==============================================================================
 def get_csv_filename(market_val):
     today = datetime.now().strftime('%Y%m%d')
     market = "US" if market_val == "미국" else "KR"
     return os.path.join(CACHE_DIR, f"screener_backup_{market}_{today}.csv")
 
-# ==============================================================================
-# 3. Streamlit 웹 인터페이스 및 컨트롤 레이아웃 구성
-# ==============================================================================
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 st.title(f"🚀 {APP_TITLE}")
 
-# ==============================================================================
-# CSS 주입: 컬럼 너비를 헤더 텍스트 기준으로 타이트하게 최적화
-# Streamlit column_config의 width는 small/medium/large 문자열만 지원하므로
-# 실제 픽셀 제어는 CSS nth-child 셀렉터로 직접 처리합니다.
-# ==============================================================================
 st.markdown("""
 <style>
 [data-testid="stDataFrame"] div[role="gridcell"],
 [data-testid="stDataFrame"] div[role="columnheader"] {
     white-space: nowrap !important;
 }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(1),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(1)  { min-width:48px;  max-width:48px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(2),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(2)  { min-width:70px;  max-width:70px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(3),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(3)  { min-width:150px; max-width:150px; }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(4),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(4)  { min-width:90px;  max-width:90px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(5),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(5)  { min-width:105px; max-width:105px; }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(6),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(6)  { min-width:88px;  max-width:88px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(7),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(7)  { min-width:88px;  max-width:88px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(8),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(8)  { min-width:88px;  max-width:88px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(9),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(9)  { min-width:88px;  max-width:88px;  }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(10),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(10) { min-width:100px; max-width:100px; }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(11),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(11) { min-width:100px; max-width:100px; }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(12),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(12) { min-width:125px; max-width:125px; }
-[data-testid="stDataFrame"] div[role="columnheader"]:nth-child(13),
-[data-testid="stDataFrame"] div[role="gridcell"]:nth-child(13) { min-width:125px; max-width:125px; }
 </style>
 """, unsafe_allow_html=True)
 
-
-# 상단 대시보드 컨트롤 패널 구성
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns([1.5, 2, 1.5, 1.5, 1.5])
 
 with col_m1:
@@ -99,12 +57,10 @@ with col_m4:
 with col_m5:
     btn_stop = st.button("⏹ 중지", use_container_width=True, disabled=not st.session_state.is_running)
 
-# 중지 버튼 트리거 프로세스
 if btn_stop:
     st.session_state.stop_requested = True
     st.warning("사용자가 중지를 요청했습니다. 현재 종목까지만 처리하고 종료합니다...")
 
-# 불러오기 버튼 백업 복원 프로세스
 if btn_load:
     filename = get_csv_filename(market_var)
     if not os.path.exists(filename):
@@ -117,9 +73,6 @@ if btn_load:
         except Exception as e:
             st.error(f"파일을 불러오는 중 오류가 발생했습니다:\n{e}")
 
-# ==============================================================================
-# 4. 실시간 스크리닝 백그라운드 스레드 및 큐 모니터링 엔진
-# ==============================================================================
 if btn_run:
     st.session_state.is_running = True
     st.session_state.stop_requested = False
@@ -179,93 +132,101 @@ if btn_run:
     st.session_state.is_running = False
     st.rerun()
 
-# ==============================================================================
-# 5. 데이터 가공 및 테이블 인젝션 (정렬 및 행 선택 기능 집중 반영 처리부)
-# ==============================================================================
 if st.session_state.current_session_data:
     raw_records = st.session_state.current_session_data
     is_us = (market_var == "미국")
     
-    # 뼈환 데이터프레임 구조를 수치 형식 그대로 직접 빌드하여 완벽 정렬을 보장합니다.
     display_df = pd.DataFrame(raw_records)
-    column_keys = ["rank", "symbol", "name", "data_date", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr"]
-    display_df = display_df[column_keys]
+    column_keys = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr"]
+    available_keys = [k for k in column_keys if k in display_df.columns]
+    display_df = display_df[available_keys]
     
-    col_headers = [col["text"] for col in COL_INFOS]
+    date_val = raw_records[0].get("data_date", "-") if len(raw_records) > 0 else "-"
+    
+    head_col1, head_col2 = st.columns([6, 2])
+    with head_col1:
+        st.subheader("📊 분석 결과")
+    with head_col2:
+        st.markdown(f"<div style='text-align: right; margin-top: 10px;'><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
+        
+    col_headers = [col["text"] for col in COL_INFOS if col["id"] in available_keys]
     display_df.columns = col_headers
     
-    peak_diff_column_name = COL_INFOS[7]["text"]
-    diff_column_name = COL_INFOS[9]["text"]
-    
-    # Pandas 데이터 프레임 고급 스타일러 선언 및 컬럼별 포맷 바인딩
     styler = display_df.style
     
-    # 각 컬럼의 숫자 고유 타입을 망가뜨리지 않고 화면 포맷만 렌더링하는 포매터 정의
-    def format_market_cap(x):
-        return f"{x:,}억" if pd.notna(x) and x > 0 else "N/A"
+    format_dict = {}
+    if "순위" in display_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
+    if "시가총액" in display_df.columns: format_dict["시가총액"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
+    if "현재가" in display_df.columns: format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점" in display_df.columns: format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점대비" in display_df.columns: format_dict["최고점대비"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
+    if "200일선" in display_df.columns: format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일괴리율" in display_df.columns: format_dict["200일괴리율"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
+    if "RSI" in display_df.columns: format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "PER" in display_df.columns: format_dict["PER"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "PBR" in display_df.columns: format_dict["PBR"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "ROE" in display_df.columns: format_dict["ROE"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
+    if "PEG" in display_df.columns: format_dict["PEG"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "EPS3Y" in display_df.columns: format_dict["EPS3Y"] = lambda x: str(x) if pd.notna(x) else "-"
+    if "CAGR" in display_df.columns: format_dict["CAGR"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
+
+    styler = styler.format(format_dict)
+    styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
     
-    def format_price(x):
-        if pd.isna(x): return "-"
-        return f"${x:,.2f}" if is_us else f"{int(x):,}원"
-        
-    def format_peak(x):
-        if pd.isna(x) or x == "비활성": return "비활성"
+    def color_per(val):
         try:
-            val = float(x)
-            return f"${val:,.2f}" if is_us else f"{int(val):,}원"
-        except:
-            return str(x)
-            
-    def format_peak_diff(x):
-        if pd.isna(x) or x == "비활성": return "비활성"
+            v = float(val)
+            if pd.isna(v): return ""
+            if v <= 5: return "color: #0D47A1; font-weight: bold;"
+            elif v <= 10: return "color: #1976D2; font-weight: bold;"
+            elif v <= 15: return "color: #0288D1; font-weight: bold;"
+            elif v <= 20: return "color: #E65100; font-weight: bold;"
+            else: return "color: #D32F2F; font-weight: bold;"
+        except: return ""
+
+    def color_pbr(val):
         try:
-            val = float(x)
-            return f"+{val:.2f}%" if val > 0 else f"{val:.2f}%"
-        except:
-            return str(x)
-            
-    def format_ma200(x):
-        if pd.isna(x): return "-"
-        return f"${x:,.2f}" if is_us else f"{int(x):,}원"
-        
-    def format_diff(x):
-        if pd.isna(x): return "0.00%"
+            v = float(val)
+            if pd.isna(v): return ""
+            if v <= 0.5: return "color: #0D47A1; font-weight: bold;"
+            elif v <= 1.0: return "color: #1976D2; font-weight: bold;"
+            elif v <= 2.0: return "color: #0288D1; font-weight: bold;"
+            elif v <= 3.0: return "color: #E65100; font-weight: bold;"
+            else: return "color: #D32F2F; font-weight: bold;"
+        except: return ""
+
+    def color_peg(val):
         try:
-            val = float(x)
-            return f"+{val:.2f}%" if val > 0 else f"{val:.2f}%"
-        except:
-            return "0.00%"
-            
-    def format_rsi(x):
-        if pd.isna(x): return "-"
+            v = float(val)
+            if pd.isna(v): return ""
+            if v <= 0.5: return "color: #0D47A1; font-weight: bold;"
+            elif v <= 1.0: return "color: #1976D2; font-weight: bold;"
+            elif v <= 1.5: return "color: #0288D1; font-weight: bold;"
+            elif v <= 2.0: return "color: #E65100; font-weight: bold;"
+            else: return "color: #D32F2F; font-weight: bold;"
+        except: return ""
+
+    def color_roe(val):
         try:
-            rsi_val = float(x)
-            if rsi_val >= 70: return f"{rsi_val:.1f} (과열)"
-            elif rsi_val <= 30: return f"{rsi_val:.1f} (과매도)"
-            elif rsi_val >= 50: return f"{rsi_val:.1f} (보통)"
-            else: return f"{rsi_val:.1f} (침체)"
-        except:
-            return str(x)
-            
-    styler = styler.format({
-        COL_INFOS[4]["text"]: format_market_cap,
-        COL_INFOS[5]["text"]: format_price,
-        COL_INFOS[6]["text"]: format_peak,
-        COL_INFOS[7]["text"]: format_peak_diff,
-        COL_INFOS[8]["text"]: format_ma200,
-        COL_INFOS[9]["text"]: format_diff,
-        COL_INFOS[10]["text"]: format_rsi,
-        COL_INFOS[11]["text"]: lambda x: analyzer.get_per_grade(x),
-        COL_INFOS[12]["text"]: lambda x: analyzer.get_pbr_grade(x)
-    })
-    
-    # 전체 수치 항목의 가운데 정렬 및 개행(Wrap) 자동 금지 제어 설계
-    styler = styler.set_properties(**{
-        'text-align': 'center',
-        'white-space': 'nowrap'
-    })
-    
-    # 최고점대비 / 200일괴리율 조건부 텍스트 컬러 스위칭 정적 함수
+            v = float(val)
+            if pd.isna(v): return ""
+            if v >= 20: return "color: #0D47A1; font-weight: bold;"
+            elif v >= 15: return "color: #1976D2; font-weight: bold;"
+            elif v >= 10: return "color: #0288D1; font-weight: bold;"
+            elif v >= 5: return "color: #E65100; font-weight: bold;"
+            else: return "color: #D32F2F; font-weight: bold;"
+        except: return ""
+
+    def color_rsi(val):
+        try:
+            v = float(val)
+            if pd.isna(v): return ""
+            if v >= 70: return "color: #D32F2F; font-weight: bold;"
+            elif v >= 50: return "color: #E65100; font-weight: bold;"
+            elif v >= 30: return "color: #1976D2; font-weight: bold;"
+            else: return "color: #0D47A1; font-weight: bold;"
+        except: return ""
+
     def apply_strict_color_rules(val):
         try:
             v = float(val)
@@ -277,13 +238,19 @@ if st.session_state.current_session_data:
                 if "-" in val: return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
-    styler = styler.map(apply_strict_color_rules, subset=[peak_diff_column_name, diff_column_name])
+    if "PER" in display_df.columns: styler = styler.map(color_per, subset=["PER"])
+    if "PBR" in display_df.columns: styler = styler.map(color_pbr, subset=["PBR"])
+    if "PEG" in display_df.columns: styler = styler.map(color_peg, subset=["PEG"])
+    if "ROE" in display_df.columns: styler = styler.map(color_roe, subset=["ROE"])
+    if "RSI" in display_df.columns: styler = styler.map(color_rsi, subset=["RSI"])
         
-    # [가시성 보완] selection_mode="row"를 추가하여 선택 시 가로 전체 블록 하이라이트가 고정되도록 구현했습니다.
-    # 너비 제어는 페이지 상단의 CSS 주입으로 처리합니다.
+    target_cols = [c for c in ["최고점대비", "200일괴리율"] if c in display_df.columns]
+    if target_cols:
+        styler = styler.map(apply_strict_color_rules, subset=target_cols)
+        
     st.dataframe(
         styler,
-        width='content',
+        use_container_width=True,
         height=680,
         hide_index=True,
         selection_mode="row"
