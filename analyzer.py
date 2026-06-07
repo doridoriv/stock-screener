@@ -31,27 +31,36 @@ def calculate_rsi(series, period=14):
     return float(val) if not pd.isna(val) else 50.0
 
 def get_per_grade(val):
-    if pd.isna(val) or val in ["N/A", "None", "비활성", "-", "nan", ""]:
-        return "-"
+    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
+        return "정보없음"
     try:
         v = float(val)
-        return f"{v:.1f}"
+        if v < 0: return f"{v:.1f} (적자)"
+        elif v <= 10: return f"{v:.1f} (초저평가)"
+        elif v <= 20: return f"{v:.1f} (적정)"
+        elif v <= 40: return f"{v:.1f} (고평가)"
+        else: return f"{v:.1f} (초고평가)"
     except:
-        return "-"
+        return "정보없음"
 
 def get_pbr_grade(val):
-    if pd.isna(val) or val in ["N/A", "None", "비활성", "-", "nan", ""]:
-        return "-"
+    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
+        return "정보없음"
     try:
         if isinstance(val, str):
             val = val.replace(",", "").strip()
         v = float(val)
-        return f"{v:.2f}"
+        if v < 0: return f"{v:.2f} (자본잠식)"
+        elif v <= 1.0: return f"{v:.2f} (절대저평가)"
+        elif v <= 1.5: return f"{v:.2f} (적정)"
+        elif v <= 3.0: return f"{v:.2f} (고평가)"
+        else: return f"{v:.2f} (초고평가)"
     except:
-        return "-"
+        return "정보없음"
 
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
+        # [개선] 코스피/코스닥을 모두 포함하여 FinanceDataReader 데이터 수집 경로 지원
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             df = fdr.DataReader(symbol, start=start_date, end=end_date)
         else:
@@ -72,6 +81,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         tickers_to_screen = []
         kr_fundamental_map = {}
         
+        # [개선] 사용자가 코스피 혹은 코스닥을 선택함에 따라 불러올 FinanceDataReader 소스를 분기 처리
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
             market_text = "코스닥" if market == "한국(코스닥)" else "코스피"
@@ -89,8 +99,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 kr_fundamental_map[r_data['Code']] = {
                     "per": r_data['PER'] if 'PER' in r_data else "N/A",
                     "pbr": r_data['PBR'] if 'PBR' in r_data else "N/A",
-                    "bps": r_data['BPS'] if 'BPS' in r_data else "N/A",
-                    "roe": r_data['ROE'] if 'ROE' in r_data else "N/A"
+                    "bps": r_data['BPS'] if 'BPS' in r_data else "N/A"
                 }
         else:
             for ticker, info in list(us_market_cap_data.items())[:top_n]:
@@ -133,39 +142,32 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 diff_val = ((current_price - current_ma200) / current_ma200) * 100
                 rsi_val = calculate_rsi(close_series, 14)
 
-                per_val, pbr_val, roe_val = float('nan'), float('nan'), float('nan')
+                per_val, pbr_val = float('nan'), float('nan')
                 if opt_fundamental:
                     if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                        f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A", "roe": "N/A"})
+                        f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
                         per_val_raw = f_info.get("per", "N/A")
-                        pbr_val_raw = f_info.get("pbr", "N/A")
-                        roe_val_raw = f_info.get("roe", "N/A")
                         
                         if pd.isna(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
                             try:
+                                # [개선] 야후 파이낸스 정보 보완 시 코스닥은 .KQ, 코스피는 .KS를 붙이도록 정밀 매핑
                                 suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
                                 t_obj = yf.Ticker(f"{symbol}{suffix}")
                                 info = t_obj.info
                                 per_val_raw = info.get('trailingPE') or info.get('forwardPE') or float('nan')
-                                if pd.isna(roe_val_raw) or str(roe_val_raw) in ["N/A", "nan", "None"]:
-                                    roe_info = info.get('returnOnEquity')
-                                    if roe_info is not None:
-                                        roe_val_raw = float(roe_info) * 100
-                            except: pass
+                            except: per_val_raw = float('nan')
                             
                         try: per_val = float(per_val_raw) if not pd.isna(per_val_raw) else float('nan')
                         except: per_val = float('nan')
-                        try: pbr_val = float(pbr_val_raw) if not pd.isna(pbr_val_raw) else float('nan')
+                        
+                        try: pbr_val = float(f_info.get("pbr", float('nan')))
                         except: pbr_val = float('nan')
-                        try: roe_val = float(roe_val_raw) if not pd.isna(roe_val_raw) else float('nan')
-                        except: roe_val = float('nan')
                     else:
                         try:
                             t_obj = yf.Ticker(symbol)
                             info = t_obj.info
                             per_val_raw = info.get('trailingPE', float('nan'))
                             pbr_val_raw = info.get('priceToBook', float('nan'))
-                            roe_val_raw = info.get('returnOnEquity', float('nan'))
                             
                             if (pbr_val_raw == 'N/A' or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get('bookValue'):
                                 try:
@@ -177,24 +179,19 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             except: per_val = float('nan')
                             try: pbr_val = float(pbr_val_raw) if pbr_val_raw != 'N/A' else float('nan')
                             except: pbr_val = float('nan')
-                            try:
-                                if roe_val_raw != 'N/A' and not pd.isna(roe_val_raw) and roe_val_raw is not None:
-                                    roe_val = float(roe_val_raw) * 100
-                                else:
-                                    roe_val = float('nan')
-                            except: roe_val = float('nan')
                         except: 
-                            per_val, pbr_val, roe_val = float('nan'), float('nan'), float('nan')
+                            per_val, pbr_val = float('nan'), float('nan')
 
                 peak_price, peak_diff = float('nan'), float('nan')
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
 
+                # 숫자가 우선되고 완벽하게 정렬될 수 있도록 원본 수치값 자체를 보존하여 전달합니다.
                 app_queue.put({"type": "data", "data": {
                     "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
-                    "per": per_val, "pbr": pbr_val, "roe": roe_val, "peak": peak_price, "peak_diff": peak_diff
+                    "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff
                 }})
             except: continue
             time.sleep(0.05)
