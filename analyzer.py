@@ -58,34 +58,6 @@ def get_pbr_grade(val):
     except:
         return "정보없음"
 
-def evaluate_stock_grade(data_row):
-    per = data_row.get("per")
-    pbr = data_row.get("pbr")
-    rsi = data_row.get("rsi")
-    
-    score = 0
-    if pd.notna(per) and isinstance(per, (int, float)) and per > 0:
-        if per <= 10: score += 30
-        elif per <= 20: score += 20
-        elif per <= 40: score += 10
-    if pd.notna(pbr) and isinstance(pbr, (int, float)) and pbr > 0:
-        if pbr <= 1.0: score += 30
-        elif pbr <= 1.5: score += 20
-        elif pbr <= 3.0: score += 10
-    if pd.notna(rsi) and isinstance(rsi, (int, float)):
-        if rsi <= 30: score += 40
-        elif rsi <= 50: score += 20
-        elif rsi <= 70: score += 10
-        
-    if score >= 80:
-        return "S", "매우 저평가되었으며 높은 매수 매력도를 가지고 있습니다."
-    elif score >= 60:
-        return "A", "적정 수준 이하로 저평가되어 투자 가치가 높은 종목입니다."
-    elif score >= 40:
-        return "B", "보통 수준의 밸류에이션 리스크 및 모멘텀을 보입니다."
-    else:
-        return "C", "상대적으로 고평가되었거나 단기 과열 상태이므로 주의를 요합니다."
-
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
@@ -97,7 +69,7 @@ def fetch_stock_data(market, symbol, start_date, end_date):
             return None
             
         if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+            df.columns = [col[0] for col in df.columns]
             
         return df
     except:
@@ -220,6 +192,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         except: 
                             per_val, pbr_val = float('nan'), float('nan')
 
+                # ROE 데이터 추출
                 try:
                     if t_obj is not None:
                         info = t_obj.info
@@ -228,10 +201,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
-                if pd.isna(roe_val) or roe_val == 0:
-                    if pd.notna(per_val) and per_val > 0 and pd.notna(pbr_val) and pbr_val > 0:
-                        roe_val = (pbr_val / per_val) * 100
-
+                # EPS3Y 및 CAGR 연간 데이터 기반 판정 코드
                 try:
                     if t_obj is not None:
                         financials = t_obj.financials
@@ -266,6 +236,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
+                # PEG 계산 (PEG = PER / EPS CAGR(3년))
                 if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
                     try:
                         peg_val = per_val / cagr_val
@@ -290,4 +261,3 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             app_queue.put({"type": "done", "count": total_stocks, "text": f"{market} 상위 {top_n}종목 스크리닝 완료!"})
     except Exception as e:
         app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})
-}

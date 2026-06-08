@@ -99,11 +99,11 @@ def style_screener_dataframe(df, market_type):
     
     styler = formatted_df.style
     format_dict = {}
-    if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) and not pd.isna(x) else "-"
-    if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and not pd.isna(x) else "-"
-    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: ("-" if pd.isna(x) else f"${x:,.2f}" if is_us else f"{int(x):,}원")
-    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: ("-" if pd.isna(x) else f"${x:,.2f}" if is_us else f"{int(x):,}원")
-    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: ("-" if pd.isna(x) else f"${x:,.2f}" if is_us else f"{int(x):,}원")
+    if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
+    if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
+    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
     if "최고점대비" in formatted_df.columns: format_dict["최고점대비"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
     if "200일괴리율(%)" in formatted_df.columns: format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
     if "RSI" in formatted_df.columns: format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
@@ -117,6 +117,7 @@ def style_screener_dataframe(df, market_type):
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
     
+    # 지표별 조건부 스위칭 색상 테이블 바인딩
     def color_per(val):
         try:
             v = float(val)
