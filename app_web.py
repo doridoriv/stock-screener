@@ -7,7 +7,15 @@ from datetime import datetime
 import os
 
 import analyzer
-from config import APP_TITLE, CACHE_DIR
+from config import (
+    APP_TITLE, 
+    CACHE_DIR, 
+    DEFAULT_US_TICKERS, 
+    DEFAULT_KOSPI_TICKERS, 
+    KOSPI_NAME_MAP, 
+    DEFAULT_KOSDAQ_TICKERS, 
+    KOSDAQ_NAME_MAP
+)
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
@@ -41,404 +49,105 @@ with col3:
 if btn_stop:
     if st.session_state.stop_event is not None:
         st.session_state.stop_event.set()
-    st.toast("⏹ 스크리닝 중지 신호를 보냈습니다.", icon="⚠️")
+        st.success("⏹ 검색 중지 요청이 전송되었습니다.")
 
-if btn_load:
-    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-    if os.path.exists(file_path):
-        try:
-            loaded_df = pd.read_csv(file_path)
-            st.session_state.data = loaded_df.to_dict(orient='records')
-            st.toast(f"📂 {market} 시장의 최근 자동저장 데이터를 불러왔습니다.", icon="✅")
-        except Exception as e:
-            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
+def make_link(row, market_val):
+    sym = str(row['symbol'])
+    if "한국" in market_val or ".KS" in sym or ".KQ" in sym:
+        code = sym.split('.')[0]
+        return f"https://finance.naver.com/item/main.naver?code={code}"
     else:
-        st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
-
-def style_screener_dataframe(df, market_type):
-    formatted_df = df.copy()
-    is_us = (market_type == "미국")
-    
-    if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
-        urls = []
-        for idx, row in formatted_df.iterrows():
-            sym = str(row["symbol"]).strip()
-            row_name = str(row["name"]).strip()
-            
-            if is_us:
-                if sym == "BRK-B":
-                    base_url = "https://m.stock.naver.com/worldstock/stock/BRKb/total"
-                else:
-                    nyse_tickers = {
-                        "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
-                        "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
-                        "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
-                        "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
-                        "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
-                    }
-                    if sym in nyse_tickers:
-                        suffix = ".N"
-                    else:
-                        suffix = ".O"
-                    base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
-                url = f"{base_url}?ticker={sym}&name={row_name}"
-            else:
-                code_str = str(sym).zfill(6)
-                url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
-            urls.append(url)
-        formatted_df["symbol"] = urls
-        formatted_df["name"] = urls
-            
-    rename_dict = {
-        "rank": "순위", "grade": "등급", "symbol": "티커", "name": "종목명",
-        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
-        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR", "comment": "한줄평"
-    }
-    formatted_df = formatted_df.rename(columns=rename_dict)
-    
-    styler = formatted_df.style
-    format_dict = {}
-    if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
-    if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
-    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점대비" in formatted_df.columns: format_dict["최고점대비"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
-    if "200일괴리율(%)" in formatted_df.columns: format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
-    if "RSI" in formatted_df.columns: format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PER" in formatted_df.columns: format_dict["PER"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PBR" in formatted_df.columns: format_dict["PBR"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "ROE" in formatted_df.columns: format_dict["ROE"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
-    if "PEG" in formatted_df.columns: format_dict["PEG"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "EPS3Y" in formatted_df.columns: format_dict["EPS3Y"] = lambda x: str(x) if pd.notna(x) else "-"
-    if "CAGR" in formatted_df.columns: format_dict["CAGR"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
-        
-    styler = styler.format(format_dict)
-    styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
-    
-    def color_grade(val):
-        if val == "A": return "background-color: #E8F5E9; color: #2E7D32; font-weight: bold;"
-        elif val == "B": return "background-color: #E3F2FD; color: #1565C0; font-weight: bold;"
-        elif val == "C": return "background-color: #FFF3E0; color: #EF6C00; font-weight: bold;"
-        elif val == "D": return "background-color: #FFEBEE; color: #C62828; font-weight: bold;"
-        return ""
-
-    def color_per(val):
-        try:
-            v = float(val)
-            if pd.isna(v): return ""
-            if v <= 5: return "color: #0D47A1; font-weight: bold;"
-            elif v <= 10: return "color: #1976D2; font-weight: bold;"
-            elif v <= 15: return "color: #0288D1; font-weight: bold;"
-            elif v <= 20: return "color: #E65100; font-weight: bold;"
-            else: return "color: #D32F2F; font-weight: bold;"
-        except: return ""
-
-    def color_pbr(val):
-        try:
-            v = float(val)
-            if pd.isna(v): return ""
-            if v <= 0.5: return "color: #0D47A1; font-weight: bold;"
-            elif v <= 1.0: return "color: #1976D2; font-weight: bold;"
-            elif v <= 2.0: return "color: #0288D1; font-weight: bold;"
-            elif v <= 3.0: return "color: #E65100; font-weight: bold;"
-            else: return "color: #D32F2F; font-weight: bold;"
-        except: return ""
-
-    def color_peg(val):
-        try:
-            v = float(val)
-            if pd.isna(v): return ""
-            if v <= 0.5: return "color: #0D47A1; font-weight: bold;"
-            elif v <= 1.0: return "color: #1976D2; font-weight: bold;"
-            elif v <= 1.5: return "color: #0288D1; font-weight: bold;"
-            elif v <= 2.0: return "color: #E65100; font-weight: bold;"
-            else: return "color: #D32F2F; font-weight: bold;"
-        except: return ""
-
-    def color_roe(val):
-        try:
-            v = float(val)
-            if pd.isna(v): return ""
-            if v >= 20: return "color: #0D47A1; font-weight: bold;"
-            elif v >= 15: return "color: #1976D2; font-weight: bold;"
-            elif v >= 10: return "color: #0288D1; font-weight: bold;"
-            elif v >= 5: return "color: #E65100; font-weight: bold;"
-            else: return "color: #D32F2F; font-weight: bold;"
-        except: return ""
-
-    def color_rsi(val):
-        try:
-            v = float(val)
-            if pd.isna(v): return ""
-            if v >= 70: return "color: #D32F2F; font-weight: bold;"
-            elif v >= 50: return "color: #E65100; font-weight: bold;"
-            elif v >= 30: return "color: #1976D2; font-weight: bold;"
-            else: return "color: #0D47A1; font-weight: bold;"
-        except: return ""
-
-    def apply_strict_color_rules(val):
-        try:
-            v = float(val)
-            if v > 0: return "color: #D32F2F; font-weight: bold;"
-            elif v < 0: return "color: #1976D2; font-weight: bold;"
-        except:
-            if isinstance(val, str):
-                if "+" in val: return "color: #D32F2F; font-weight: bold;"
-                if "-" in val: return "color: #1976D2; font-weight: bold;"
-        return "color: #212121;"
-        
-    if "등급" in formatted_df.columns: styler = styler.map(color_grade, subset=["등급"])
-    if "PER" in formatted_df.columns: styler = styler.map(color_per, subset=["PER"])
-    if "PBR" in formatted_df.columns: styler = styler.map(color_pbr, subset=["PBR"])
-    if "PEG" in formatted_df.columns: styler = styler.map(color_peg, subset=["PEG"])
-    if "ROE" in formatted_df.columns: styler = styler.map(color_roe, subset=["ROE"])
-    if "RSI" in formatted_df.columns: styler = styler.map(color_rsi, subset=["RSI"])
-        
-    target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
-    if target_cols:
-        styler = styler.map(apply_strict_color_rules, subset=target_cols)
-    return styler
-
-link_config = {
-    "순위": st.column_config.NumberColumn("순위", width="small", format="%d"),
-    "등급": st.column_config.TextColumn("등급", width="small"),
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width="small"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
-    "시가총액(억)": st.column_config.NumberColumn("시가총액(억)", width="small"),
-    "현재가": st.column_config.NumberColumn("현재가", width="small"),
-    "최고점": st.column_config.NumberColumn("최고점", width="small"),
-    "최고점대비": st.column_config.NumberColumn("최고점대비", width="small"),
-    "200일선": st.column_config.NumberColumn("200일선", width="small"),
-    "200일괴리율(%)": st.column_config.NumberColumn("200일괴리율(%)", width="small"),
-    "RSI": st.column_config.NumberColumn("RSI", width="small"),
-    "PER": st.column_config.NumberColumn("PER", width="small"),
-    "PBR": st.column_config.NumberColumn("PBR", width="small"),
-    "ROE": st.column_config.NumberColumn("ROE", width="small"),
-    "PEG": st.column_config.NumberColumn("PEG", width="small"),
-    "EPS3Y": st.column_config.TextColumn("EPS3Y", width="small"),
-    "CAGR": st.column_config.NumberColumn("CAGR", width="small"),
-    "한줄평": st.column_config.TextColumn("한줄평", width="large")
-}
+        return f"https://finance.yahoo.com/quote/{sym}"
 
 if btn_search:
-    st.session_state.data = []  
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    dashboard_placeholder = st.empty()
-    toppick_placeholder = st.empty()
-    header_placeholder = st.empty()
-    table_placeholder = st.empty()
-    
+    st.session_state.data = []
     app_queue = queue.Queue()
     st.session_state.stop_event = threading.Event()
-    us_market_cap_data = analyzer.load_us_market_cap_cache()
-    current_stop_event = st.session_state.stop_event
     
-    worker_thread = threading.Thread(
+    if market == "미국":
+        tickers = [{"rank": i+1, "symbol": t, "name": analyzer.US_NAME_MAP.get(t, t), "market_cap": 0} for i, t in enumerate(DEFAULT_US_TICKERS[:top_n])]
+    elif market == "한국(코스피)":
+        tickers = [{"rank": i+1, "symbol": t, "name": KOSPI_NAME_MAP.get(t, t), "market_cap": 0} for i, t in enumerate(DEFAULT_KOSPI_TICKERS[:top_n])]
+    elif market == "한국(코스닥)":
+        tickers = [{"rank": i+1, "symbol": t, "name": KOSDAQ_NAME_MAP.get(t, t), "market_cap": 0} for i, t in enumerate(DEFAULT_KOSDAQ_TICKERS[:top_n])]
+        
+    t_worker = threading.Thread(
         target=analyzer.screening_worker,
-        args=(market, top_n, app_queue, lambda: current_stop_event.is_set(), opt_fundamental, opt_peak, us_market_cap_data),
-        daemon=True
+        args=(market, tickers, app_queue, st.session_state.stop_event, opt_fundamental, opt_peak)
     )
-    worker_thread.start()
+    t_worker.start()
     
-    while True:
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    collected_count = 0
+    while t_worker.is_alive() or not app_queue.empty():
+        if st.session_state.stop_event.is_set():
+            break
         try:
-            msg = app_queue.get_nowait()
-            m_type = msg.get("type")
-            
-            if m_type == "progress":
-                progress_bar.progress(msg["value"] / 100)
-                status_text.text(msg["text"])
-                
-            elif m_type == "data":
+            msg = app_queue.get(timeout=0.5)
+            if msg.get("type") == "data":
                 st.session_state.data.append(msg["data"])
-                df = pd.DataFrame(st.session_state.data)
-                
-                column_order = ["rank", "grade", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "comment"]
-                available_cols = [c for c in column_order if c in df.columns]
-                
-                if "market_cap" in df.columns and len(df) > 0:
-                    df = df.sort_values(by="market_cap", ascending=False)
-                    df["rank"] = range(1, len(df) + 1)
-                
-                display_df = df[available_cols]
-                styled_live_df = style_screener_dataframe(display_df, market)
-                
-                # 실시간 등급 통계 요약 대시보드 및 탑픽 렌더링
-                if "grade" in df.columns:
-                    g_counts = df["grade"].value_counts()
-                    dashboard_placeholder.markdown(
-                        f"""
-                        <div style='display: flex; gap: 15px; margin-bottom: 15px;'>
-                            <div style='flex: 1; background-color: #E8F5E9; padding: 12px; border-radius: 8px; border-left: 5px solid #2E7D32;'>
-                                <div style='font-size: 0.85rem; color: #2E7D32; font-weight: bold;'>👑 A등급 (탑픽)</div>
-                                <div style='font-size: 1.6rem; font-weight: bold; color: #1B5E20;'>{g_counts.get("A", 0)}개</div>
-                            </div>
-                            <div style='flex: 1; background-color: #E3F2FD; padding: 12px; border-radius: 8px; border-left: 5px solid #1565C0;'>
-                                <div style='font-size: 0.85rem; color: #1565C0; font-weight: bold;'>📈 B등급 (우수)</div>
-                                <div style='font-size: 1.6rem; font-weight: bold; color: #0D47A1;'>{g_counts.get("B", 0)}개</div>
-                            </div>
-                            <div style='flex: 1; background-color: #FFF3E0; padding: 12px; border-radius: 8px; border-left: 5px solid #EF6C00;'>
-                                <div style='font-size: 0.85rem; color: #EF6C00; font-weight: bold;'>⚖️ C등급 (보통)</div>
-                                <div style='font-size: 1.6rem; font-weight: bold; color: #E65100;'>{g_counts.get("C", 0)}개</div>
-                            </div>
-                            <div style='flex: 1; background-color: #FFEBEE; padding: 12px; border-radius: 8px; border-left: 5px solid #C62828;'>
-                                <div style='font-size: 0.85rem; color: #C62828; font-weight: bold;'>⚠️ D등급 (주의)</div>
-                                <div style='font-size: 1.6rem; font-weight: bold; color: #B71C1C;'>{g_counts.get("D", 0)}개</div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    
-                    a_df = df[df["grade"] == "A"]
-                    if not a_df.empty:
-                        top_picks_html = "".join([f"<li><b>{row['name']} ({row['symbol']})</b>: {row['comment']}</li>" for _, row in a_df.iterrows()])
-                        toppick_placeholder.markdown(
-                            f"""
-                            <div style='background-color: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #C8E6C9;'>
-                                <h4 style='margin-top: 0; color: #2E7D32; margin-bottom: 8px;'>🎯 A등급 최우수 탑픽 후보군</h4>
-                                <ul style='margin-bottom: 0; color: #1B5E20; padding-left: 20px;'>{top_picks_html}</ul>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                
-                date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
-                header_placeholder.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'><h3>📊 실시간 분석 결과</h3><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
-                
-                table_placeholder.dataframe(
-                    styled_live_df, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    column_config=link_config,
-                    selection_mode="row"
-                )
-                
-            elif m_type == "done":
-                progress_bar.progress(1.0)
-                status_text.success(msg["text"])
-                header_placeholder.empty()
-                table_placeholder.empty()
-                
-                if st.session_state.data:
-                    final_save_df = pd.DataFrame(st.session_state.data)
-                    if "market_cap" in final_save_df.columns and len(final_save_df) > 0:
-                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
-                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
-                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    final_save_df.to_csv(file_path, index=False, encoding='utf-8-sig')
+                collected_count += 1
+                progress_val = min(collected_count / len(tickers), 1.0)
+                progress_bar.progress(progress_val)
+                status_text.text(f"⏳ 분석 중... ({collected_count}/{len(tickers)}) - {msg['data']['name']}")
+            elif msg.get("type") == "done":
                 break
-                
-            elif m_type == "error":
-                st.error(msg["text"])
-                header_placeholder.empty()
-                table_placeholder.empty()
-                break
-                
-            elif m_type == "stopped":
-                st.warning(f"분석 중지: {msg['count']}개 완료")
-                header_placeholder.empty()
-                table_placeholder.empty()
-                
-                if st.session_state.data:
-                    final_save_df = pd.DataFrame(st.session_state.data)
-                    if "market_cap" in final_save_df.columns and len(final_save_df) > 0:
-                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
-                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
-                    file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-                    final_save_df.to_csv(file_path, index=False, encoding='utf-8-sig')
-                break
-                
         except queue.Empty:
-            time.sleep(0.1)
-            if not worker_thread.is_alive() and app_queue.empty():
-                break
+            continue
+            
+    t_worker.join()
+    status_text.text("✅ 분석 완료!")
+    progress_bar.empty()
+
+if btn_load:
+    csv_path = os.path.join(CACHE_DIR, f"screener_data_{market}.csv")
+    if os.path.exists(csv_path):
+        st.session_state.data = pd.read_csv(csv_path).to_dict(orient="records")
+        st.success(f"📂 로컬 캐시 데이터 로드 완료! ({market})")
+    else:
+        st.error(f"⚠️ 저장된 캐시 파일이 없습니다: {csv_path}")
 
 if st.session_state.data:
     final_df = pd.DataFrame(st.session_state.data)
-    date_val = final_df["data_date"].iloc[0] if "data_date" in final_df.columns and len(final_df) > 0 else "-"
+    date_val = final_df["data_date"].iloc[0] if "data_date" in final_df.columns else datetime.now().strftime('%Y-%m-%d')
     
-    # 불러오기 및 스크리닝 완료 상태 시 대시보드 고정 표시
-    if "grade" in final_df.columns:
-        g_counts = final_df["grade"].value_counts()
-        st.markdown(
-            f"""
-            <div style='display: flex; gap: 15px; margin-bottom: 15px;'>
-                <div style='flex: 1; background-color: #E8F5E9; padding: 12px; border-radius: 8px; border-left: 5px solid #2E7D32;'>
-                    <div style='font-size: 0.85rem; color: #2E7D32; font-weight: bold;'>👑 A등급 (탑픽)</div>
-                    <div style='font-size: 1.6rem; font-weight: bold; color: #1B5E20;'>{g_counts.get("A", 0)}개</div>
-                </div>
-                <div style='flex: 1; background-color: #E3F2FD; padding: 12px; border-radius: 8px; border-left: 5px solid #1565C0;'>
-                    <div style='font-size: 0.85rem; color: #1565C0; font-weight: bold;'>📈 B등급 (우수)</div>
-                    <div style='font-size: 1.6rem; font-weight: bold; color: #0D47A1;'>{g_counts.get("B", 0)}개</div>
-                </div>
-                <div style='flex: 1; background-color: #FFF3E0; padding: 12px; border-radius: 8px; border-left: 5px solid #EF6C00;'>
-                    <div style='font-size: 0.85rem; color: #EF6C00; font-weight: bold;'>⚖️ C등급 (보통)</div>
-                    <div style='font-size: 1.6rem; font-weight: bold; color: #E65100;'>{g_counts.get("C", 0)}개</div>
-                </div>
-                <div style='flex: 1; background-color: #FFEBEE; padding: 12px; border-radius: 8px; border-left: 5px solid #C62828;'>
-                    <div style='font-size: 0.85rem; color: #C62828; font-weight: bold;'>⚠️ D등급 (주의)</div>
-                    <div style='font-size: 1.6rem; font-weight: bold; color: #B71C1C;'>{g_counts.get("D", 0)}개</div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        a_df = final_df[final_df["grade"] == "A"]
-        if not a_df.empty:
-            top_picks_html = "".join([f"<li><b>{row['name']} ({row['symbol']})</b>: {row['comment']}</li>" for _, row in a_df.iterrows()])
-            st.markdown(
-                f"""
-                <div style='background-color: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #C8E6C9;'>
-                    <h4 style='margin-top: 0; color: #2E7D32; margin-bottom: 8px;'>🎯 A등급 최우수 탑픽 후보군</h4>
-                    <ul style='margin-bottom: 0; color: #1B5E20; padding-left: 20px;'>{top_picks_html}</ul>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    head_col1, head_col2 = st.columns([6, 2])
-    with head_col1:
-        st.subheader("📊 분석 결과")
-    with head_col2:
-        st.markdown(f"<div style='text-align: right; margin-top: 10px;'><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
-        
-    column_order = ["rank", "grade", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "comment"]
+    st.markdown(f"<div style='text-align: right;'><span style='background-color: #E5E7EB; padding: 5px 10px; border-radius: 5px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
+    
+    column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr"]
     available_cols = [c for c in column_order if c in final_df.columns]
     
     if "market_cap" in final_df.columns and len(final_df) > 0:
         final_df = final_df.sort_values(by="market_cap", ascending=False)
         final_df["rank"] = range(1, len(final_df) + 1)
         
+    final_df['link'] = final_df.apply(lambda r: make_link(r, market), axis=1)
+    
+    if 'link' not in available_cols:
+        available_cols.insert(3, 'link')
+        
     display_final_df = final_df[available_cols]
-    styled_final_df = style_screener_dataframe(display_final_df, market)
+    
+    rename_dict = {
+        "rank": "순위", "symbol": "티커", "name": "종목명", "link": "링크",
+        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
+        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "이격도",
+        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE",
+        "peg": "PEG", "eps3y": "EPS 추이", "cagr": "성장률"
+    }
+    
+    display_final_df = display_final_df.rename(columns=rename_dict)
+    
+    link_config = {
+        "링크": st.column_config.LinkColumn("네이버/야후 링크", display_text="보기")
+    }
     
     st.dataframe(
-        styled_final_df,
+        display_final_df,
         use_container_width=True,
         height=650,
         hide_index=True,
         column_config=link_config,
         selection_mode="row"
     )
-    
-    rename_dict = {
-        "rank": "순위", "grade": "등급", "symbol": "티커", "name": "종목명",
-        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
-        "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR", "comment": "한줄평"
-    }
-    csv_df = display_final_df.rename(columns=rename_dict)
-    csv = csv_df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button(
-        label="📥 결과 다운로드 (CSV)",
-        data=csv,
-        file_name=f"screener_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv",
-    )
-else:
-    st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
