@@ -72,7 +72,7 @@ def style_screener_dataframe(df, market_type):
                     nyse_tickers = {
                         "BRK-B", "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG",
                         "ORCL", "BAC", "CVX", "KO", "PEP", "CRM", "MCD", "IBM", "TMO", "ACN",
-                        "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "NOW", "MS",
+                        "WFC", "AXP", "GE", "NKE", "LIN", "PM", "ABT", "CAT", "TXN", "MS",
                         "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
                         "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
                     }

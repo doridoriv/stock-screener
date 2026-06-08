@@ -255,4 +255,3 @@ if st.session_state.current_session_data:
         hide_index=True,
         selection_mode="row"
     )
-}
