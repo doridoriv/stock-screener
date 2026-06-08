@@ -261,3 +261,54 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             app_queue.put({"type": "done", "count": total_stocks, "text": f"{market} 상위 {top_n}종목 스크리닝 완료!"})
     except Exception as e:
         app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})
+
+# ====================================================================
+# 깃허브 액션즈(스케줄러) 연동용 메인 컨트롤러 코드 자동 탑재 (수정/보완)
+# ====================================================================
+if __name__ == "__main__":
+    import queue
+    from config import CACHE_DIR
+    
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR)
+        
+    us_cache_data = load_us_market_cap_cache()
+    target_markets = ["한국(코스피)", "한국(코스닥)", "미국"]
+    
+    print(f"[{datetime.now()}] >>> 깃허브 자동 정기 스크리닝 배치 작업을 시작합니다.")
+    
+    for target_m in target_markets:
+        print(f"[{datetime.now()}] 진행 중: {target_m} 시장 데이터 수집 및 분석 처리중...")
+        sync_queue = queue.Queue()
+        
+        screening_worker(
+            market=target_m,
+            top_n=50,
+            app_queue=sync_queue,
+            stop_requested_func=lambda: False,
+            opt_fundamental=True,
+            opt_peak=True,
+            us_market_cap_data=us_cache_data
+        )
+        
+        batch_records = []
+        while not sync_queue.empty():
+            packet = sync_queue.get()
+            if packet.get("type") == "data":
+                batch_records.append(packet["data"])
+            elif packet.get("type") == "error":
+                print(f"    [!] 에러 발생 ({target_m}): {packet.get('text')}")
+                
+        if batch_records:
+            final_batch_df = pd.DataFrame(batch_records)
+            if "market_cap" in final_batch_df.columns and len(final_batch_df) > 0:
+                final_batch_df = final_batch_df.sort_values(by="market_cap", ascending=False)
+                final_batch_df["rank"] = range(1, len(final_batch_df) + 1)
+                
+            out_file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{target_m}.csv")
+            final_batch_df.to_csv(out_file_path, index=False, encoding='utf-8-sig')
+            print(f"    [✓] 완료: {target_m} 시장 파일 저장 성공 ({len(final_batch_df)}개 종목) -> {out_file_path}")
+        else:
+            print(f"    [!] 경고: {target_m} 시장의 분석 결과 데이터가 비어있습니다.")
+            
+    print(f"[{datetime.now()}] >>> 모든 시장의 스케줄러 배치 작업이 안전하게 완료되었습니다.")
