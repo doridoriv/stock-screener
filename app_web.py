@@ -117,7 +117,6 @@ def style_screener_dataframe(df, market_type):
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
     
-    # 지표별 조건부 스위칭 색상 테이블 바인딩
     def color_per(val):
         try:
             v = float(val)
