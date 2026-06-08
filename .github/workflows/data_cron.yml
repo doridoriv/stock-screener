@@ -1,0 +1,36 @@
+name: Daily Stock Screener Data Collection
+
+on:
+  schedule:
+    # 매일 UTC 21:00에 실행 (한국 시간으로 매일 오전 6시 정각에 자동 수행)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # 사용자가 깃허브 웹 UI에서 수동으로 즉시 구동 가능하도록 개방
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run data collection
+      run: |
+        python collect_data.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add cache/*.csv
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update daily screener data cache [skip ci]" && git push)
