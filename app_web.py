@@ -90,10 +90,10 @@ def style_screener_dataframe(df, market_type):
         formatted_df["name"] = urls
             
     rename_dict = {
-        "rank": "순위", "symbol": "티커", "name": "종목명",
+        "rank": "순위", "grade": "등급", "symbol": "티커", "name": "종목명",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
         "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR"
+        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR", "comment": "한줄평"
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
     
@@ -117,6 +117,13 @@ def style_screener_dataframe(df, market_type):
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{'text-align': 'center', 'white-space': 'nowrap'})
     
+    def color_grade(val):
+        if val == "A": return "background-color: #E8F5E9; color: #2E7D32; font-weight: bold;"
+        elif val == "B": return "background-color: #E3F2FD; color: #1565C0; font-weight: bold;"
+        elif val == "C": return "background-color: #FFF3E0; color: #EF6C00; font-weight: bold;"
+        elif val == "D": return "background-color: #FFEBEE; color: #C62828; font-weight: bold;"
+        return ""
+
     def color_per(val):
         try:
             v = float(val)
@@ -182,6 +189,7 @@ def style_screener_dataframe(df, market_type):
                 if "-" in val: return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
         
+    if "등급" in formatted_df.columns: styler = styler.map(color_grade, subset=["등급"])
     if "PER" in formatted_df.columns: styler = styler.map(color_per, subset=["PER"])
     if "PBR" in formatted_df.columns: styler = styler.map(color_pbr, subset=["PBR"])
     if "PEG" in formatted_df.columns: styler = styler.map(color_peg, subset=["PEG"])
@@ -195,6 +203,7 @@ def style_screener_dataframe(df, market_type):
 
 link_config = {
     "순위": st.column_config.NumberColumn("순위", width="small", format="%d"),
+    "등급": st.column_config.TextColumn("등급", width="small"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width="small"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
     "시가총액(억)": st.column_config.NumberColumn("시가총액(억)", width="small"),
@@ -209,13 +218,16 @@ link_config = {
     "ROE": st.column_config.NumberColumn("ROE", width="small"),
     "PEG": st.column_config.NumberColumn("PEG", width="small"),
     "EPS3Y": st.column_config.TextColumn("EPS3Y", width="small"),
-    "CAGR": st.column_config.NumberColumn("CAGR", width="small")
+    "CAGR": st.column_config.NumberColumn("CAGR", width="small"),
+    "한줄평": st.column_config.TextColumn("한줄평", width="large")
 }
 
 if btn_search:
     st.session_state.data = []  
     progress_bar = st.progress(0)
     status_text = st.empty()
+    dashboard_placeholder = st.empty()
+    toppick_placeholder = st.empty()
     header_placeholder = st.empty()
     table_placeholder = st.empty()
     
@@ -243,7 +255,8 @@ if btn_search:
             elif m_type == "data":
                 st.session_state.data.append(msg["data"])
                 df = pd.DataFrame(st.session_state.data)
-                column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr"]
+                
+                column_order = ["rank", "grade", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "comment"]
                 available_cols = [c for c in column_order if c in df.columns]
                 
                 if "market_cap" in df.columns and len(df) > 0:
@@ -252,6 +265,46 @@ if btn_search:
                 
                 display_df = df[available_cols]
                 styled_live_df = style_screener_dataframe(display_df, market)
+                
+                # 실시간 등급 통계 요약 대시보드 및 탑픽 렌더링
+                if "grade" in df.columns:
+                    g_counts = df["grade"].value_counts()
+                    dashboard_placeholder.markdown(
+                        f"""
+                        <div style='display: flex; gap: 15px; margin-bottom: 15px;'>
+                            <div style='flex: 1; background-color: #E8F5E9; padding: 12px; border-radius: 8px; border-left: 5px solid #2E7D32;'>
+                                <div style='font-size: 0.85rem; color: #2E7D32; font-weight: bold;'>👑 A등급 (탑픽)</div>
+                                <div style='font-size: 1.6rem; font-weight: bold; color: #1B5E20;'>{g_counts.get("A", 0)}개</div>
+                            </div>
+                            <div style='flex: 1; background-color: #E3F2FD; padding: 12px; border-radius: 8px; border-left: 5px solid #1565C0;'>
+                                <div style='font-size: 0.85rem; color: #1565C0; font-weight: bold;'>📈 B등급 (우수)</div>
+                                <div style='font-size: 1.6rem; font-weight: bold; color: #0D47A1;'>{g_counts.get("B", 0)}개</div>
+                            </div>
+                            <div style='flex: 1; background-color: #FFF3E0; padding: 12px; border-radius: 8px; border-left: 5px solid #EF6C00;'>
+                                <div style='font-size: 0.85rem; color: #EF6C00; font-weight: bold;'>⚖️ C등급 (보통)</div>
+                                <div style='font-size: 1.6rem; font-weight: bold; color: #E65100;'>{g_counts.get("C", 0)}개</div>
+                            </div>
+                            <div style='flex: 1; background-color: #FFEBEE; padding: 12px; border-radius: 8px; border-left: 5px solid #C62828;'>
+                                <div style='font-size: 0.85rem; color: #C62828; font-weight: bold;'>⚠️ D등급 (주의)</div>
+                                <div style='font-size: 1.6rem; font-weight: bold; color: #B71C1C;'>{g_counts.get("D", 0)}개</div>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    
+                    a_df = df[df["grade"] == "A"]
+                    if not a_df.empty:
+                        top_picks_html = "".join([f"<li><b>{row['name']} ({row['symbol']})</b>: {row['comment']}</li>" for _, row in a_df.iterrows()])
+                        toppick_placeholder.markdown(
+                            f"""
+                            <div style='background-color: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #C8E6C9;'>
+                                <h4 style='margin-top: 0; color: #2E7D32; margin-bottom: 8px;'>🎯 A등급 최우수 탑픽 후보군</h4>
+                                <ul style='margin-bottom: 0; color: #1B5E20; padding-left: 20px;'>{top_picks_html}</ul>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                 
                 date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
                 header_placeholder.markdown(f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'><h3>📊 실시간 분석 결과</h3><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
@@ -308,13 +361,53 @@ if st.session_state.data:
     final_df = pd.DataFrame(st.session_state.data)
     date_val = final_df["data_date"].iloc[0] if "data_date" in final_df.columns and len(final_df) > 0 else "-"
     
+    # 불러오기 및 스크리닝 완료 상태 시 대시보드 고정 표시
+    if "grade" in final_df.columns:
+        g_counts = final_df["grade"].value_counts()
+        st.markdown(
+            f"""
+            <div style='display: flex; gap: 15px; margin-bottom: 15px;'>
+                <div style='flex: 1; background-color: #E8F5E9; padding: 12px; border-radius: 8px; border-left: 5px solid #2E7D32;'>
+                    <div style='font-size: 0.85rem; color: #2E7D32; font-weight: bold;'>👑 A등급 (탑픽)</div>
+                    <div style='font-size: 1.6rem; font-weight: bold; color: #1B5E20;'>{g_counts.get("A", 0)}개</div>
+                </div>
+                <div style='flex: 1; background-color: #E3F2FD; padding: 12px; border-radius: 8px; border-left: 5px solid #1565C0;'>
+                    <div style='font-size: 0.85rem; color: #1565C0; font-weight: bold;'>📈 B등급 (우수)</div>
+                    <div style='font-size: 1.6rem; font-weight: bold; color: #0D47A1;'>{g_counts.get("B", 0)}개</div>
+                </div>
+                <div style='flex: 1; background-color: #FFF3E0; padding: 12px; border-radius: 8px; border-left: 5px solid #EF6C00;'>
+                    <div style='font-size: 0.85rem; color: #EF6C00; font-weight: bold;'>⚖️ C등급 (보통)</div>
+                    <div style='font-size: 1.6rem; font-weight: bold; color: #E65100;'>{g_counts.get("C", 0)}개</div>
+                </div>
+                <div style='flex: 1; background-color: #FFEBEE; padding: 12px; border-radius: 8px; border-left: 5px solid #C62828;'>
+                    <div style='font-size: 0.85rem; color: #C62828; font-weight: bold;'>⚠️ D등급 (주의)</div>
+                    <div style='font-size: 1.6rem; font-weight: bold; color: #B71C1C;'>{g_counts.get("D", 0)}개</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        a_df = final_df[final_df["grade"] == "A"]
+        if not a_df.empty:
+            top_picks_html = "".join([f"<li><b>{row['name']} ({row['symbol']})</b>: {row['comment']}</li>" for _, row in a_df.iterrows()])
+            st.markdown(
+                f"""
+                <div style='background-color: #E8F5E9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #C8E6C9;'>
+                    <h4 style='margin-top: 0; color: #2E7D32; margin-bottom: 8px;'>🎯 A등급 최우수 탑픽 후보군</h4>
+                    <ul style='margin-bottom: 0; color: #1B5E20; padding-left: 20px;'>{top_picks_html}</ul>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
     head_col1, head_col2 = st.columns([6, 2])
     with head_col1:
         st.subheader("📊 분석 결과")
     with head_col2:
         st.markdown(f"<div style='text-align: right; margin-top: 10px;'><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>", unsafe_allow_html=True)
         
-    column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr"]
+    column_order = ["rank", "grade", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "comment"]
     available_cols = [c for c in column_order if c in final_df.columns]
     
     if "market_cap" in final_df.columns and len(final_df) > 0:
@@ -334,10 +427,10 @@ if st.session_state.data:
     )
     
     rename_dict = {
-        "rank": "순위", "symbol": "티커", "name": "종목명",
+        "rank": "순위", "grade": "등급", "symbol": "티커", "name": "종목명",
         "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
         "peak_diff": "최고점대비", "ma200": "200일선", "diff": "200일괴리율(%)",
-        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR"
+        "rsi": "RSI", "per": "PER", "pbr": "PBR", "roe": "ROE", "peg": "PEG", "eps3y": "EPS3Y", "cagr": "CAGR", "comment": "한줄평"
     }
     csv_df = display_final_df.rename(columns=rename_dict)
     csv = csv_df.to_csv(index=False).encode('utf-8-sig')
