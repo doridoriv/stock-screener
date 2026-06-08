@@ -58,6 +58,83 @@ def get_pbr_grade(val):
     except:
         return "정보없음"
 
+def evaluate_stock_grade(row):
+    per = row.get("per")
+    pbr = row.get("pbr")
+    roe = row.get("roe")
+    peg = row.get("peg")
+    rsi = row.get("rsi")
+    diff = row.get("diff")
+    eps3y = row.get("eps3y")
+    
+    score = 0
+    reasons = []
+    
+    if pd.notna(per):
+        if per < 0:
+            score -= 2
+            reasons.append("적자 상태")
+        elif per <= 12:
+            score += 2
+            reasons.append("PER 초저평가")
+        elif per <= 22:
+            score += 1
+            reasons.append("PER 완만한 적정수준")
+        elif per > 45:
+            score -= 1
+            reasons.append("PER 고평가 상태")
+            
+    if pd.notna(pbr):
+        if pbr < 0:
+            score -= 2
+            reasons.append("자본잠식")
+        elif pbr <= 1.0:
+            score += 2
+            reasons.append("PBR 절대적 자산저평가")
+        elif pbr <= 1.6:
+            score += 1
+            reasons.append("PBR 안정권 진입")
+            
+    if pd.notna(roe):
+        if roe >= 15:
+            score += 2
+            reasons.append("ROE 자본효율성 최우수")
+        elif roe >= 9:
+            score += 1
+            reasons.append("ROE 양호한 수익성")
+            
+    if pd.notna(peg) and 0 < peg <= 1.0:
+        score += 1
+        reasons.append("성장성 대비 저평가(PEG 우수)")
+        
+    if pd.notna(rsi) and rsi <= 35:
+        score += 1
+        reasons.append("RSI 과매도 매수찬스")
+        
+    if pd.notna(diff) and diff < -12:
+        score += 1
+        reasons.append("200일선 아래 이격과다 낙폭과대")
+        
+    if eps3y == "↑":
+        score += 1
+        reasons.append("3개년 실적 우상향")
+        
+    if score >= 5:
+        grade = "A"
+    elif score >= 2:
+        grade = "B"
+    elif score >= 0:
+        grade = "C"
+    else:
+        grade = "D"
+        
+    if not reasons:
+        comment = "주요 재무 데이터 정보 부족으로 판정 보류"
+    else:
+        comment = ", ".join(reasons[:3]) + " 특성을 보임"
+        
+    return grade, comment
+
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
@@ -192,7 +269,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         except: 
                             per_val, pbr_val = float('nan'), float('nan')
 
-                # ROE 데이터 추출
                 try:
                     if t_obj is not None:
                         info = t_obj.info
@@ -201,7 +277,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
-                # EPS3Y 및 CAGR 연간 데이터 기반 판정 코드
                 try:
                     if t_obj is not None:
                         financials = t_obj.financials
@@ -236,7 +311,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
-                # PEG 계산 (PEG = PER / EPS CAGR(3년))
                 if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
                     try:
                         peg_val = per_val / cagr_val
@@ -248,11 +322,15 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
 
+                # 실시간 등급 및 주석 산출 연산 적용
+                temp_row = {"per": per_val, "pbr": pbr_val, "roe": roe_val, "peg": peg_val, "rsi": rsi_val, "diff": diff_val, "eps3y": eps3y_str}
+                grade_str, comment_str = evaluate_stock_grade(temp_row)
+
                 app_queue.put({"type": "data", "data": {
-                    "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
+                    "rank": stock["rank"], "grade": grade_str, "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
                     "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff,
-                    "roe": roe_val, "peg": peg_val, "eps3y": eps3y_str, "cagr": cagr_val
+                    "roe": roe_val, "peg": peg_val, "eps3y": eps3y_str, "cagr": cagr_val, "comment": comment_str
                 }})
             except: continue
             time.sleep(0.05)
@@ -262,9 +340,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
     except Exception as e:
         app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})
 
-# ====================================================================
-# 깃허브 액션즈(스케줄러) 연동용 메인 컨트롤러 코드 자동 탑재 (수정/보완)
-# ====================================================================
 if __name__ == "__main__":
     import queue
     from config import CACHE_DIR
