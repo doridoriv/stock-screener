@@ -5,22 +5,33 @@ import threading
 import pandas as pd
 from datetime import datetime
 import analyzer
-from config import CACHE_DIR
+from config import (
+    CACHE_DIR, DEFAULT_US_TICKERS, 
+    DEFAULT_KOSPI_TICKERS, DEFAULT_KOSDAQ_TICKERS
+)
 
 def collect_all_markets():
     markets = ["미국", "한국(코스피)", "한국(코스닥)"]
     os.makedirs(CACHE_DIR, exist_ok=True)
     
     for market in markets:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {market} 시장 분석 및 캐싱 수집 시작...")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {market} 시장 백업 수집 연산 시동...")
         app_queue = queue.Queue()
         stop_event = threading.Event()
         
-        us_cache_data = analyzer.load_us_market_cap_cache()
-        
+        # [방법 B 기반 고정 티커 할당]
+        if market == "미국":
+            t_count = len(DEFAULT_US_TICKERS)
+        elif "코스피" in market:
+            t_count = len(DEFAULT_KOSPI_TICKERS)
+        else:
+            t_count = len(DEFAULT_KOSDAQ_TICKERS)
+
+        us_cache_data = analyzer.load_us_market_cap_cache() if market == "미국" else None
+
         t_worker = threading.Thread(
             target=analyzer.screening_worker, 
-            args=(market, 100, app_queue, lambda: stop_event.is_set(), True, True, us_cache_data)
+            args=(market, t_count, app_queue, lambda: stop_event.is_set(), True, True, us_cache_data)
         )
         t_worker.start()
         
@@ -29,11 +40,7 @@ def collect_all_markets():
             try:
                 msg = app_queue.get(timeout=1)
                 if msg.get("type") == "data":
-                    data_row = msg["data"]
-                    grade, comment = analyzer.evaluate_stock_grade(data_row)
-                    data_row["grade"] = grade
-                    data_row["comment"] = comment
-                    results.append(data_row)
+                    results.append(msg["data"])
                 elif msg.get("type") == "done":
                     break
             except queue.Empty:
@@ -44,13 +51,12 @@ def collect_all_markets():
         
         if results:
             df = pd.DataFrame(results)
-            csv_path1 = os.path.join(CACHE_DIR, f"screener_data_{market}.csv")
-            csv_path2 = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
-            df.to_csv(csv_path1, index=False, encoding="utf-8-sig")
-            df.to_csv(csv_path2, index=False, encoding="utf-8-sig")
-            print(f"✅ {market} 저장 완료 -> {csv_path2} ({len(df)}개 종목 저장됨)")
-        else:
-            print(f"❌ {market} 데이터 수집 결과가 비어있습니다.")
+            if "market_cap" in df.columns and len(df) > 0:
+                df = df.sort_values(by="market_cap", ascending=False)
+                df["rank"] = range(1, len(df) + 1)
+            csv_path = os.path.join(CACHE_DIR, f"screener_data_{market}.csv")
+            df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+            print(f"✅ {market} 캐시 파일 자동 빌드 세이브 완료: {len(df)}개 종목 저장")
 
 if __name__ == "__main__":
     collect_all_markets()
