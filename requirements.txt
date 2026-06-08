@@ -1,5 +1,5 @@
 streamlit
 pandas
-yfinance
-finance-datareader
+yfinance>=0.2.40
+finance-datareader>=0.9.80
 requests
