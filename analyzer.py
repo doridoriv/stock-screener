@@ -31,36 +31,36 @@ def calculate_rsi(series, period=14):
     return float(val) if not pd.isna(val) else 50.0
 
 def get_per_grade(val):
-    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
-        return "정보없음"
+    if pd.isna(val) or val == "N/A" or val == "None":
+        return "⚪ 정보없음"
     try:
         v = float(val)
-        if v < 0: return f"{v:.1f} (적자)"
-        elif v <= 10: return f"{v:.1f} (초저평가)"
-        elif v <= 20: return f"{v:.1f} (적정)"
-        elif v <= 40: return f"{v:.1f} (고평가)"
-        else: return f"{v:.1f} (초고평가)"
+        if v < 0: return f"❌ 적자 ({v:.1f})"
+        elif v <= 10: return f"🔵 초저평가 ({v:.1f})"
+        elif v <= 20: return f"🟢 적정 ({v:.1f})"
+        elif v <= 40: return f"🟡 고평가 ({v:.1f})"
+        else: return f"🔴 초고평가 ({v:.1f})"
     except:
-        return "정보없음"
+        return "⚪ 정보없음"
 
 def get_pbr_grade(val):
-    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
-        return "정보없음"
+    if pd.isna(val) or val == "N/A" or val == "None":
+        return "⚪ 정보없음"
     try:
         if isinstance(val, str):
             val = val.replace(",", "").strip()
         v = float(val)
-        if v < 0: return f"{v:.2f} (자본잠식)"
-        elif v <= 1.0: return f"{v:.2f} (절대저평가)"
-        elif v <= 1.5: return f"{v:.2f} (적정)"
-        elif v <= 3.0: return f"{v:.2f} (고평가)"
-        else: return f"{v:.2f} (초고평가)"
+        if v < 0: return f"❌ 자본잠식 ({v:.2f})"
+        elif v <= 1.0: return f"🔵 절대저평가 ({v:.2f})"
+        elif v <= 1.5: return f"🟢 적정 ({v:.2f})"
+        elif v <= 3.0: return f"🟡 고평가 ({v:.2f})"
+        else: return f"🔴 초고평가 ({v:.2f})"
     except:
-        return "정보없음"
+        return "⚪ 정보없음"
 
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
-        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+        if market == "한국":
             df = fdr.DataReader(symbol, start=start_date, end=end_date)
         else:
             df = yf.download(symbol, start=start_date, end=end_date, progress=False)
@@ -80,15 +80,12 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         tickers_to_screen = []
         kr_fundamental_map = {}
         
-        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-            market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
-            market_text = "코스닥" if market == "한국(코스닥)" else "코스피"
+        if market == "한국":
+            app_queue.put({"type": "progress", "value": 5, "text": f"코스피 상위 {top_n}위 종목 로드 중..."})
+            df_kospi = fdr.StockListing('KOSPI')
+            df_kospi = df_kospi.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
             
-            app_queue.put({"type": "progress", "value": 5, "text": f"{market_text} 상위 {top_n}위 종목 로드 중..."})
-            df_kr = fdr.StockListing(market_type)
-            df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
-            
-            for idx, row in enumerate(df_kr.iterrows(), 1):
+            for idx, row in enumerate(df_kospi.iterrows(), 1):
                 r_data = row[1]
                 mcap_val = int(r_data['Marcap'] / 100000000) if not pd.isna(r_data['Marcap']) else 0
                 tickers_to_screen.append({
@@ -107,6 +104,17 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
         end_date = datetime.now().strftime('%Y-%m-%d')
 
+        # [미국 주식 전용 부하 분산 전략] 루프 진입 전 일괄 배치 다운로드 수행
+        bulk_data = None
+        if market == "미국":
+            app_queue.put({"type": "progress", "value": 5, "text": f"미국 주식 {total_stocks}개 종목 시세 일괄 다운로드 중..."})
+            ticker_list = [s["symbol"] for s in tickers_to_screen]
+            try:
+                bulk_data = yf.download(ticker_list, start=start_date, end=end_date, group_by='ticker', progress=False)
+            except Exception as e:
+                app_queue.put({"type": "error", "text": f"미국 대량 데이터 다운로드 실패: {e}"})
+                return
+
         for idx, stock in enumerate(tickers_to_screen, 1):
             if stop_requested_func():
                 app_queue.put({"type": "stopped", "count": idx - 1})
@@ -118,8 +126,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             app_queue.put({"type": "progress", "value": int((idx / total_stocks) * 100), "text": f"분석 중: {name} [{idx}/{total_stocks}]"})
 
             try:
-                df = fetch_stock_data(market, symbol, start_date, end_date)
-                if df is None: continue
+                # 데이터 로드 채널 분기
+                if market == "미국":
+                    if bulk_data is None or symbol not in bulk_data.columns.levels[0]:
+                        continue
+                    df = bulk_data[symbol].dropna(subset=['Close'])
+                    if df.empty or len(df) < 200: 
+                        continue
+                else:
+                    df = fetch_stock_data(market, symbol, start_date, end_date)
+                    if df is None: continue
 
                 last_date_obj = df.index[-1]
                 date_str = last_date_obj.strftime('%Y-%m-%d') if hasattr(last_date_obj, 'strftime') else str(last_date_obj)[:10]
@@ -140,119 +156,53 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 diff_val = ((current_price - current_ma200) / current_ma200) * 100
                 rsi_val = calculate_rsi(close_series, 14)
 
-                per_val, pbr_val = float('nan'), float('nan')
-                roe_val, peg_val = float('nan'), float('nan')
-                eps3y_str = "-"
-                cagr_val = float('nan')
-
-                t_obj = None
-                if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                    suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
-                    t_obj = yf.Ticker(f"{symbol}{suffix}")
-                else:
-                    t_obj = yf.Ticker(symbol)
-
+                per_str, pbr_str = "비활성", "비활성"
                 if opt_fundamental:
-                    if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                    if market == "한국":
                         f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
-                        per_val_raw = f_info.get("per", "N/A")
+                        per_val = f_info.get("per", "N/A")
                         
-                        if pd.isna(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
+                        if pd.isna(per_val) or str(per_val) in ["N/A", "0", "nan", "None"]:
                             try:
+                                t_obj = yf.Ticker(f"{symbol}.KS")
                                 info = t_obj.info
-                                per_val_raw = info.get('trailingPE') or info.get('forwardPE') or float('nan')
-                            except: per_val_raw = float('nan')
+                                per_val = info.get('trailingPE') or info.get('forwardPE') or 'N/A'
+                            except: per_val = "N/A"
                             
-                        try: per_val = float(per_val_raw) if not pd.isna(per_val_raw) else float('nan')
-                        except: per_val = float('nan')
-                        
-                        try: pbr_val = float(f_info.get("pbr", float('nan')))
-                        except: pbr_val = float('nan')
-                        if pd.isna(pbr_val) or pbr_val == 0:
-                            try:
-                                info = t_obj.info
-                                pbr_val = info.get('priceToBook', float('nan'))
-                            except: pass
+                        per_str = get_per_grade(per_val)
+                        pbr_str = "-"
                     else:
                         try:
+                            t_obj = yf.Ticker(symbol)
                             info = t_obj.info
-                            per_val_raw = info.get('trailingPE', float('nan'))
-                            pbr_val_raw = info.get('priceToBook', float('nan'))
+                            per_val = info.get('trailingPE', 'N/A')
+                            pbr_val = info.get('priceToBook', 'N/A')
                             
-                            if (pbr_val_raw == 'N/A' or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get('bookValue'):
+                            if (pbr_val == 'N/A' or pbr_val is None) and info.get('bookValue'):
                                 try:
-                                    pbr_val_raw = current_price / float(info.get('bookValue'))
+                                    pbr_val = current_price / float(info.get('bookValue'))
                                 except:
-                                    pbr_val_raw = float('nan')
+                                    pbr_val = 'N/A'
 
-                            try: per_val = float(per_val_raw) if per_val_raw != 'N/A' else float('nan')
-                            except: per_val = float('nan')
-                            try: pbr_val = float(pbr_val_raw) if pbr_val_raw != 'N/A' else float('nan')
-                            except: pbr_val = float('nan')
+                            per_str = get_per_grade(per_val)
+                            pbr_str = get_pbr_grade(pbr_val)
                         except: 
-                            per_val, pbr_val = float('nan'), float('nan')
+                            per_str, pbr_str = "⚪ 정보없음", "⚪ 정보없음"
 
-                # ROE 데이터 추출
-                try:
-                    if t_obj is not None:
-                        info = t_obj.info
-                        if info and 'returnOnEquity' in info and info['returnOnEquity'] is not None:
-                            roe_val = float(info['returnOnEquity']) * 100
-                except:
-                    pass
-
-                # EPS3Y 및 CAGR 연간 데이터 기반 판정 코드
-                try:
-                    if t_obj is not None:
-                        financials = t_obj.financials
-                        if financials is not None and not financials.empty:
-                            eps_rows = [r for r in financials.index if 'Diluted EPS' in str(r) or 'Basic EPS' in str(r)]
-                            if eps_rows:
-                                eps_series = financials.loc[eps_rows[0]].dropna()
-                                eps_series = eps_series.sort_index(ascending=True)
-                                
-                                if len(eps_series) >= 3:
-                                    recent_eps = eps_series.values[-3:]
-                                    v1, v2, v3 = recent_eps[0], recent_eps[1], recent_eps[2]
-                                    
-                                    if v1 < v2 < v3:
-                                        eps3y_str = "↑"
-                                    else:
-                                        eps3y_str = "↓"
-                                        
-                                    if v1 <= 0 and v2 <= 0 and v3 <= 0:
-                                        eps3y_str = "적자"
-                                        
-                                    if len(eps_series) >= 4:
-                                        eps_start = eps_series.values[-4]
-                                        eps_end = eps_series.values[-1]
-                                        if eps_start > 0 and eps_end > 0:
-                                            cagr_val = ((eps_end / eps_start) ** (1/3) - 1) * 100
-                                    else:
-                                        eps_start = eps_series.values[-3]
-                                        eps_end = eps_series.values[-1]
-                                        if eps_start > 0 and eps_end > 0:
-                                            cagr_val = ((eps_end / eps_start) ** (1/2) - 1) * 100
-                except:
-                    pass
-
-                # PEG 계산 (PEG = PER / EPS CAGR(3년))
-                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
-                    try:
-                        peg_val = per_val / cagr_val
-                    except:
-                        peg_val = float('nan')
-
-                peak_price, peak_diff = float('nan'), float('nan')
+                peak_str, peak_diff_str = "비활성", "비활성"
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
+                    peak_str = f"${peak_price:.2f}" if market == "미국" else f"{int(peak_price):,}원"
+                    
+                    if peak_diff > 0: peak_diff_str = f"🔴 +{peak_diff:.2f}%"
+                    elif peak_diff < 0: peak_diff_str = f"🔵 {peak_diff:.2f}%"
+                    else: peak_diff_str = "⚫ 0.00%"
 
                 app_queue.put({"type": "data", "data": {
                     "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
-                    "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff,
-                    "roe": roe_val, "peg": peg_val, "eps3y": eps3y_str, "cagr": cagr_val
+                    "per": per_str, "pbr": pbr_str, "peak": peak_str, "peak_diff": peak_diff_str
                 }})
             except: continue
             time.sleep(0.05)
