@@ -60,6 +60,7 @@ def get_pbr_grade(val):
 
 def fetch_stock_data(market, symbol, start_date, end_date):
     try:
+        # [개선] 코스피/코스닥을 모두 포함하여 FinanceDataReader 데이터 수집 경로 지원
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             df = fdr.DataReader(symbol, start=start_date, end=end_date)
         else:
@@ -80,6 +81,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         tickers_to_screen = []
         kr_fundamental_map = {}
         
+        # [개선] 사용자가 코스피 혹은 코스닥을 선택함에 따라 불러올 FinanceDataReader 소스를 분기 처리
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
             market_text = "코스닥" if market == "한국(코스닥)" else "코스피"
@@ -141,17 +143,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 rsi_val = calculate_rsi(close_series, 14)
 
                 per_val, pbr_val = float('nan'), float('nan')
-                roe_val, peg_val = float('nan'), float('nan')
-                eps3y_str = "-"
-                cagr_val = float('nan')
-
-                t_obj = None
-                if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                    suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
-                    t_obj = yf.Ticker(f"{symbol}{suffix}")
-                else:
-                    t_obj = yf.Ticker(symbol)
-
                 if opt_fundamental:
                     if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                         f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
@@ -159,6 +150,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         
                         if pd.isna(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
                             try:
+                                # [개선] 야후 파이낸스 정보 보완 시 코스닥은 .KQ, 코스피는 .KS를 붙이도록 정밀 매핑
+                                suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
+                                t_obj = yf.Ticker(f"{symbol}{suffix}")
                                 info = t_obj.info
                                 per_val_raw = info.get('trailingPE') or info.get('forwardPE') or float('nan')
                             except: per_val_raw = float('nan')
@@ -168,13 +162,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         
                         try: pbr_val = float(f_info.get("pbr", float('nan')))
                         except: pbr_val = float('nan')
-                        if pd.isna(pbr_val) or pbr_val == 0:
-                            try:
-                                info = t_obj.info
-                                pbr_val = info.get('priceToBook', float('nan'))
-                            except: pass
                     else:
                         try:
+                            t_obj = yf.Ticker(symbol)
                             info = t_obj.info
                             per_val_raw = info.get('trailingPE', float('nan'))
                             pbr_val_raw = info.get('priceToBook', float('nan'))
@@ -192,67 +182,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         except: 
                             per_val, pbr_val = float('nan'), float('nan')
 
-                # ROE 데이터 추출
-                try:
-                    if t_obj is not None:
-                        info = t_obj.info
-                        if info and 'returnOnEquity' in info and info['returnOnEquity'] is not None:
-                            roe_val = float(info['returnOnEquity']) * 100
-                except:
-                    pass
-
-                # EPS3Y 및 CAGR 연간 데이터 기반 판정 코드
-                try:
-                    if t_obj is not None:
-                        financials = t_obj.financials
-                        if financials is not None and not financials.empty:
-                            eps_rows = [r for r in financials.index if 'Diluted EPS' in str(r) or 'Basic EPS' in str(r)]
-                            if eps_rows:
-                                eps_series = financials.loc[eps_rows[0]].dropna()
-                                eps_series = eps_series.sort_index(ascending=True)
-                                
-                                if len(eps_series) >= 3:
-                                    recent_eps = eps_series.values[-3:]
-                                    v1, v2, v3 = recent_eps[0], recent_eps[1], recent_eps[2]
-                                    
-                                    if v1 < v2 < v3:
-                                        eps3y_str = "↑"
-                                    else:
-                                        eps3y_str = "↓"
-                                        
-                                    if v1 <= 0 and v2 <= 0 and v3 <= 0:
-                                        eps3y_str = "적자"
-                                        
-                                    if len(eps_series) >= 4:
-                                        eps_start = eps_series.values[-4]
-                                        eps_end = eps_series.values[-1]
-                                        if eps_start > 0 and eps_end > 0:
-                                            cagr_val = ((eps_end / eps_start) ** (1/3) - 1) * 100
-                                    else:
-                                        eps_start = eps_series.values[-3]
-                                        eps_end = eps_series.values[-1]
-                                        if eps_start > 0 and eps_end > 0:
-                                            cagr_val = ((eps_end / eps_start) ** (1/2) - 1) * 100
-                except:
-                    pass
-
-                # PEG 계산 (PEG = PER / EPS CAGR(3년))
-                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
-                    try:
-                        peg_val = per_val / cagr_val
-                    except:
-                        peg_val = float('nan')
-
                 peak_price, peak_diff = float('nan'), float('nan')
                 if opt_peak:
                     peak_price = float(close_series.max())
                     peak_diff = ((current_price - peak_price) / peak_price) * 100
 
+                # 숫자가 우선되고 완벽하게 정렬될 수 있도록 원본 수치값 자체를 보존하여 전달합니다.
                 app_queue.put({"type": "data", "data": {
                     "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
                     "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
-                    "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff,
-                    "roe": roe_val, "peg": peg_val, "eps3y": eps3y_str, "cagr": cagr_val
+                    "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff
                 }})
             except: continue
             time.sleep(0.05)
