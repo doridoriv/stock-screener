@@ -1,8 +1,6 @@
 import os
 
-APP_TITLE = "저렴한주식쇼핑 by 유경빈"
-# Use absolute path for CACHE_DIR relative to the script's location or project root
-# For now, keeping it consistent with the user's structure but inside Optimization
+APP_TITLE = "저렴한주식쇼핑 by 유경빈+유채화뿅뿅"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 US_MARKETCAP_CACHE_FILE = os.path.join(CACHE_DIR, "us_marketcap_cache.json")
@@ -45,16 +43,19 @@ US_NAME_MAP = {
 
 COL_INFOS = [
     {"id": "rank", "text": "순위", "width": 50, "anchor": "center"},
-    {"id": "symbol", "text": "티커", "width": 80, "anchor": "center"},
-    {"id": "name", "text": "종목명", "width": 180, "anchor": "w"},            
-    {"id": "data_date", "text": "자료기준일(종가)", "width": 110, "anchor": "center"},
-    {"id": "market_cap", "text": "시가총액", "width": 110, "anchor": "e"},
+    {"id": "symbol", "text": "티커", "width": 70, "anchor": "center"},
+    {"id": "name", "text": "종목명", "width": 160, "anchor": "w"},            
+    {"id": "market_cap", "text": "시가총액", "width": 100, "anchor": "e"},
     {"id": "price", "text": "현재가", "width": 90, "anchor": "e"},
     {"id": "peak", "text": "최고점", "width": 90, "anchor": "e"},
-    {"id": "peak_diff", "text": "최고점대비", "width": 110, "anchor": "center"},
+    {"id": "peak_diff", "text": "최고점대비", "width": 80, "anchor": "center"},
     {"id": "ma200", "text": "200일선", "width": 90, "anchor": "e"},
-    {"id": "diff", "text": "200일괴리율", "width": 110, "anchor": "center"},
-    {"id": "rsi", "text": "RSI(14)", "width": 110, "anchor": "center"},
-    {"id": "per", "text": "PER 등급", "width": 140, "anchor": "w"},
-    {"id": "pbr", "text": "PBR 등급", "width": 140, "anchor": "w"}
+    {"id": "diff", "text": "200일괴리율", "width": 80, "anchor": "center"},
+    {"id": "rsi", "text": "RSI", "width": 70, "anchor": "center"},
+    {"id": "per", "text": "PER", "width": 70, "anchor": "center"},
+    {"id": "pbr", "text": "PBR", "width": 70, "anchor": "center"},
+    {"id": "roe", "text": "ROE", "width": 70, "anchor": "center"},
+    {"id": "peg", "text": "PEG", "width": 70, "anchor": "center"},
+    {"id": "eps3y", "text": "EPS3Y", "width": 70, "anchor": "center"},
+    {"id": "cagr", "text": "CAGR", "width": 80, "anchor": "center"}
 ]
