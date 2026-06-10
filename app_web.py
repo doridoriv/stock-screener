@@ -251,6 +251,9 @@ if btn_search:
     
     progress_bar = st.progress(0)
     status_text = st.empty()
+    table_placeholder = st.empty()
+    
+    last_ui_update = time.time()
     
     while True:
         try:
@@ -262,6 +265,12 @@ if btn_search:
                 status_text.text(msg["text"])
             elif m_type == "data":
                 st.session_state.data.append(msg["data"])
+                # 2초마다 테이블 갱신 (성능 고려)
+                if time.time() - last_ui_update > 2.0:
+                    if st.session_state.data:
+                        temp_df = pd.DataFrame(st.session_state.data)
+                        table_placeholder.dataframe(temp_df, use_container_width=True, height=200)
+                        last_ui_update = time.time()
             elif m_type in ["done", "stopped"]:
                 st.session_state.is_running = False
                 if st.session_state.data:

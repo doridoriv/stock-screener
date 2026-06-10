@@ -180,28 +180,39 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         kr_fundamental_map = {}
         
         # (1) 대상 종목 리스트 업
-        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-            market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
-            app_queue.put({"type": "progress", "value": 5, "text": f"{market} 상위 {top_n}위 로드 중..."})
-            df_kr = fdr.StockListing(market_type)
-            df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
-            
-            for idx, row in enumerate(df_kr.iterrows(), 1):
-                r_data = row[1]
-                tickers_to_screen.append({
-                    "symbol": r_data['Code'], "name": r_data['Name'], "rank": idx, 
-                    "market_cap": int(r_data['Marcap'] / 100000000) if not pd.isna(r_data['Marcap']) else 0
-                })
-                kr_fundamental_map[r_data['Code']] = {"per": r_data.get('PER'), "pbr": r_data.get('PBR')}
-        else:
-            for ticker, info in list(us_market_cap_data.items())[:top_n]:
-                tickers_to_screen.append({"symbol": ticker, "name": info["name"], "rank": info["rank"], "market_cap": info["market_cap"]})
+        try:
+            if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
+                app_queue.put({"type": "progress", "value": 5, "text": f"{market} 상위 {top_n}위 로드 중..."})
+                df_kr = fdr.StockListing(market_type)
+                if df_kr is None or df_kr.empty:
+                    raise Exception(f"{market} 종목 리스트를 가져오지 못했습니다.")
+                
+                df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
+                
+                for idx, row in enumerate(df_kr.iterrows(), 1):
+                    r_data = row[1]
+                    tickers_to_screen.append({
+                        "symbol": r_data['Code'], "name": r_data['Name'], "rank": idx, 
+                        "market_cap": int(r_data['Marcap'] / 100000000) if not pd.isna(r_data['Marcap']) else 0
+                    })
+                    kr_fundamental_map[r_data['Code']] = {"per": r_data.get('PER'), "pbr": r_data.get('PBR')}
+            else:
+                for ticker, info in list(us_market_cap_data.items())[:top_n]:
+                    tickers_to_screen.append({"symbol": ticker, "name": info["name"], "rank": info["rank"], "market_cap": info["market_cap"]})
+        except Exception as e:
+            app_queue.put({"type": "error", "text": f"종목 리스트 로드 실패: {e}"})
+            return
 
         total_stocks = len(tickers_to_screen)
+        if total_stocks == 0:
+            app_queue.put({"type": "error", "text": "분석할 종목이 없습니다."})
+            return
+
         processed_count = 0
         
         # (2) 병렬 분석 실행 (ThreadPoolExecutor)
-        # 차단 방지를 위해 max_workers를 5~8개로 제한
+        # 차단 방지를 위해 max_workers를 5개로 제한
         with ThreadPoolExecutor(max_workers=5) as executor:
             future_to_stock = {
                 executor.submit(analyze_single_stock, stock, market, opt_fundamental, opt_peak, kr_fundamental_map, session): stock 
@@ -214,17 +225,20 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     app_queue.put({"type": "stopped", "count": processed_count})
                     return
 
-                res = future.result()
-                processed_count += 1
-                
-                if res:
-                    app_queue.put({"type": "data", "data": res})
-                
-                app_queue.put({
-                    "type": "progress", 
-                    "value": int((processed_count / total_stocks) * 100), 
-                    "text": f"분석 완료: {res['name'] if res else '정보 없음'} [{processed_count}/{total_stocks}]"
-                })
+                try:
+                    res = future.result()
+                    processed_count += 1
+                    
+                    if res:
+                        app_queue.put({"type": "data", "data": res})
+                    
+                    app_queue.put({
+                        "type": "progress", 
+                        "value": int((processed_count / total_stocks) * 100), 
+                        "text": f"분석 완료: {res['name'] if res else '정보 없음'} [{processed_count}/{total_stocks}]"
+                    })
+                except Exception as e:
+                    app_queue.put({"type": "progress", "value": int((processed_count / total_stocks) * 100), "text": f"오류 발생(스킵): {e}"})
 
         if not stop_requested_func():
             app_queue.put({"type": "done", "count": total_stocks, "text": f"{market} 스크리닝 완료!"})
