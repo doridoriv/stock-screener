@@ -77,6 +77,7 @@ def _risk_score_from_metrics(metrics: Dict[str, float], bullish: bool) -> int:
 
     return int(max(0, min(100, score)))
 
+
 def _raw_trend(metrics: Dict[str, float]) -> str:
     latest = metrics["latest"]
     ma20 = metrics["ma20"]
@@ -129,6 +130,8 @@ def build_market_panel() -> Dict[str, object]:
                 "ret60": None,
                 "available": False,
                 "weight": item["weight"],
+                "trend_note": "데이터 없음",
+                "effect_note": "데이터 없음",
             })
             continue
 
@@ -138,12 +141,22 @@ def build_market_panel() -> Dict[str, object]:
 
         if risk_score >= 70:
             effect = "우호적"
+            effect_note = "위험자산 선호"
             positive_labels.append(item["label"])
         elif risk_score <= 30:
             effect = "비우호적"
+            effect_note = "방어 선호"
             negative_labels.append(item["label"])
         else:
             effect = "중립"
+            effect_note = "중립"
+        
+        if raw_trend == "상승":
+            trend_note = "우상향 흐름"
+        elif raw_trend == "하락":
+            trend_note = "우하향 흐름"
+        else:
+            trend_note = "방향성 혼재"
 
         if pd.notna(metrics["ret20"]) or pd.notna(metrics["ret60"]):
             used_weight += item["weight"]
@@ -160,6 +173,8 @@ def build_market_panel() -> Dict[str, object]:
             "ret60": metrics["ret60"],
             "available": True,
             "weight": item["weight"],
+            "trend_note": trend_note,
+            "effect_note": effect_note,
         })
 
     if used_weight > 0:
@@ -169,10 +184,13 @@ def build_market_panel() -> Dict[str, object]:
 
     if market_score >= 70:
         market_state = "위험선호"
+        market_state_note = "성장/리스크 자산 우호"
     elif market_score >= 55:
         market_state = "중립"
+        market_state_note = "방향성 혼재"
     else:
         market_state = "위험회피"
+        market_state_note = "방어 성향 우세"
 
     if positive_labels:
         pos_text = "· ".join(dict.fromkeys(positive_labels[:3]))
@@ -196,6 +214,7 @@ def build_market_panel() -> Dict[str, object]:
     return {
         "market_score": market_score,
         "market_state": market_state,
+        "market_state_note": market_state_note,
         "summary": summary,
         "confidence": confidence,
         "rows": rows,
