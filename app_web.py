@@ -40,6 +40,9 @@ if "market_panel" not in st.session_state:
 if "market_panel_updated" not in st.session_state:
     st.session_state.market_panel_updated = None
 
+if "screening_done" not in st.session_state:
+    st.session_state.screening_done = False
+
 def _fmt_signed_pct(value, decimals=1, show_arrow=False):
     try:
         v = float(value)
@@ -542,6 +545,7 @@ DISPLAY_COLUMN_ORDER = [
 
 if btn_search:
     st.session_state.data = []
+    st.session_state.screening_done = False
     progress_bar = st.progress(0)
     status_text = st.empty()
     header_placeholder = st.empty()
@@ -632,6 +636,9 @@ if btn_search:
                     final_save_df = final_save_df[save_cols]
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                    # session_state.data를 정렬된 상태로 유지
+                    st.session_state.data = final_save_df.to_dict(orient="records")
+                st.session_state.screening_done = True
                 st.rerun()
                 break
 
@@ -657,6 +664,8 @@ if btn_search:
                     final_save_df = final_save_df[save_cols]
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                    st.session_state.data = final_save_df.to_dict(orient="records")
+                st.session_state.screening_done = True
                 st.rerun()
                 break
 
