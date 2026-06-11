@@ -599,7 +599,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 eps3y_str = "정보없음"
                 eps3y_growth = float("nan")
                 eps3y_trend = "데이터없음"
+                eps3y_sort = float("nan")
                 cagr_val = float("nan")
+                cagr_sort = float("nan")
 
                 t_obj = None
                 if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
@@ -687,14 +689,18 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                     if v1 <= 0 and v2 <= 0 and v3 <= 0:
                                         eps3y_str = "↓ 적자"
                                         eps3y_trend = "적자"
+                                        eps3y_sort = -998.0
                                     elif v1 <= 0 < v3:
                                         eps3y_str = "↑ 흑자전환"
                                         eps3y_trend = "흑자전환"
+                                        eps3y_sort = 0.001
                                     elif v1 > 0 and v3 <= 0:
                                         eps3y_str = "↓ 적자전환"
                                         eps3y_trend = "적자전환"
+                                        eps3y_sort = -999.0
                                     else:
                                         eps3y_growth = ((v3 / v1) - 1) * 100 if v1 != 0 else float("nan")
+                                        eps3y_sort = eps3y_growth
                                         if v1 < v2 < v3:
                                             eps3y_trend = "상승"
                                             direction = "↑"
@@ -719,6 +725,19 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                         eps_end = eps_series.values[-1]
                                         if eps_start > 0 and eps_end > 0:
                                             cagr_val = ((eps_end / eps_start) ** (1 / 2) - 1) * 100
+                                    
+                                    # CAGR 정렬을 위한 가상 프록시 매핑 로직
+                                    if pd.notna(cagr_val):
+                                        cagr_sort = cagr_val
+                                    else:
+                                        if v1 <= 0 and v2 <= 0 and v3 <= 0:
+                                            cagr_sort = -998.0
+                                        elif v1 <= 0 < v3:
+                                            cagr_sort = 0.001
+                                        elif v1 > 0 and v3 <= 0:
+                                            cagr_sort = -999.0
+                                        else:
+                                            cagr_sort = float("nan")
                 except:
                     pass
 
@@ -752,7 +771,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "eps3y": eps3y_str,
                     "eps3y_growth": eps3y_growth,
                     "eps3y_trend": eps3y_trend,
-                    "cagr": cagr_val
+                    "eps3y_sort": eps3y_sort,
+                    "cagr": cagr_val,
+                    "cagr_sort": cagr_sort
                 }
 
                 eval_result = evaluate_investment_score(row_data, market=market)
