@@ -69,19 +69,6 @@ def _safe_float(val):
     except:
         return float("nan")
 
-def _fetch_ticker_info(t_obj, max_retries=3):
-    """yfinance info를 재시도 로직과 함께 가져옴."""
-    for attempt in range(max_retries):
-        try:
-            info = t_obj.info
-            if info and len(info) > 5:
-                return info
-        except Exception:
-            pass
-        if attempt < max_retries - 1:
-            time.sleep(1 + attempt)
-    return {}
-
 def _fmt_signed_pct(val, decimals=1):
     try:
         v = float(val)
@@ -599,9 +586,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 eps3y_str = "정보없음"
                 eps3y_growth = float("nan")
                 eps3y_trend = "데이터없음"
-                eps3y_sort = float("nan")
                 cagr_val = float("nan")
-                cagr_sort = float("nan")
 
                 t_obj = None
                 if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
@@ -638,44 +623,39 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             except:
                                 pass
                     else:
-                        info = _fetch_ticker_info(t_obj) if t_obj is not None else {}
-                        if info:
+                        try:
+                            info = t_obj.info
                             per_val_raw = info.get("trailingPE", float("nan"))
                             pbr_val_raw = info.get("priceToBook", float("nan"))
 
-                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or not pbr_val_raw) and info.get("bookValue"):
+                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get("bookValue"):
                                 try:
                                     pbr_val_raw = current_price / float(info.get("bookValue"))
                                 except:
                                     pbr_val_raw = float("nan")
 
                             try:
-                                per_val = float(per_val_raw) if per_val_raw and per_val_raw != "N/A" else float("nan")
+                                per_val = float(per_val_raw) if per_val_raw != "N/A" else float("nan")
                             except:
                                 per_val = float("nan")
                             try:
-                                pbr_val = float(pbr_val_raw) if pbr_val_raw and pbr_val_raw != "N/A" else float("nan")
+                                pbr_val = float(pbr_val_raw) if pbr_val_raw != "N/A" else float("nan")
                             except:
                                 pbr_val = float("nan")
-
-                            # ROE도 같은 info에서 가져옴 (중복 호출 방지)
-                            try:
-                                if info.get("returnOnEquity") is not None:
-                                    roe_val = float(info["returnOnEquity"]) * 100
-                            except:
-                                pass
+                        except:
+                            per_val, pbr_val = float("nan"), float("nan")
 
                 try:
                     if t_obj is not None:
-                        financials = None
-                        for _fa in range(3):
-                            try:
-                                financials = t_obj.financials
-                                if financials is not None and not financials.empty:
-                                    break
-                            except Exception:
-                                if _fa < 2:
-                                    time.sleep(1 + _fa)
+                        info = t_obj.info
+                        if info and "returnOnEquity" in info and info["returnOnEquity"] is not None:
+                            roe_val = float(info["returnOnEquity"]) * 100
+                except:
+                    pass
+
+                try:
+                    if t_obj is not None:
+                        financials = t_obj.financials
                         if financials is not None and not financials.empty:
                             eps_rows = [r for r in financials.index if "Diluted EPS" in str(r) or "Basic EPS" in str(r)]
                             if eps_rows:
@@ -689,18 +669,14 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                     if v1 <= 0 and v2 <= 0 and v3 <= 0:
                                         eps3y_str = "↓ 적자"
                                         eps3y_trend = "적자"
-                                        eps3y_sort = -998.0
                                     elif v1 <= 0 < v3:
                                         eps3y_str = "↑ 흑자전환"
                                         eps3y_trend = "흑자전환"
-                                        eps3y_sort = 0.001
                                     elif v1 > 0 and v3 <= 0:
                                         eps3y_str = "↓ 적자전환"
                                         eps3y_trend = "적자전환"
-                                        eps3y_sort = -999.0
                                     else:
                                         eps3y_growth = ((v3 / v1) - 1) * 100 if v1 != 0 else float("nan")
-                                        eps3y_sort = eps3y_growth
                                         if v1 < v2 < v3:
                                             eps3y_trend = "상승"
                                             direction = "↑"
@@ -725,19 +701,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                         eps_end = eps_series.values[-1]
                                         if eps_start > 0 and eps_end > 0:
                                             cagr_val = ((eps_end / eps_start) ** (1 / 2) - 1) * 100
-                                    
-                                    # CAGR 정렬을 위한 가상 프록시 매핑 로직
-                                    if pd.notna(cagr_val):
-                                        cagr_sort = cagr_val
-                                    else:
-                                        if v1 <= 0 and v2 <= 0 and v3 <= 0:
-                                            cagr_sort = -998.0
-                                        elif v1 <= 0 < v3:
-                                            cagr_sort = 0.001
-                                        elif v1 > 0 and v3 <= 0:
-                                            cagr_sort = -999.0
-                                        else:
-                                            cagr_sort = float("nan")
                 except:
                     pass
 
@@ -771,9 +734,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "eps3y": eps3y_str,
                     "eps3y_growth": eps3y_growth,
                     "eps3y_trend": eps3y_trend,
-                    "eps3y_sort": eps3y_sort,
-                    "cagr": cagr_val,
-                    "cagr_sort": cagr_sort
+                    "cagr": cagr_val
                 }
 
                 eval_result = evaluate_investment_score(row_data, market=market)
