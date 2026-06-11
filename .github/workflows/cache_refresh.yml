@@ -28,17 +28,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas yfinance FinanceDataReader requests beautifulsoup4 lxml streamlit
 
+      # ✅ 추가 1: data 폴더 생성
+      - name: Create data directory
+        run: |
+          mkdir -p data
+
       - name: Refresh caches
         run: |
           python - <<'PY'
           import analyzer
+          import os
+          import shutil
 
-          # 한국 시장 재무지표 캐시 갱신
+          # 한국 시장 캐시 생성
           analyzer.refresh_kr_fundamental_cache('한국(코스피)', top_n=100, sleep_seconds=0.2)
           analyzer.refresh_kr_fundamental_cache('한국(코스닥)', top_n=100, sleep_seconds=0.2)
 
-          # 미국 시총 캐시가 없으면 기본값 생성
+          # 미국 시장 캐시
           analyzer.load_us_market_cap_cache()
+
+          # ✅ 추가 2: cache → data 복사
+          if os.path.exists("cache"):
+              for file in os.listdir("cache"):
+                  if file.endswith(".json"):
+                      shutil.copy(os.path.join("cache", file), os.path.join("data", file))
           PY
 
       - name: Commit cache updates
@@ -49,6 +62,7 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add cache/*.json
+          git add cache/*.json || true
+          git add data/*.json || true
           git commit -m 'chore: refresh screener caches'
           git push
