@@ -28,49 +28,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas yfinance FinanceDataReader requests beautifulsoup4 lxml streamlit
 
-      # ✅ data 폴더 생성
-      - name: Create data directory
-        run: |
-          mkdir -p data
-
-      # ✅ 파이썬 스크립트 실행 및 캐시 생성/복사
       - name: Refresh caches
         run: |
           python - <<'PY'
           import analyzer
-          import os
-          import shutil
 
-          # 한국 시장 캐시 생성
+          # 한국 시장 재무지표 캐시 갱신
           analyzer.refresh_kr_fundamental_cache('한국(코스피)', top_n=100, sleep_seconds=0.2)
           analyzer.refresh_kr_fundamental_cache('한국(코스닥)', top_n=100, sleep_seconds=0.2)
 
-          # 미국 시장 캐시
+          # 미국 시총 캐시가 없으면 기본값 생성
           analyzer.load_us_market_cap_cache()
-
-          # cache → data 복사
-          if os.path.exists("cache"):
-              for file in os.listdir("cache"):
-                  if file.endswith(".json"):
-                      shutil.copy(os.path.join("cache", file), os.path.join("data", file))
           PY
 
-      # ✅ 업데이트된 캐시 커밋 및 푸시 (버그 수정 완료)
       - name: Commit cache updates
         run: |
-          # 1. Git 유저 정보 먼저 설정
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          # 2. 새로 생성되거나 변경된 JSON 파일들을 스테이징 영역에 추가
-          git add cache/*.json data/*.json || true
-          
-          # 3. 스테이징된 변경 사항이 오직 하나도 없는지 확인
-          if git diff --cached --quiet; then
+          if git diff --quiet; then
             echo 'No cache changes to commit.'
             exit 0
           fi
-          
-          # 4. 변경 사항이 있다면 커밋 및 푸시 진행
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add cache/*.json
           git commit -m 'chore: refresh screener caches'
           git push
