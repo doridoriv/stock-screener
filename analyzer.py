@@ -129,22 +129,48 @@ def get_pbr_grade(val):
     except:
         return "정보없음"
 
-def fetch_stock_data(market, symbol, start_date, end_date):
-    try:
-        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-            df = fdr.DataReader(symbol, start=start_date, end=end_date)
-        else:
-            df = yf.download(symbol, start=start_date, end=end_date, progress=False)
+def fetch_stock_data(market, symbol, start_date, end_date, max_retries=3):
+    """
+    주가 데이터를 가져옴. 실패 시 최대 max_retries회 재시도.
+    60일 이상이면 허용 (200일선 미달 시 NaN 처리).
+    """
+    for attempt in range(max_retries):
+        try:
+            # 재시도마다 기간을 늘림 (365 → 500 → 700일)
+            extended_start = (datetime.now() - timedelta(days=365 + attempt * 150)).strftime("%Y-%m-%d")
+            fetch_start = extended_start if attempt > 0 else start_date
 
-        if df is None or df.empty or len(df) < 200:
-            return None
+            if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                df = fdr.DataReader(symbol, start=fetch_start, end=end_date)
+            else:
+                df = yf.download(symbol, start=fetch_start, end=end_date, progress=False)
 
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [col[0] for col in df.columns]
+            if df is None or df.empty:
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                continue
 
-        return df
-    except:
-        return None
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = [col[0] for col in df.columns]
+
+            if "Close" not in df.columns:
+                continue
+
+            df = df.dropna(subset=["Close"])
+
+            # 최소 60일치만 있으면 허용
+            if len(df) < 60:
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                continue
+
+            return df
+
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(1 + attempt)
+
+    return None
 
 def _score_per(val):
     v = _safe_float(val)
@@ -548,11 +574,11 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 current_price = float(close_series.iloc[-1])
 
                 ma200_series = close_series.rolling(window=200).mean()
-                current_ma200 = float(ma200_series.iloc[-1])
-                if pd.isna(current_ma200) or current_ma200 == 0:
-                    continue
+                ma200_val = ma200_series.iloc[-1]
+                current_ma200 = float(ma200_val) if pd.notna(ma200_val) and ma200_val != 0 else float("nan")
 
-                diff_val = ((current_price - current_ma200) / current_ma200) * 100
+                # 200일선 없어도 스킵하지 않음 (데이터 부족 종목도 표시)
+                diff_val = ((current_price - current_ma200) / current_ma200) * 100 if not pd.isna(current_ma200) else float("nan")
                 rsi_val = calculate_rsi(close_series, 14)
 
                 per_val, pbr_val = float("nan"), float("nan")
@@ -728,4 +754,3 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             })
     except Exception as e:
         app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})
-
