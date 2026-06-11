@@ -425,7 +425,7 @@ def style_screener_dataframe(df, market_type):
 link_config = {
     "순위": st.column_config.NumberColumn("순위", format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
     "시총(억)": st.column_config.TextColumn("시총(억)"),
     "현재가": st.column_config.TextColumn("현재가"),
     "최고점": st.column_config.TextColumn("최고점"),
@@ -538,7 +538,7 @@ if btn_load:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
 
 DISPLAY_COLUMN_ORDER = [
-    "rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff",
+    "rank", "symbol", "name", "data_date", "market_cap", "price", "peak", "peak_diff", "ma200", "diff",
     "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "score", "grade", "confidence",
     "summary", "detail_text", "missing_fields"
 ]

@@ -69,6 +69,19 @@ def _safe_float(val):
     except:
         return float("nan")
 
+def _fetch_ticker_info(t_obj, max_retries=3):
+    """yfinance info를 재시도 로직과 함께 가져옴."""
+    for attempt in range(max_retries):
+        try:
+            info = t_obj.info
+            if info and len(info) > 5:
+                return info
+        except Exception:
+            pass
+        if attempt < max_retries - 1:
+            time.sleep(1 + attempt)
+    return {}
+
 def _fmt_signed_pct(val, decimals=1):
     try:
         v = float(val)
@@ -623,39 +636,44 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             except:
                                 pass
                     else:
-                        try:
-                            info = t_obj.info
+                        info = _fetch_ticker_info(t_obj) if t_obj is not None else {}
+                        if info:
                             per_val_raw = info.get("trailingPE", float("nan"))
                             pbr_val_raw = info.get("priceToBook", float("nan"))
 
-                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get("bookValue"):
+                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or not pbr_val_raw) and info.get("bookValue"):
                                 try:
                                     pbr_val_raw = current_price / float(info.get("bookValue"))
                                 except:
                                     pbr_val_raw = float("nan")
 
                             try:
-                                per_val = float(per_val_raw) if per_val_raw != "N/A" else float("nan")
+                                per_val = float(per_val_raw) if per_val_raw and per_val_raw != "N/A" else float("nan")
                             except:
                                 per_val = float("nan")
                             try:
-                                pbr_val = float(pbr_val_raw) if pbr_val_raw != "N/A" else float("nan")
+                                pbr_val = float(pbr_val_raw) if pbr_val_raw and pbr_val_raw != "N/A" else float("nan")
                             except:
                                 pbr_val = float("nan")
-                        except:
-                            per_val, pbr_val = float("nan"), float("nan")
+
+                            # ROE도 같은 info에서 가져옴 (중복 호출 방지)
+                            try:
+                                if info.get("returnOnEquity") is not None:
+                                    roe_val = float(info["returnOnEquity"]) * 100
+                            except:
+                                pass
 
                 try:
                     if t_obj is not None:
-                        info = t_obj.info
-                        if info and "returnOnEquity" in info and info["returnOnEquity"] is not None:
-                            roe_val = float(info["returnOnEquity"]) * 100
-                except:
-                    pass
-
-                try:
-                    if t_obj is not None:
-                        financials = t_obj.financials
+                        financials = None
+                        for _fa in range(3):
+                            try:
+                                financials = t_obj.financials
+                                if financials is not None and not financials.empty:
+                                    break
+                            except Exception:
+                                if _fa < 2:
+                                    time.sleep(1 + _fa)
                         if financials is not None and not financials.empty:
                             eps_rows = [r for r in financials.index if "Diluted EPS" in str(r) or "Basic EPS" in str(r)]
                             if eps_rows:
