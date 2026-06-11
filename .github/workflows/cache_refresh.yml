@@ -1,0 +1,54 @@
+name: Refresh stock screener caches
+
+on:
+  schedule:
+    - cron: '20 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas yfinance FinanceDataReader requests beautifulsoup4 lxml streamlit
+
+      - name: Refresh caches
+        run: |
+          python - <<'PY'
+          import analyzer
+
+          # 한국 시장 재무지표 캐시 갱신
+          analyzer.refresh_kr_fundamental_cache('한국(코스피)', top_n=100, sleep_seconds=0.2)
+          analyzer.refresh_kr_fundamental_cache('한국(코스닥)', top_n=100, sleep_seconds=0.2)
+
+          # 미국 시총 캐시가 없으면 기본값 생성
+          analyzer.load_us_market_cap_cache()
+          PY
+
+      - name: Commit cache updates
+        run: |
+          if git diff --quiet; then
+            echo 'No cache changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add cache/*.json
+          git commit -m 'chore: refresh screener caches'
+          git push
