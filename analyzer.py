@@ -52,7 +52,7 @@ def _is_missing(val):
         return True
     if isinstance(val, str):
         s = val.strip()
-        if s in {"", "-", "N/A", "None", "nan", "비활성", "정보없음", "데이터없음", "데이터부족"}:
+        if s in {"", "-", "N/A", "None", "nan", "비활성"}:
             return True
     try:
         return pd.isna(val)
@@ -68,32 +68,6 @@ def _safe_float(val):
         return float(val)
     except:
         return float("nan")
-
-def _fetch_ticker_info(t_obj, max_retries=3):
-    """yfinance info를 재시도 로직과 함께 가져옴."""
-    for attempt in range(max_retries):
-        try:
-            info = t_obj.info
-            if info and len(info) > 5:
-                return info
-        except Exception:
-            pass
-        if attempt < max_retries - 1:
-            time.sleep(1 + attempt)
-    return {}
-
-def _fmt_signed_pct(val, decimals=1):
-    try:
-        v = float(val)
-        if pd.isna(v):
-            return "-"
-        if v > 0:
-            return f"+{v:.{decimals}f}%"
-        if v < 0:
-            return f"{v:.{decimals}f}%"
-        return f"{0:.{decimals}f}%"
-    except:
-        return "-"
 
 def _grade_from_score(score):
     try:
@@ -142,48 +116,22 @@ def get_pbr_grade(val):
     except:
         return "정보없음"
 
-def fetch_stock_data(market, symbol, start_date, end_date, max_retries=3):
-    """
-    주가 데이터를 가져옴. 실패 시 최대 max_retries회 재시도.
-    60일 이상이면 허용 (200일선 미달 시 NaN 처리).
-    """
-    for attempt in range(max_retries):
-        try:
-            # 재시도마다 기간을 늘림 (365 → 500 → 700일)
-            extended_start = (datetime.now() - timedelta(days=365 + attempt * 150)).strftime("%Y-%m-%d")
-            fetch_start = extended_start if attempt > 0 else start_date
+def fetch_stock_data(market, symbol, start_date, end_date):
+    try:
+        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+            df = fdr.DataReader(symbol, start=start_date, end=end_date)
+        else:
+            df = yf.download(symbol, start=start_date, end=end_date, progress=False)
 
-            if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                df = fdr.DataReader(symbol, start=fetch_start, end=end_date)
-            else:
-                df = yf.download(symbol, start=fetch_start, end=end_date, progress=False)
+        if df is None or df.empty or len(df) < 200:
+            return None
 
-            if df is None or df.empty:
-                if attempt < max_retries - 1:
-                    time.sleep(1)
-                continue
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [col[0] for col in df.columns]
 
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = [col[0] for col in df.columns]
-
-            if "Close" not in df.columns:
-                continue
-
-            df = df.dropna(subset=["Close"])
-
-            # 최소 60일치만 있으면 허용
-            if len(df) < 60:
-                if attempt < max_retries - 1:
-                    time.sleep(1)
-                continue
-
-            return df
-
-        except Exception:
-            if attempt < max_retries - 1:
-                time.sleep(1 + attempt)
-
-    return None
+        return df
+    except:
+        return None
 
 def _score_per(val):
     v = _safe_float(val)
@@ -245,41 +193,17 @@ def _score_peg(val):
         return 6, True
     return 0, True
 
-def _score_eps3y(val, growth=None, trend=None):
-    if _is_missing(val) and _is_missing(growth) and _is_missing(trend):
+def _score_eps3y(val):
+    if _is_missing(val):
         return 0, False
-
-    if isinstance(trend, str):
-        t = trend.strip()
-        if t in {"적자", "적자전환"}:
-            return 0, True
-        if t == "흑자전환":
-            return 8, True
-
-    g = _safe_float(growth)
-    if not pd.isna(g):
-        if g >= 100:
-            return 10, True
-        if g >= 50:
-            return 8, True
-        if g >= 20:
-            return 6, True
-        if g >= 5:
-            return 4, True
-        if g > 0:
-            return 2, True
-        if g == 0:
-            return 1, True
-        return 0, True
-
     s = str(val).strip()
     if s == "적자":
         return 0, True
-    if s.startswith("↑"):
+    if s == "↑":
         return 10, True
-    if s.startswith("→"):
+    if s == "→":
         return 5, True
-    if s.startswith("↓"):
+    if s == "↓":
         return 1, True
     return 0, True
 
@@ -331,17 +255,13 @@ def _missing_label(score_input_map):
 def evaluate_investment_score(stock_row, market=None):
     """
     stock_row: dict-like with keys
-    per, pbr, roe, peg, eps3y, eps3y_growth, eps3y_trend, cagr, rsi, peak_diff, diff, market_cap, price, name, symbol
+    per, pbr, roe, peg, eps3y, cagr, rsi, peak_diff, diff, market_cap, price, name, symbol
     """
     per_score, per_ok = _score_per(stock_row.get("per"))
     pbr_score, pbr_ok = _score_pbr(stock_row.get("pbr"))
     roe_score, roe_ok = _score_roe(stock_row.get("roe"))
     peg_score, peg_ok = _score_peg(stock_row.get("peg"))
-    eps_score, eps_ok = _score_eps3y(
-        stock_row.get("eps3y"),
-        stock_row.get("eps3y_growth"),
-        stock_row.get("eps3y_trend"),
-    )
+    eps_score, eps_ok = _score_eps3y(stock_row.get("eps3y"))
     cagr_score, cagr_ok = _score_cagr(stock_row.get("cagr"))
     rsi_score, rsi_ok = _score_rsi(stock_row.get("rsi"))
     peak_score, peak_ok = _score_peak_diff(stock_row.get("peak_diff"))
@@ -393,9 +313,6 @@ def evaluate_investment_score(stock_row, market=None):
     cagr_val = _safe_float(stock_row.get("cagr"))
     rsi_val = _safe_float(stock_row.get("rsi"))
     peak_diff_val = _safe_float(stock_row.get("peak_diff"))
-    eps_growth_val = _safe_float(stock_row.get("eps3y_growth"))
-    eps_trend_val = str(stock_row.get("eps3y_trend", "")).strip()
-    eps_disp_val = str(stock_row.get("eps3y", "")).strip()
 
     if not pd.isna(per_val):
         if per_val <= 10:
@@ -419,9 +336,9 @@ def evaluate_investment_score(stock_row, market=None):
             cautions.append(f"PEG {peg_val:.2f}")
     if not pd.isna(cagr_val):
         if cagr_val >= 12:
-            positives.append(f"CAGR {_fmt_signed_pct(cagr_val, 1)}")
+            positives.append(f"CAGR {cagr_val:.1f}%")
         elif cagr_val < 5:
-            cautions.append(f"CAGR {_fmt_signed_pct(cagr_val, 1)}")
+            cautions.append(f"CAGR {cagr_val:.1f}%")
     if not pd.isna(rsi_val):
         if 35 <= rsi_val <= 55:
             positives.append(f"RSI {rsi_val:.1f}")
@@ -432,22 +349,6 @@ def evaluate_investment_score(stock_row, market=None):
             positives.append(f"최고점대비 {peak_diff_val:.1f}%")
         elif peak_diff_val > 0:
             cautions.append(f"최고점대비 +{peak_diff_val:.1f}%")
-
-    if not pd.isna(eps_growth_val):
-        if eps_growth_val >= 20:
-            positives.append(f"EPS3Y {_fmt_signed_pct(eps_growth_val, 1)}")
-        elif eps_growth_val < 0:
-            cautions.append(f"EPS3Y {_fmt_signed_pct(eps_growth_val, 1)}")
-    else:
-        if eps_trend_val == "흑자전환":
-            positives.append("EPS3Y 흑자전환")
-        elif eps_trend_val in {"적자", "적자전환"}:
-            cautions.append(f"EPS3Y {eps_trend_val}")
-        elif eps_disp_val and eps_disp_val not in {"-", "정보없음"}:
-            if eps_disp_val.startswith("↑"):
-                positives.append(f"EPS3Y {eps_disp_val}")
-            elif eps_disp_val.startswith("↓"):
-                cautions.append(f"EPS3Y {eps_disp_val}")
 
     positives = positives[:3]
     cautions = cautions[:2]
@@ -587,18 +488,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 current_price = float(close_series.iloc[-1])
 
                 ma200_series = close_series.rolling(window=200).mean()
-                ma200_val = ma200_series.iloc[-1]
-                current_ma200 = float(ma200_val) if pd.notna(ma200_val) and ma200_val != 0 else float("nan")
+                current_ma200 = float(ma200_series.iloc[-1])
+                if pd.isna(current_ma200) or current_ma200 == 0:
+                    continue
 
-                # 200일선 없어도 스킵하지 않음 (데이터 부족 종목도 표시)
-                diff_val = ((current_price - current_ma200) / current_ma200) * 100 if not pd.isna(current_ma200) else float("nan")
+                diff_val = ((current_price - current_ma200) / current_ma200) * 100
                 rsi_val = calculate_rsi(close_series, 14)
 
                 per_val, pbr_val = float("nan"), float("nan")
                 roe_val, peg_val = float("nan"), float("nan")
-                eps3y_str = "정보없음"
-                eps3y_growth = float("nan")
-                eps3y_trend = "데이터없음"
+                eps3y_str = "-"
                 cagr_val = float("nan")
 
                 t_obj = None
@@ -636,44 +535,39 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             except:
                                 pass
                     else:
-                        info = _fetch_ticker_info(t_obj) if t_obj is not None else {}
-                        if info:
+                        try:
+                            info = t_obj.info
                             per_val_raw = info.get("trailingPE", float("nan"))
                             pbr_val_raw = info.get("priceToBook", float("nan"))
 
-                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or not pbr_val_raw) and info.get("bookValue"):
+                            if (pbr_val_raw == "N/A" or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get("bookValue"):
                                 try:
                                     pbr_val_raw = current_price / float(info.get("bookValue"))
                                 except:
                                     pbr_val_raw = float("nan")
 
                             try:
-                                per_val = float(per_val_raw) if per_val_raw and per_val_raw != "N/A" else float("nan")
+                                per_val = float(per_val_raw) if per_val_raw != "N/A" else float("nan")
                             except:
                                 per_val = float("nan")
                             try:
-                                pbr_val = float(pbr_val_raw) if pbr_val_raw and pbr_val_raw != "N/A" else float("nan")
+                                pbr_val = float(pbr_val_raw) if pbr_val_raw != "N/A" else float("nan")
                             except:
                                 pbr_val = float("nan")
-
-                            # ROE도 같은 info에서 가져옴 (중복 호출 방지)
-                            try:
-                                if info.get("returnOnEquity") is not None:
-                                    roe_val = float(info["returnOnEquity"]) * 100
-                            except:
-                                pass
+                        except:
+                            per_val, pbr_val = float("nan"), float("nan")
 
                 try:
                     if t_obj is not None:
-                        financials = None
-                        for _fa in range(3):
-                            try:
-                                financials = t_obj.financials
-                                if financials is not None and not financials.empty:
-                                    break
-                            except Exception:
-                                if _fa < 2:
-                                    time.sleep(1 + _fa)
+                        info = t_obj.info
+                        if info and "returnOnEquity" in info and info["returnOnEquity"] is not None:
+                            roe_val = float(info["returnOnEquity"]) * 100
+                except:
+                    pass
+
+                try:
+                    if t_obj is not None:
+                        financials = t_obj.financials
                         if financials is not None and not financials.empty:
                             eps_rows = [r for r in financials.index if "Diluted EPS" in str(r) or "Basic EPS" in str(r)]
                             if eps_rows:
@@ -681,33 +575,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                 eps_series = eps_series.sort_index(ascending=True)
 
                                 if len(eps_series) >= 3:
-                                    recent_eps = [float(x) for x in eps_series.values[-3:]]
+                                    recent_eps = eps_series.values[-3:]
                                     v1, v2, v3 = recent_eps[0], recent_eps[1], recent_eps[2]
 
-                                    if v1 <= 0 and v2 <= 0 and v3 <= 0:
-                                        eps3y_str = "↓ 적자"
-                                        eps3y_trend = "적자"
-                                    elif v1 <= 0 < v3:
-                                        eps3y_str = "↑ 흑자전환"
-                                        eps3y_trend = "흑자전환"
-                                    elif v1 > 0 and v3 <= 0:
-                                        eps3y_str = "↓ 적자전환"
-                                        eps3y_trend = "적자전환"
+                                    if v1 < v2 < v3:
+                                        eps3y_str = "↑"
                                     else:
-                                        eps3y_growth = ((v3 / v1) - 1) * 100 if v1 != 0 else float("nan")
-                                        if v1 < v2 < v3:
-                                            eps3y_trend = "상승"
-                                            direction = "↑"
-                                        elif v1 > v2 > v3:
-                                            eps3y_trend = "하락"
-                                            direction = "↓"
-                                        else:
-                                            eps3y_trend = "중립"
-                                            direction = "→"
-                                        if pd.notna(eps3y_growth):
-                                            eps3y_str = f"{direction} {_fmt_signed_pct(eps3y_growth, 1)}"
-                                        else:
-                                            eps3y_str = f"{direction} 정보없음"
+                                        eps3y_str = "↓"
+
+                                    if v1 <= 0 and v2 <= 0 and v3 <= 0:
+                                        eps3y_str = "적자"
 
                                     if len(eps_series) >= 4:
                                         eps_start = eps_series.values[-4]
@@ -722,7 +599,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
-                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "↓ 적자":
+                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
                     try:
                         peg_val = per_val / cagr_val
                     except:
@@ -750,8 +627,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "roe": roe_val,
                     "peg": peg_val,
                     "eps3y": eps3y_str,
-                    "eps3y_growth": eps3y_growth,
-                    "eps3y_trend": eps3y_trend,
                     "cagr": cagr_val
                 }
 
