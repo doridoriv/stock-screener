@@ -1,0 +1,53 @@
+name: Auto Stock Data Scraper
+
+on:
+  schedule:
+    # 1. 한국 시장 장마감 후 1시간 간격으로 5회 자동 실행 (오후 4시 ~ 저녁 8시)
+    - cron: '0 7 * * *'   # 1회차: 한국 시간 16:00 (UTC 07:00)
+    - cron: '0 8 * * *'   # 2회차: 한국 시간 17:00 (UTC 08:00)
+    - cron: '0 9 * * *'   # 3회차: 한국 시간 18:00 (UTC 09:00)
+    - cron: '0 10 * * *'  # 4회차: 한국 시간 19:00 (UTC 10:00)
+    - cron: '0 11 * * *'  # 5회차: 한국 시간 20:00 (UTC 11:00)
+
+    # 2. 미국 시장 장마감 후 1시간 간격으로 5회 자동 실행 (오전 6시 ~ 오전 10시)
+    - cron: '0 21 * * *'  # 1회차: 한국 시간 06:00 (UTC 전날 21:00)
+    - cron: '0 22 * * *'  # 2회차: 한국 시간 07:00 (UTC 전날 22:00)
+    - cron: '0 23 * * *'  # 3회차: 한국 시간 08:00 (UTC 전날 23:00)
+    - cron: '0 0 * * *'   # 4회차: 한국 시간 09:00 (UTC 당일 00:00)
+    - cron: '0 1 * * *'   # 5회차: 한국 시간 10:00 (UTC 당일 01:00)
+  
+  # 언제든 사용자가 수동으로도 즉시 실행할 수 있도록 버튼 활성화
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Required Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas yfinance finance-datareader requests streamlit
+
+      - name: Run Stock Analyzer Script
+        run: |
+          python analyzer.py
+
+      - name: Commit and Push Updated Data Files
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/
+          git diff-index --quiet HEAD || git commit -m "Auto-update stock data [skip ci]"
+          git push
