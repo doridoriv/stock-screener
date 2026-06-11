@@ -728,3 +728,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             })
     except Exception as e:
         app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})
+
+if st.session_state.data:
+    st.write(pd.DataFrame(st.session_state.data)[["symbol","eps3y"]].head(3))
