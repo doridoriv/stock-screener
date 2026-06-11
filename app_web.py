@@ -111,6 +111,12 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
     sort_col = sort_col_map.get(sort_key, "score")
     ascending = ascending_map.get(sort_key, False)
 
+    # [2트랙 정렬] eps3y/cagr는 표현 트랙(문자열)이 아닌 정렬 트랙(순수 숫자)으로 정렬
+    if sort_col == "eps3y" and "eps3y_sort" in df.columns:
+        sort_col = "eps3y_sort"
+    if sort_col == "cagr" and "cagr_sort" in df.columns:
+        sort_col = "cagr_sort"
+
     if sort_col not in df.columns:
         sort_col = "score" if "score" in df.columns else df.columns[0]
         ascending = False
@@ -247,74 +253,80 @@ def style_screener_dataframe(df, market_type):
     ])
 
     def color_per(val):
+        # Lower is Better: 낮을수록 빨간(★쇼핑기회), 높을수록 파란(⚠️고평가경고)
         try:
             v = float(val)
             if pd.isna(v):
                 return ""
-            if v <= 5:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v <= 10:
-                return "color: #1976D2; font-weight: bold;"
+            if v < 0:
+                return "color: #1565C0; font-weight: bold;"   # 적자 → 진한 파란(위험)
+            if v <= 8:
+                return "color: #B71C1C; font-weight: bold;"   # 초저평가 → 진한 빨간(★)
             elif v <= 15:
-                return "color: #0288D1; font-weight: bold;"
-            elif v <= 20:
-                return "color: #E65100; font-weight: bold;"
+                return "color: #E53935; font-weight: bold;"   # 저평가 → 빨간
+            elif v <= 25:
+                return "color: #EF9A9A; font-weight: bold;"   # 보통 → 연한 빨간
+            elif v <= 40:
+                return "color: #90CAF9; font-weight: bold;"   # 고평가 → 연한 파란
             else:
-                return "color: #D32F2F; font-weight: bold;"
+                return "color: #1565C0; font-weight: bold;"   # 초고평가 → 진한 파란(⚠️)
         except:
             return ""
 
     def color_pbr(val):
+        # Lower is Better: 낮을수록 빨간(★쇼핑기회), 높을수록 파란(⚠️고평가경고)
         try:
             v = float(val)
             if pd.isna(v):
                 return ""
-            if v <= 0.5:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v <= 1.0:
-                return "color: #1976D2; font-weight: bold;"
-            elif v <= 2.0:
-                return "color: #0288D1; font-weight: bold;"
+            if v < 0:
+                return "color: #1565C0; font-weight: bold;"   # 자본잠식 → 진한 파란(위험)
+            if v <= 0.8:
+                return "color: #B71C1C; font-weight: bold;"   # 절대저평가 → 진한 빨간(★)
+            elif v <= 1.5:
+                return "color: #E53935; font-weight: bold;"   # 저평가 → 빨간
             elif v <= 3.0:
-                return "color: #E65100; font-weight: bold;"
+                return "color: #90CAF9; font-weight: bold;"   # 고평가 → 연한 파란
             else:
-                return "color: #D32F2F; font-weight: bold;"
+                return "color: #1565C0; font-weight: bold;"   # 초고평가 → 진한 파란(⚠️)
         except:
             return ""
 
     def color_peg(val):
+        # Lower is Better: 낮을수록 빨간(★쇼핑기회), 높을수록 파란(⚠️고평가경고)
         try:
             v = float(val)
             if pd.isna(v):
                 return ""
             if v <= 0.5:
-                return "color: #0D47A1; font-weight: bold;"
+                return "color: #B71C1C; font-weight: bold;"   # 극저평가 → 진한 빨간(★)
             elif v <= 1.0:
-                return "color: #1976D2; font-weight: bold;"
+                return "color: #E53935; font-weight: bold;"   # 저평가 → 빨간
             elif v <= 1.5:
-                return "color: #0288D1; font-weight: bold;"
+                return "color: #EF9A9A; font-weight: bold;"   # 적정 → 연한 빨간
             elif v <= 2.0:
-                return "color: #E65100; font-weight: bold;"
+                return "color: #90CAF9; font-weight: bold;"   # 고평가 → 연한 파란
             else:
-                return "color: #D32F2F; font-weight: bold;"
+                return "color: #1565C0; font-weight: bold;"   # 초고평가 → 진한 파란(⚠️)
         except:
             return ""
 
     def color_roe(val):
+        # Higher is Better: 높을수록 빨간(★고수익), 낮을수록 파란(⚠️저수익/손실)
         try:
             v = float(val)
             if pd.isna(v):
                 return ""
-            if v >= 20:
-                return "color: #0D47A1; font-weight: bold;"
+            if v >= 25:
+                return "color: #B71C1C; font-weight: bold;"   # 초고수익 → 진한 빨간(★)
             elif v >= 15:
-                return "color: #1976D2; font-weight: bold;"
-            elif v >= 10:
-                return "color: #0288D1; font-weight: bold;"
-            elif v >= 5:
-                return "color: #E65100; font-weight: bold;"
+                return "color: #E53935; font-weight: bold;"   # 고수익 → 빨간
+            elif v >= 8:
+                return "color: #EF9A9A; font-weight: bold;"   # 적정 → 연한 빨간
+            elif v >= 0:
+                return "color: #90CAF9; font-weight: bold;"   # 저수익 → 연한 파란
             else:
-                return "color: #D32F2F; font-weight: bold;"
+                return "color: #1565C0; font-weight: bold;"   # 적자(음수) → 진한 파란(⚠️)
         except:
             return ""
 
@@ -331,6 +343,55 @@ def style_screener_dataframe(df, market_type):
                 return "color: #1976D2; font-weight: bold;"
             else:
                 return "color: #0D47A1; font-weight: bold;"
+        except:
+            return ""
+
+    def color_eps3y(val):
+        # Higher is Better: 성장/흑자전환 → 빨간(★호재), 적자/역성장 → 파란(⚠️악재)
+        s = str(val).strip()
+        # 텍스트 특수케이스 먼저 처리
+        if "흑자전환" in s:
+            return "color: #B71C1C; font-weight: bold;"   # 최고 호재 → 진한 빨간(★)
+        if "적자전환" in s:
+            return "color: #1565C0; font-weight: bold;"   # 최악 악재 → 진한 파란(⚠️)
+        if "적자" in s and "흑자" not in s:
+            return "color: #1565C0; font-weight: bold;"   # 적자지속 → 진한 파란(⚠️)
+        # 숫자 포함 문자열에서 수치 파싱
+        try:
+            import re
+            match = re.search(r"([+-]?\d+\.?\d*)", s.replace(",", ""))
+            if match:
+                v = float(match.group(1))
+                if v >= 50:
+                    return "color: #B71C1C; font-weight: bold;"   # 고성장 → 진한 빨간(★)
+                elif v >= 20:
+                    return "color: #E53935; font-weight: bold;"   # 성장 → 빨간
+                elif v >= 5:
+                    return "color: #EF9A9A; font-weight: bold;"   # 완만한 성장 → 연한 빨간
+                elif v >= 0:
+                    return "color: #90CAF9; font-weight: bold;"   # 제자리 → 연한 파란
+                else:
+                    return "color: #1565C0; font-weight: bold;"   # 역성장 → 진한 파란(⚠️)
+        except:
+            pass
+        return ""
+
+    def color_cagr(val):
+        # Higher is Better: 높을수록 빨간(★고성장), 낮을수록/음수 파란(⚠️역성장)
+        try:
+            v = float(val)
+            if pd.isna(v):
+                return ""
+            if v >= 25:
+                return "color: #B71C1C; font-weight: bold;"   # 고성장 → 진한 빨간(★)
+            elif v >= 12:
+                return "color: #E53935; font-weight: bold;"   # 성장 → 빨간
+            elif v >= 5:
+                return "color: #EF9A9A; font-weight: bold;"   # 완만한 성장 → 연한 빨간
+            elif v >= 0:
+                return "color: #90CAF9; font-weight: bold;"   # 제자리 → 연한 파란
+            else:
+                return "color: #1565C0; font-weight: bold;"   # 역성장 → 진한 파란(⚠️)
         except:
             return ""
 
@@ -407,6 +468,10 @@ def style_screener_dataframe(df, market_type):
         styler = styler.map(color_peg, subset=["PEG(성장)"])
     if "ROE(수익성)" in formatted_df.columns:
         styler = styler.map(color_roe, subset=["ROE(수익성)"])
+    if "EPS3Y(성장률)" in formatted_df.columns:
+        styler = styler.map(color_eps3y, subset=["EPS3Y(성장률)"])
+    if "CAGR(연평균)" in formatted_df.columns:
+        styler = styler.map(color_cagr, subset=["CAGR(연평균)"])
     if "RSI" in formatted_df.columns:
         styler = styler.map(color_rsi, subset=["RSI"])
     if "점수" in formatted_df.columns:
@@ -439,7 +504,7 @@ link_config = {
     "ROE(수익성)": st.column_config.NumberColumn("ROE(수익성)"),
     "PEG(성장)": st.column_config.NumberColumn("PEG(성장)"),
     "EPS3Y(성장률)": st.column_config.TextColumn("EPS3Y(성장률)"), # 다중 연도 슬래시 분할형이므로 텍스트 유지
-    "CAGR(연평균)": st.column_config.NumberColumn("CAGR(연평균)"),
+    "CAGR(연평균)": st.column_config.TextColumn("CAGR(연평균)"),  # 화살표 포맷 문자열 표시를 위해 텍스트 유지
     "점수": st.column_config.NumberColumn("점수", format="%d"),
     "등급": st.column_config.TextColumn("등급"),
     "신뢰도(%)": st.column_config.NumberColumn("신뢰도(%)"),
