@@ -1,22 +1,16 @@
 import os
 import json
-import re
 import time
 from datetime import datetime, timedelta
 
 import pandas as pd
-import requests
 import yfinance as yf
 import FinanceDataReader as fdr
-from bs4 import BeautifulSoup
 
 from config import (
     DEFAULT_US_TICKERS,
     US_NAME_MAP,
     US_MARKETCAP_CACHE_FILE,
-    KR_FUNDAMENTAL_CACHE_FILE,
-    NAVER_HEADERS,
-    REQUEST_TIMEOUT,
     SCORE_WEIGHTS,
     GRADE_RULES,
 )
@@ -39,201 +33,6 @@ def load_us_market_cap_cache():
             "market_cap": 0
         }
     return initial_cache
-
-
-
-def load_kr_fundamental_cache():
-    if os.path.exists(KR_FUNDAMENTAL_CACHE_FILE):
-        try:
-            with open(KR_FUNDAMENTAL_CACHE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return data
-        except:
-            pass
-    return {}
-
-
-def save_kr_fundamental_cache(cache):
-    try:
-        os.makedirs(os.path.dirname(KR_FUNDAMENTAL_CACHE_FILE), exist_ok=True)
-        tmp_file = KR_FUNDAMENTAL_CACHE_FILE + ".tmp"
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_file, KR_FUNDAMENTAL_CACHE_FILE)
-    except:
-        pass
-
-
-def _first_valid_float(*values):
-    for val in values:
-        if not _is_missing(val):
-            try:
-                num = _safe_float(val)
-                if not pd.isna(num):
-                    return float(num)
-            except:
-                continue
-    return float("nan")
-
-
-def _naver_kr_url(symbol):
-    return f"https://finance.naver.com/item/main.naver?code={symbol}"
-
-
-def _extract_metric_from_text(text, label):
-    pattern = rf"(?m)^{re.escape(label)}\s+([+-]?[\d,]+(?:\.\d+)?)"
-    match = re.search(pattern, text)
-    if match:
-        return _safe_float(match.group(1))
-    return float("nan")
-
-
-def _fetch_kr_fundamentals_live(symbol, max_retries=3):
-    url = _naver_kr_url(symbol)
-    last_error = None
-
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(
-                url,
-                headers=NAVER_HEADERS,
-                timeout=REQUEST_TIMEOUT,
-            )
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, "lxml")
-            text = soup.get_text("\n\n", strip=True)
-
-            per_val = _extract_metric_from_text(text, "PER(%)")
-            pbr_val = _extract_metric_from_text(text, "PBR(배)")
-            roe_val = _extract_metric_from_text(text, "ROE(%)")
-
-            if pd.isna(per_val):
-                per_val = _extract_metric_from_text(text, "추정PER")
-            if pd.isna(pbr_val):
-                pbr_val = _extract_metric_from_text(text, "PBR")
-            if pd.isna(roe_val):
-                roe_val = _extract_metric_from_text(text, "ROE(지배주주)")
-
-            return {
-                "per": per_val,
-                "pbr": pbr_val,
-                "roe": roe_val,
-                "source": "naver",
-                "updated_at": datetime.now().isoformat(timespec="seconds"),
-            }
-        except Exception as exc:
-            last_error = exc
-            if attempt < max_retries - 1:
-                time.sleep(1 + attempt)
-
-    return {
-        "per": float("nan"),
-        "pbr": float("nan"),
-        "roe": float("nan"),
-        "source": f"error:{last_error}" if last_error else "error",
-        "updated_at": datetime.now().isoformat(timespec="seconds"),
-    }
-
-
-def refresh_kr_fundamental_cache(market, top_n=100, sleep_seconds=0.2):
-    """GitHub Actions용 일괄 갱신 함수."""
-    cache = load_kr_fundamental_cache()
-    cache.setdefault(market, {})
-
-    market_type = "KOSDAQ" if market == "한국(코스닥)" else "KOSPI"
-    df_kr = fdr.StockListing(market_type)
-    df_kr = df_kr.dropna(subset=["Marcap"]).sort_values(by="Marcap", ascending=False).head(top_n)
-
-    for _, row in df_kr.iterrows():
-        symbol = str(row.get("Code", "")).strip()
-        if not symbol:
-            continue
-        live = _fetch_kr_fundamentals_live(symbol)
-        cache[market][symbol] = {
-            "name": str(row.get("Name", symbol)),
-            "per": live.get("per", float("nan")),
-            "pbr": live.get("pbr", float("nan")),
-            "roe": live.get("roe", float("nan")),
-            "source": live.get("source", "naver"),
-            "updated_at": live.get("updated_at", datetime.now().isoformat(timespec="seconds")),
-        }
-        save_kr_fundamental_cache(cache)
-        time.sleep(sleep_seconds)
-
-    return cache
-
-
-def resolve_korean_fundamentals(symbol, market, current_price=None, base_info=None, cache=None, t_obj=None, force_refresh=False):
-    base_info = base_info or {}
-    if cache is None:
-        cache = {}
-    market_cache = cache.setdefault(market, {})
-    cached = market_cache.get(symbol, {}) if isinstance(market_cache, dict) else {}
-
-    live = {}
-    need_live = force_refresh or any(
-        _is_missing(v)
-        for v in (
-            base_info.get("per"),
-            base_info.get("pbr"),
-            base_info.get("roe"),
-            cached.get("per"),
-            cached.get("pbr"),
-            cached.get("roe"),
-        )
-    )
-
-    if need_live:
-        live = _fetch_kr_fundamentals_live(symbol)
-        if isinstance(market_cache, dict):
-            market_cache[symbol] = {
-                **cached,
-                **live,
-                "updated_at": live.get("updated_at", datetime.now().isoformat(timespec="seconds")),
-            }
-            save_kr_fundamental_cache(cache)
-
-    per_val = _first_valid_float(base_info.get("per"), cached.get("per"), live.get("per"))
-    pbr_val = _first_valid_float(base_info.get("pbr"), cached.get("pbr"), live.get("pbr"))
-    roe_val = _first_valid_float(base_info.get("roe"), cached.get("roe"), live.get("roe"))
-
-    if t_obj is not None:
-        try:
-            info = _fetch_ticker_info(t_obj)
-        except:
-            info = {}
-
-        if pd.isna(per_val):
-            try:
-                per_val_raw = info.get("trailingPE") or info.get("forwardPE") or float("nan")
-                per_val = _safe_float(per_val_raw)
-            except:
-                pass
-
-        if pd.isna(pbr_val):
-            try:
-                pbr_val_raw = info.get("priceToBook", float("nan"))
-                if (pd.isna(pbr_val_raw) or pbr_val_raw in {None, "", "N/A"}) and info.get("bookValue") and current_price:
-                    pbr_val_raw = current_price / float(info.get("bookValue"))
-                pbr_val = _safe_float(pbr_val_raw)
-            except:
-                pass
-
-        if pd.isna(roe_val):
-            try:
-                roe_raw = info.get("returnOnEquity")
-                if roe_raw is not None:
-                    roe_val = float(roe_raw) * 100
-            except:
-                pass
-
-    return {
-        "per": per_val,
-        "pbr": pbr_val,
-        "roe": roe_val,
-    }
 
 def calculate_rsi(series, period=14):
     if len(series) < period + 1:
@@ -719,7 +518,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
     try:
         tickers_to_screen = []
         kr_fundamental_map = {}
-        kr_fundamental_cache = load_kr_fundamental_cache()
 
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             market_type = "KOSDAQ" if market == "한국(코스닥)" else "KOSPI"
@@ -741,7 +539,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 kr_fundamental_map[r_data["Code"]] = {
                     "per": r_data["PER"] if "PER" in r_data else "N/A",
                     "pbr": r_data["PBR"] if "PBR" in r_data else "N/A",
-                    "roe": r_data["ROE"] if "ROE" in r_data else "N/A",
                     "bps": r_data["BPS"] if "BPS" in r_data else "N/A"
                 }
         else:
@@ -813,18 +610,31 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
                 if opt_fundamental:
                     if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                        base_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "roe": "N/A", "bps": "N/A"})
-                        kr_result = resolve_korean_fundamentals(
-                            symbol=symbol,
-                            market=market,
-                            current_price=current_price,
-                            base_info=base_info,
-                            cache=kr_fundamental_cache,
-                            t_obj=t_obj,
-                        )
-                        per_val = kr_result.get("per", float("nan"))
-                        pbr_val = kr_result.get("pbr", float("nan"))
-                        roe_val = kr_result.get("roe", float("nan"))
+                        f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
+                        per_val_raw = f_info.get("per", "N/A")
+
+                        if _is_missing(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
+                            try:
+                                info = t_obj.info
+                                per_val_raw = info.get("trailingPE") or info.get("forwardPE") or float("nan")
+                            except:
+                                per_val_raw = float("nan")
+
+                        try:
+                            per_val = float(per_val_raw) if not pd.isna(per_val_raw) else float("nan")
+                        except:
+                            per_val = float("nan")
+
+                        try:
+                            pbr_val = float(f_info.get("pbr", float("nan")))
+                        except:
+                            pbr_val = float("nan")
+                        if pd.isna(pbr_val) or pbr_val == 0:
+                            try:
+                                info = t_obj.info
+                                pbr_val = info.get("priceToBook", float("nan"))
+                            except:
+                                pass
                     else:
                         info = _fetch_ticker_info(t_obj) if t_obj is not None else {}
                         if info:
