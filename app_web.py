@@ -180,22 +180,22 @@ def style_screener_dataframe(df, market_type):
         "rank": "순위",
         "symbol": "티커",
         "name": "종목명",
-        "market_cap": "시가총액\n(억)",
+        "market_cap": "시총(억)",
         "price": "현재가",
         "peak": "최고점",
-        "peak_diff": "최고점\n괴리율",
+        "peak_diff": "최고점괴리",
         "ma200": "200일선",
-        "diff": "200일\n괴리율",
-        "rsi": "RSI\n(과열/침체)",
-        "per": "PER\n(주가/수익)",
-        "pbr": "PBR\n(주가/자산)",
-        "roe": "ROE\n(자본수익률)",
-        "peg": "PEG\n(성장성/PER)",
-        "eps3y": "EPS3Y\n(3년성장)",
-        "cagr": "CAGR\n(연평균성장)",
+        "diff": "200일괴리",
+        "rsi": "RSI",
+        "per": "PER(수익)",
+        "pbr": "PBR(자산)",
+        "roe": "ROE(수익성)",
+        "peg": "PEG(성장)",
+        "eps3y": "EPS3Y(성장률)",
+        "cagr": "CAGR(연평균)",
         "score": "점수",
         "grade": "등급",
-        "confidence": "신뢰도\n(%)",
+        "confidence": "신뢰도(%)",
         "summary": "AI한줄해석",
         "detail_text": "점수상세",
         "missing_fields": "누락지표",
@@ -207,38 +207,38 @@ def style_screener_dataframe(df, market_type):
 
     if "순위" in formatted_df.columns:
         format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
-    if "시가총액\n(억)" in formatted_df.columns:
-        format_dict["시가총액\n(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
+    if "시총(억)" in formatted_df.columns:
+        format_dict["시총(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
     if "현재가" in formatted_df.columns:
         format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
     if "200일선" in formatted_df.columns:
         format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
     if "최고점" in formatted_df.columns:
         format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점\n괴리율" in formatted_df.columns:
-        format_dict["최고점\n괴리율"] = lambda x: _fmt_signed_pct(x, 2)
-    if "200일\n괴리율" in formatted_df.columns:
-        format_dict["200일\n괴리율"] = lambda x: _fmt_signed_pct(x, 2)
-    if "RSI\n(과열/침체)" in formatted_df.columns:
-        format_dict["RSI\n(과열/침체)"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PER\n(주가/수익)" in formatted_df.columns:
-        format_dict["PER\n(주가/수익)"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PBR\n(주가/자산)" in formatted_df.columns:
-        format_dict["PBR\n(주가/자산)"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "ROE\n(자본수익률)" in formatted_df.columns:
-        format_dict["ROE\n(자본수익률)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
-    if "PEG\n(성장성/PER)" in formatted_df.columns:
-        format_dict["PEG\n(성장성/PER)"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "EPS3Y\n(3년성장)" in formatted_df.columns:
-        format_dict["EPS3Y\n(3년성장)"] = lambda x: str(x) if pd.notna(x) else "-"
-    if "CAGR\n(연평균성장)" in formatted_df.columns:
-        format_dict["CAGR\n(연평균성장)"] = lambda x: _fmt_signed_pct(x, 1, show_arrow=True)
+    if "최고점괴리" in formatted_df.columns:
+        format_dict["최고점괴리"] = lambda x: _fmt_signed_pct(x, 2)
+    if "200일괴리" in formatted_df.columns:
+        format_dict["200일괴리"] = lambda x: _fmt_signed_pct(x, 2)
+    if "RSI" in formatted_df.columns:
+        format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "PER(수익)" in formatted_df.columns:
+        format_dict["PER(수익)"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "PBR(자산)" in formatted_df.columns:
+        format_dict["PBR(자산)"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "ROE(수익성)" in formatted_df.columns:
+        format_dict["ROE(수익성)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
+    if "PEG(성장)" in formatted_df.columns:
+        format_dict["PEG(성장)"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "EPS3Y(성장률)" in formatted_df.columns:
+        format_dict["EPS3Y(성장률)"] = lambda x: str(x) if pd.notna(x) else "-"
+    if "CAGR(연평균)" in formatted_df.columns:
+        format_dict["CAGR(연평균)"] = lambda x: _fmt_signed_pct(x, 1, show_arrow=True)
     if "점수" in formatted_df.columns:
         format_dict["점수"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "등급" in formatted_df.columns:
         format_dict["등급"] = lambda x: str(x) if pd.notna(x) else "-"
-    if "신뢰도\n(%)" in formatted_df.columns:
-        format_dict["신뢰도\n(%)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
+    if "신뢰도(%)" in formatted_df.columns:
+        format_dict["신뢰도(%)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
 
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{"text-align": "center", "white-space": "nowrap"})
@@ -399,52 +399,52 @@ def style_screener_dataframe(df, market_type):
                     return "color: #1976D2; font-weight: bold;"
         return "color: #212121;"
 
-    if "PER\n(주가/수익)" in formatted_df.columns:
-        styler = styler.map(color_per, subset=["PER\n(주가/수익)"])
-    if "PBR\n(주가/자산)" in formatted_df.columns:
-        styler = styler.map(color_pbr, subset=["PBR\n(주가/자산)"])
-    if "PEG\n(성장성/PER)" in formatted_df.columns:
-        styler = styler.map(color_peg, subset=["PEG\n(성장성/PER)"])
-    if "ROE\n(자본수익률)" in formatted_df.columns:
-        styler = styler.map(color_roe, subset=["ROE\n(자본수익률)"])
-    if "RSI\n(과열/침체)" in formatted_df.columns:
-        styler = styler.map(color_rsi, subset=["RSI\n(과열/침체)"])
+    if "PER(수익)" in formatted_df.columns:
+        styler = styler.map(color_per, subset=["PER(수익)"])
+    if "PBR(자산)" in formatted_df.columns:
+        styler = styler.map(color_pbr, subset=["PBR(자산)"])
+    if "PEG(성장)" in formatted_df.columns:
+        styler = styler.map(color_peg, subset=["PEG(성장)"])
+    if "ROE(수익성)" in formatted_df.columns:
+        styler = styler.map(color_roe, subset=["ROE(수익성)"])
+    if "RSI" in formatted_df.columns:
+        styler = styler.map(color_rsi, subset=["RSI"])
     if "점수" in formatted_df.columns:
         styler = styler.map(color_score, subset=["점수"])
     if "등급" in formatted_df.columns:
         styler = styler.map(color_grade, subset=["등급"])
-    if "신뢰도\n(%)" in formatted_df.columns:
-        styler = styler.map(color_confidence, subset=["신뢰도\n(%)"])
+    if "신뢰도(%)" in formatted_df.columns:
+        styler = styler.map(color_confidence, subset=["신뢰도(%)"])
 
-    target_cols = [c for c in ["최고점\n괴리율", "200일\n괴리율"] if c in formatted_df.columns]
+    target_cols = [c for c in ["최고점괴리", "200일괴리"] if c in formatted_df.columns]
     if target_cols:
         styler = styler.map(apply_strict_color_rules, subset=target_cols)
 
     return styler
 
 link_config = {
-    "순위": st.column_config.NumberColumn("순위", width="small", format="%d"),
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width="small"),
+    "순위": st.column_config.NumberColumn("순위", format="%d"),
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
-    "시가총액\n(억)": st.column_config.NumberColumn("시가총액\n(억)", width="small"),
-    "현재가": st.column_config.NumberColumn("현재가", width="small"),
-    "최고점": st.column_config.NumberColumn("최고점", width="small"),
-    "최고점\n괴리율": st.column_config.NumberColumn("최고점\n괴리율", width="small"),
-    "200일선": st.column_config.NumberColumn("200일선", width="small"),
-    "200일\n괴리율": st.column_config.NumberColumn("200일\n괴리율", width="small"),
-    "RSI\n(과열/침체)": st.column_config.NumberColumn("RSI\n(과열/침체)", width="small"),
-    "PER\n(주가/수익)": st.column_config.NumberColumn("PER\n(주가/수익)", width="small"),
-    "PBR\n(주가/자산)": st.column_config.NumberColumn("PBR\n(주가/자산)", width="small"),
-    "ROE\n(자본수익률)": st.column_config.NumberColumn("ROE\n(자본수익률)", width="small"),
-    "PEG\n(성장성/PER)": st.column_config.NumberColumn("PEG\n(성장성/PER)", width="small"),
-    "EPS3Y\n(3년성장)": st.column_config.TextColumn("EPS3Y\n(3년성장)", width="medium"),
-    "CAGR\n(연평균성장)": st.column_config.NumberColumn("CAGR\n(연평균성장)", width="small"),
-    "점수": st.column_config.NumberColumn("점수", width="small"),
-    "등급": st.column_config.TextColumn("등급", width="small"),
-    "신뢰도\n(%)": st.column_config.NumberColumn("신뢰도\n(%)", width="small", format="%.1f%%"),
+    "시총(억)": st.column_config.TextColumn("시총(억)"),
+    "현재가": st.column_config.TextColumn("현재가"),
+    "최고점": st.column_config.TextColumn("최고점"),
+    "최고점괴리": st.column_config.TextColumn("최고점괴리"),
+    "200일선": st.column_config.TextColumn("200일선"),
+    "200일괴리": st.column_config.TextColumn("200일괴리"),
+    "RSI": st.column_config.TextColumn("RSI"),
+    "PER(수익)": st.column_config.TextColumn("PER(수익)"),
+    "PBR(자산)": st.column_config.TextColumn("PBR(자산)"),
+    "ROE(수익성)": st.column_config.TextColumn("ROE(수익성)"),
+    "PEG(성장)": st.column_config.TextColumn("PEG(성장)"),
+    "EPS3Y(성장률)": st.column_config.TextColumn("EPS3Y(성장률)"),
+    "CAGR(연평균)": st.column_config.TextColumn("CAGR(연평균)"),
+    "점수": st.column_config.NumberColumn("점수", format="%d"),
+    "등급": st.column_config.TextColumn("등급"),
+    "신뢰도(%)": st.column_config.TextColumn("신뢰도(%)"),
     "AI한줄해석": st.column_config.TextColumn("AI한줄해석", width="large"),
     "점수상세": st.column_config.TextColumn("점수상세", width="large"),
-    "누락지표": st.column_config.TextColumn("누락지표", width="medium"),
+    "누락지표": st.column_config.TextColumn("누락지표"),
 }
 
 def _display_market_panel(panel: dict):
@@ -748,22 +748,22 @@ if st.session_state.data:
         "rank": "순위",
         "symbol": "티커",
         "name": "종목명",
-        "market_cap": "시가총액\n(억)",
+        "market_cap": "시총(억)",
         "price": "현재가",
         "peak": "최고점",
-        "peak_diff": "최고점\n괴리율",
+        "peak_diff": "최고점괴리",
         "ma200": "200일선",
-        "diff": "200일\n괴리율",
-        "rsi": "RSI\n(과열/침체)",
-        "per": "PER\n(주가/수익)",
-        "pbr": "PBR\n(주가/자산)",
-        "roe": "ROE\n(자본수익률)",
-        "peg": "PEG\n(성장성/PER)",
-        "eps3y": "EPS3Y\n(3년성장)",
-        "cagr": "CAGR\n(연평균성장)",
+        "diff": "200일괴리",
+        "rsi": "RSI",
+        "per": "PER(수익)",
+        "pbr": "PBR(자산)",
+        "roe": "ROE(수익성)",
+        "peg": "PEG(성장)",
+        "eps3y": "EPS3Y(성장률)",
+        "cagr": "CAGR(연평균)",
         "score": "점수",
         "grade": "등급",
-        "confidence": "신뢰도\n(%)",
+        "confidence": "신뢰도(%)",
         "summary": "AI한줄해석",
         "detail_text": "점수상세",
         "missing_fields": "누락지표",
