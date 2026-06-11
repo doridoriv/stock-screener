@@ -13,6 +13,18 @@ from config import APP_TITLE, CACHE_DIR
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
+# 헤더 줄바꿈 허용 CSS (데이터 셀은 nowrap 유지)
+st.markdown("""
+<style>
+[data-testid="stDataFrame"] thead th div[title] {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    text-align: center !important;
+    line-height: 1.3 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title(f"🚀 {APP_TITLE}")
 st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석하고 저평가 종목을 찾습니다.")
 
@@ -227,6 +239,9 @@ def style_screener_dataframe(df, market_type):
 
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{"text-align": "center", "white-space": "nowrap"})
+    styler = styler.set_table_styles([
+        {"selector": "th", "props": [("white-space", "pre-wrap"), ("text-align", "center"), ("line-height", "1.3")]},
+    ])
 
     def color_per(val):
         try:
@@ -617,6 +632,7 @@ if btn_search:
                     final_save_df = final_save_df[save_cols]
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                st.rerun()
                 break
 
             elif m_type == "error":
@@ -641,6 +657,7 @@ if btn_search:
                     final_save_df = final_save_df[save_cols]
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                st.rerun()
                 break
 
         except queue.Empty:
