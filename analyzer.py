@@ -52,7 +52,7 @@ def _is_missing(val):
         return True
     if isinstance(val, str):
         s = val.strip()
-        if s in {"", "-", "N/A", "None", "nan", "비활성"}:
+        if s in {"", "-", "N/A", "None", "nan", "비활성", "정보없음", "데이터없음", "데이터부족"}:
             return True
     try:
         return pd.isna(val)
@@ -68,6 +68,19 @@ def _safe_float(val):
         return float(val)
     except:
         return float("nan")
+
+def _fmt_signed_pct(val, decimals=1):
+    try:
+        v = float(val)
+        if pd.isna(v):
+            return "-"
+        if v > 0:
+            return f"+{v:.{decimals}f}%"
+        if v < 0:
+            return f"{v:.{decimals}f}%"
+        return f"{0:.{decimals}f}%"
+    except:
+        return "-"
 
 def _grade_from_score(score):
     try:
@@ -193,17 +206,41 @@ def _score_peg(val):
         return 6, True
     return 0, True
 
-def _score_eps3y(val):
-    if _is_missing(val):
+def _score_eps3y(val, growth=None, trend=None):
+    if _is_missing(val) and _is_missing(growth) and _is_missing(trend):
         return 0, False
+
+    if isinstance(trend, str):
+        t = trend.strip()
+        if t in {"적자", "적자전환"}:
+            return 0, True
+        if t == "흑자전환":
+            return 8, True
+
+    g = _safe_float(growth)
+    if not pd.isna(g):
+        if g >= 100:
+            return 10, True
+        if g >= 50:
+            return 8, True
+        if g >= 20:
+            return 6, True
+        if g >= 5:
+            return 4, True
+        if g > 0:
+            return 2, True
+        if g == 0:
+            return 1, True
+        return 0, True
+
     s = str(val).strip()
     if s == "적자":
         return 0, True
-    if s == "↑":
+    if s.startswith("↑"):
         return 10, True
-    if s == "→":
+    if s.startswith("→"):
         return 5, True
-    if s == "↓":
+    if s.startswith("↓"):
         return 1, True
     return 0, True
 
@@ -255,13 +292,17 @@ def _missing_label(score_input_map):
 def evaluate_investment_score(stock_row, market=None):
     """
     stock_row: dict-like with keys
-    per, pbr, roe, peg, eps3y, cagr, rsi, peak_diff, diff, market_cap, price, name, symbol
+    per, pbr, roe, peg, eps3y, eps3y_growth, eps3y_trend, cagr, rsi, peak_diff, diff, market_cap, price, name, symbol
     """
     per_score, per_ok = _score_per(stock_row.get("per"))
     pbr_score, pbr_ok = _score_pbr(stock_row.get("pbr"))
     roe_score, roe_ok = _score_roe(stock_row.get("roe"))
     peg_score, peg_ok = _score_peg(stock_row.get("peg"))
-    eps_score, eps_ok = _score_eps3y(stock_row.get("eps3y"))
+    eps_score, eps_ok = _score_eps3y(
+        stock_row.get("eps3y"),
+        stock_row.get("eps3y_growth"),
+        stock_row.get("eps3y_trend"),
+    )
     cagr_score, cagr_ok = _score_cagr(stock_row.get("cagr"))
     rsi_score, rsi_ok = _score_rsi(stock_row.get("rsi"))
     peak_score, peak_ok = _score_peak_diff(stock_row.get("peak_diff"))
@@ -313,6 +354,9 @@ def evaluate_investment_score(stock_row, market=None):
     cagr_val = _safe_float(stock_row.get("cagr"))
     rsi_val = _safe_float(stock_row.get("rsi"))
     peak_diff_val = _safe_float(stock_row.get("peak_diff"))
+    eps_growth_val = _safe_float(stock_row.get("eps3y_growth"))
+    eps_trend_val = str(stock_row.get("eps3y_trend", "")).strip()
+    eps_disp_val = str(stock_row.get("eps3y", "")).strip()
 
     if not pd.isna(per_val):
         if per_val <= 10:
@@ -336,9 +380,9 @@ def evaluate_investment_score(stock_row, market=None):
             cautions.append(f"PEG {peg_val:.2f}")
     if not pd.isna(cagr_val):
         if cagr_val >= 12:
-            positives.append(f"CAGR {cagr_val:.1f}%")
+            positives.append(f"CAGR {_fmt_signed_pct(cagr_val, 1)}")
         elif cagr_val < 5:
-            cautions.append(f"CAGR {cagr_val:.1f}%")
+            cautions.append(f"CAGR {_fmt_signed_pct(cagr_val, 1)}")
     if not pd.isna(rsi_val):
         if 35 <= rsi_val <= 55:
             positives.append(f"RSI {rsi_val:.1f}")
@@ -349,6 +393,22 @@ def evaluate_investment_score(stock_row, market=None):
             positives.append(f"최고점대비 {peak_diff_val:.1f}%")
         elif peak_diff_val > 0:
             cautions.append(f"최고점대비 +{peak_diff_val:.1f}%")
+
+    if not pd.isna(eps_growth_val):
+        if eps_growth_val >= 20:
+            positives.append(f"EPS3Y {_fmt_signed_pct(eps_growth_val, 1)}")
+        elif eps_growth_val < 0:
+            cautions.append(f"EPS3Y {_fmt_signed_pct(eps_growth_val, 1)}")
+    else:
+        if eps_trend_val == "흑자전환":
+            positives.append("EPS3Y 흑자전환")
+        elif eps_trend_val in {"적자", "적자전환"}:
+            cautions.append(f"EPS3Y {eps_trend_val}")
+        elif eps_disp_val and eps_disp_val not in {"-", "정보없음"}:
+            if eps_disp_val.startswith("↑"):
+                positives.append(f"EPS3Y {eps_disp_val}")
+            elif eps_disp_val.startswith("↓"):
+                cautions.append(f"EPS3Y {eps_disp_val}")
 
     positives = positives[:3]
     cautions = cautions[:2]
@@ -497,7 +557,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
                 per_val, pbr_val = float("nan"), float("nan")
                 roe_val, peg_val = float("nan"), float("nan")
-                eps3y_str = "-"
+                eps3y_str = "정보없음"
+                eps3y_growth = float("nan")
+                eps3y_trend = "데이터없음"
                 cagr_val = float("nan")
 
                 t_obj = None
@@ -575,16 +637,33 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                                 eps_series = eps_series.sort_index(ascending=True)
 
                                 if len(eps_series) >= 3:
-                                    recent_eps = eps_series.values[-3:]
+                                    recent_eps = [float(x) for x in eps_series.values[-3:]]
                                     v1, v2, v3 = recent_eps[0], recent_eps[1], recent_eps[2]
 
-                                    if v1 < v2 < v3:
-                                        eps3y_str = "↑"
-                                    else:
-                                        eps3y_str = "↓"
-
                                     if v1 <= 0 and v2 <= 0 and v3 <= 0:
-                                        eps3y_str = "적자"
+                                        eps3y_str = "↓ 적자"
+                                        eps3y_trend = "적자"
+                                    elif v1 <= 0 < v3:
+                                        eps3y_str = "↑ 흑자전환"
+                                        eps3y_trend = "흑자전환"
+                                    elif v1 > 0 and v3 <= 0:
+                                        eps3y_str = "↓ 적자전환"
+                                        eps3y_trend = "적자전환"
+                                    else:
+                                        eps3y_growth = ((v3 / v1) - 1) * 100 if v1 != 0 else float("nan")
+                                        if v1 < v2 < v3:
+                                            eps3y_trend = "상승"
+                                            direction = "↑"
+                                        elif v1 > v2 > v3:
+                                            eps3y_trend = "하락"
+                                            direction = "↓"
+                                        else:
+                                            eps3y_trend = "중립"
+                                            direction = "→"
+                                        if pd.notna(eps3y_growth):
+                                            eps3y_str = f"{direction} {_fmt_signed_pct(eps3y_growth, 1)}"
+                                        else:
+                                            eps3y_str = f"{direction} 정보없음"
 
                                     if len(eps_series) >= 4:
                                         eps_start = eps_series.values[-4]
@@ -599,7 +678,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
-                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
+                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "↓ 적자":
                     try:
                         peg_val = per_val / cagr_val
                     except:
@@ -627,6 +706,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "roe": roe_val,
                     "peg": peg_val,
                     "eps3y": eps3y_str,
+                    "eps3y_growth": eps3y_growth,
+                    "eps3y_trend": eps3y_trend,
                     "cagr": cagr_val
                 }
 
