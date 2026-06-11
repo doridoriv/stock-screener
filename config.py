@@ -81,3 +81,13 @@ GRADE_RULES = [
     (60, "C"),
     (0, "D"),
 ]
+KR_FUNDAMENTAL_CACHE_FILE = os.path.join(CACHE_DIR, "kr_fundamental_cache.json")
+REQUEST_TIMEOUT = 10
+NAVER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Referer": "https://finance.naver.com/",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+}

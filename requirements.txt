@@ -1,5 +1,7 @@
 streamlit
 pandas
 yfinance
-finance-datareader
+FinanceDataReader
 requests
+beautifulsoup4
+lxml

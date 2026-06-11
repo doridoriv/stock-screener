@@ -62,6 +62,35 @@ def _fmt_signed_pct(value, decimals=1, show_arrow=False):
     except:
         return "-"
 
+NUMERIC_COLUMNS = [
+    "rank",
+    "market_cap",
+    "price",
+    "peak",
+    "peak_diff",
+    "ma200",
+    "diff",
+    "rsi",
+    "per",
+    "pbr",
+    "roe",
+    "peg",
+    "eps3y_growth",
+    "cagr",
+    "score",
+    "confidence",
+]
+
+
+def _normalize_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    normalized = df.copy()
+    for col in NUMERIC_COLUMNS:
+        if col in normalized.columns:
+            normalized[col] = pd.to_numeric(normalized[col], errors="coerce")
+    return normalized
+
 st.sidebar.header("🔍 검색 설정")
 market = st.sidebar.selectbox("시장 선택", ["미국", "한국(코스피)", "한국(코스닥)"])
 top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
@@ -86,6 +115,8 @@ if refresh_market or st.session_state.market_panel is None:
 def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
     if df is None or df.empty:
         return df
+
+    df = _normalize_numeric_columns(df)
 
     ascending_map = {
         "점수": False,
@@ -131,10 +162,10 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
         ascending_list.append(False)
 
     try:
-        df = df.sort_values(by=sort_cols, ascending=ascending_list)
+        df = df.sort_values(by=sort_cols, ascending=ascending_list, na_position="last")
     except:
         try:
-            df = df.sort_values(by=sort_col, ascending=ascending)
+            df = df.sort_values(by=sort_col, ascending=ascending, na_position="last")
         except:
             pass
 
@@ -530,6 +561,7 @@ if btn_load:
     if os.path.exists(file_path):
         try:
             loaded_df = pd.read_csv(file_path)
+            loaded_df = _normalize_numeric_columns(loaded_df)
             st.session_state.data = loaded_df.to_dict(orient="records")
             st.toast(f"📂 {market} 시장의 최근 자동저장 데이터를 불러왔습니다.", icon="✅")
         except Exception as e:
