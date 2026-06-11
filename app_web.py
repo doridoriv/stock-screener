@@ -422,26 +422,27 @@ def style_screener_dataframe(df, market_type):
 
     return styler
 
+# [수정 사항] 대화형 정렬 시 문자열 정렬이 아닌 숫자 크기 정렬이 작동하도록 NumberColumn으로 명시적 전환
 link_config = {
     "순위": st.column_config.NumberColumn("순위", format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
-    "시총(억)": st.column_config.TextColumn("시총(억)"),
-    "현재가": st.column_config.TextColumn("현재가"),
-    "최고점": st.column_config.TextColumn("최고점"),
-    "최고점괴리": st.column_config.TextColumn("최고점괴리"),
-    "200일선": st.column_config.TextColumn("200일선"),
-    "200일괴리": st.column_config.TextColumn("200일괴리"),
-    "RSI": st.column_config.TextColumn("RSI"),
-    "PER(수익)": st.column_config.TextColumn("PER(수익)"),
-    "PBR(자산)": st.column_config.TextColumn("PBR(자산)"),
-    "ROE(수익성)": st.column_config.TextColumn("ROE(수익성)"),
-    "PEG(성장)": st.column_config.TextColumn("PEG(성장)"),
-    "EPS3Y(성장률)": st.column_config.TextColumn("EPS3Y(성장률)"),
-    "CAGR(연평균)": st.column_config.TextColumn("CAGR(연평균)"),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
+    "시총(억)": st.column_config.NumberColumn("시총(억)"),
+    "현재가": st.column_config.NumberColumn("현재가"),
+    "최고점": st.column_config.NumberColumn("최고점"),
+    "최고점괴리": st.column_config.NumberColumn("최고점괴리"),
+    "200일선": st.column_config.NumberColumn("200일선"),
+    "200일괴리": st.column_config.NumberColumn("200일괴리"),
+    "RSI": st.column_config.NumberColumn("RSI"),
+    "PER(수익)": st.column_config.NumberColumn("PER(수익)"),
+    "PBR(자산)": st.column_config.NumberColumn("PBR(자산)"),
+    "ROE(수익성)": st.column_config.NumberColumn("ROE(수익성)"),
+    "PEG(성장)": st.column_config.NumberColumn("PEG(성장)"),
+    "EPS3Y(성장률)": st.column_config.TextColumn("EPS3Y(성장률)"), # 다중 연도 슬래시 분할형이므로 텍스트 유지
+    "CAGR(연평균)": st.column_config.NumberColumn("CAGR(연평균)"),
     "점수": st.column_config.NumberColumn("점수", format="%d"),
     "등급": st.column_config.TextColumn("등급"),
-    "신뢰도(%)": st.column_config.TextColumn("신뢰도(%)"),
+    "신뢰도(%)": st.column_config.NumberColumn("신뢰도(%)"),
     "AI한줄해석": st.column_config.TextColumn("AI한줄해석", width="large"),
     "점수상세": st.column_config.TextColumn("점수상세", width="large"),
     "누락지표": st.column_config.TextColumn("누락지표"),
@@ -538,7 +539,7 @@ if btn_load:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
 
 DISPLAY_COLUMN_ORDER = [
-    "rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff",
+    "rank", "symbol", "name", "data_date", "market_cap", "price", "peak", "peak_diff", "ma200", "diff",
     "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "score", "grade", "confidence",
     "summary", "detail_text", "missing_fields"
 ]
@@ -636,7 +637,6 @@ if btn_search:
                     final_save_df = final_save_df[save_cols]
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
-                    # session_state.data를 정렬된 상태로 유지
                     st.session_state.data = final_save_df.to_dict(orient="records")
                 st.session_state.screening_done = True
                 st.rerun()
