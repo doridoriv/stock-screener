@@ -1,6 +1,6 @@
 import os
 
-APP_TITLE = "저렴한주식쇼핑 by 유경빈"
+APP_TITLE = "저렴한주식쇼핑 by 유경빈+유채화뿅뿅"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 US_MARKETCAP_CACHE_FILE = os.path.join(CACHE_DIR, "us_marketcap_cache.json")
@@ -36,15 +36,15 @@ US_NAME_MAP = {
     "INTU": "인튜이트", "COP": "코노코필립스", "ISRG": "인튜이티브 서지컬", "PLTR": "팔란티어 테크놀로지스", "GEV": "GE 버노바",
     "LMT": "록히드 마틴", "LRCX": "램 리서치", "TJX": "TJX 컴퍼니즈", "MDLZ": "몬델리즈 인터내셔널", "BLK": "블랙록",
     "T": "AT&T", "ABBV": "애브비", "GILD": "길리어드 사이언시즈", "C": "씨티그룹", "BMY": "브리스톨 마이어스 스퀴브",
-    "BKNG": "부킹 홀딩스", "VRTX": "버텍스 파마슈티컬스", "ADI": "아날로그 디이스", "MDT": "메드트로닉", "BA": "보잉",
-    "ELV": "엘레반스 헬스", "ADP": "오토매틱 데이터 프로세싱", "CI": "시그나", "CB": "첩", "MMC": "마시 앤 맥레넌",
+    "BKNG": "부킹 홀딩스", "VRTX": "버텍스 파마슈티컬스", "ADI": "아날로그 디바이스", "MDT": "메드트로닉", "BA": "보잉",
+    "ELV": "엘레반스 헬스", "ADP": "오토매틱 데이터 프로세싱", "CI": "시그나", "CB": "처브", "MMC": "마시 앤 맥레넌",
     "REGN": "리제네론 파마슈티컬스", "SYK": "스트라이커", "DE": "존 디어"
 }
 
 COL_INFOS = [
     {"id": "rank", "text": "순위", "width": 50, "anchor": "center"},
     {"id": "symbol", "text": "티커", "width": 70, "anchor": "center"},
-    {"id": "name", "text": "종목명", "width": 160, "anchor": "w"},            
+    {"id": "name", "text": "종목명", "width": 160, "anchor": "w"},
     {"id": "market_cap", "text": "시가총액", "width": 100, "anchor": "e"},
     {"id": "price", "text": "현재가", "width": 90, "anchor": "e"},
     {"id": "peak", "text": "최고점", "width": 90, "anchor": "e"},
@@ -57,5 +57,27 @@ COL_INFOS = [
     {"id": "roe", "text": "ROE", "width": 70, "anchor": "center"},
     {"id": "peg", "text": "PEG", "width": 70, "anchor": "center"},
     {"id": "eps3y", "text": "EPS3Y", "width": 70, "anchor": "center"},
-    {"id": "cagr", "text": "CAGR", "width": 80, "anchor": "center"}
+    {"id": "cagr", "text": "CAGR", "width": 80, "anchor": "center"},
+    {"id": "score", "text": "점수", "width": 70, "anchor": "center"},
+    {"id": "grade", "text": "등급", "width": 60, "anchor": "center"},
+    {"id": "confidence", "text": "신뢰도", "width": 80, "anchor": "center"},
+]
+
+SCORE_WEIGHTS = {
+    "per": 15,
+    "pbr": 10,
+    "roe": 20,
+    "peg": 20,
+    "eps3y": 10,
+    "cagr": 15,
+    "rsi": 5,
+    "peak_diff": 5,
+}
+
+GRADE_RULES = [
+    (90, "S"),
+    (80, "A"),
+    (70, "B"),
+    (60, "C"),
+    (0, "D"),
 ]
