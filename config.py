@@ -1,6 +1,6 @@
 import os
 
-APP_TITLE = "저렴한주식쇼핑 by 유경빈+유채화뿅뿅"
+APP_TITLE = "저렴한주식쇼핑 by 유경빈"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.join(BASE_DIR, "cache")
 US_MARKETCAP_CACHE_FILE = os.path.join(CACHE_DIR, "us_marketcap_cache.json")
