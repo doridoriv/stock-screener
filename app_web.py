@@ -27,11 +27,34 @@ st.markdown(
                 padding-left: 0.8rem;
                 padding-right: 0.8rem;
             }
+
+            [data-testid="stDataFrame"] {
+                font-size: 0.82rem;
+            }
+
+            [data-testid="stDataFrame"] [role="gridcell"],
+            [data-testid="stDataFrame"] [role="columnheader"] {
+                padding: 0.18rem 0.30rem !important;
+            }
         }
 
         [data-testid="stDataFrame"] {
             width: 100%;
             overflow-x: auto;
+            font-size: 0.90rem;
+        }
+
+        [data-testid="stDataFrame"] [role="gridcell"],
+        [data-testid="stDataFrame"] [role="columnheader"] {
+            padding: 0.22rem 0.40rem !important;
+            line-height: 1.15 !important;
+        }
+
+        [data-testid="stDataFrame"] [role="gridcell"] div,
+        [data-testid="stDataFrame"] [role="columnheader"] div {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         section[data-testid="stSidebar"] > div {
