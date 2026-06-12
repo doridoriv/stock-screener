@@ -11,7 +11,36 @@ import analyzer
 import market_analyzer
 from config import APP_TITLE, CACHE_DIR
 
-st.set_page_config(page_title=APP_TITLE, layout="wide")
+st.set_page_config(page_title=APP_TITLE, layout="wide", initial_sidebar_state="expanded")
+
+st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+            max-width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .block-container {
+                padding-left: 0.8rem;
+                padding-right: 0.8rem;
+            }
+        }
+
+        [data-testid="stDataFrame"] {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding-top: 1rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.title(f"🚀 {APP_TITLE}")
 st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석하고 저평가 종목을 찾습니다.")
@@ -34,7 +63,7 @@ top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 sort_mode = st.sidebar.selectbox(
     "정렬 기준",
     ["점수", "시가총액", "PER", "PBR", "ROE", "PEG", "최고점대비", "200일괴리율"],
-    index=0
+    index=0,
 )
 opt_fundamental = st.sidebar.checkbox("기본 재무지표 사용", value=True)
 opt_peak = st.sidebar.checkbox("최고점 비교 사용", value=True)
@@ -48,6 +77,7 @@ if refresh_market or st.session_state.market_panel is None:
             st.session_state.market_panel_updated = datetime.now()
         except Exception as e:
             st.session_state.market_panel = {"error": str(e), "rows": []}
+
 
 def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
     if df is None or df.empty:
@@ -106,6 +136,7 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
 
     df["rank"] = range(1, len(df) + 1)
     return df
+
 
 def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
@@ -383,6 +414,7 @@ def style_screener_dataframe(df, market_type):
 
     return styler
 
+
 link_config = {
     "순위": st.column_config.NumberColumn("순위", width="small", format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width="small"),
@@ -407,6 +439,7 @@ link_config = {
     "점수상세": st.column_config.TextColumn("점수상세", width="large"),
     "누락지표": st.column_config.TextColumn("누락지표", width="medium"),
 }
+
 
 def _display_market_panel(panel: dict):
     if not panel:
@@ -444,6 +477,7 @@ def _display_market_panel(panel: dict):
             use_container_width=True,
             hide_index=True,
         )
+
 
 st.markdown("### 📌 시장상황판")
 if show_market_panel:
@@ -483,8 +517,11 @@ if btn_load:
 
 if btn_search:
     st.session_state.data = []
-    progress_bar = st.progress(0)
+
+    loop_progress_bar = st.progress(0)
+    success_progress_bar = st.progress(0)
     status_text = st.empty()
+    success_text = st.empty()
     header_placeholder = st.empty()
     table_placeholder = st.empty()
 
@@ -496,7 +533,7 @@ if btn_search:
     worker_thread = threading.Thread(
         target=analyzer.screening_worker,
         args=(market, top_n, app_queue, lambda: current_stop_event.is_set(), opt_fundamental, opt_peak, us_market_cap_data),
-        daemon=True
+        daemon=True,
     )
     worker_thread.start()
 
@@ -506,7 +543,7 @@ if btn_search:
             m_type = msg.get("type")
 
             if m_type == "progress":
-                progress_bar.progress(msg["value"] / 100)
+                loop_progress_bar.progress(msg["value"] / 100)
                 status_text.text(msg["text"])
 
             elif m_type == "data":
@@ -514,6 +551,17 @@ if btn_search:
                 df = pd.DataFrame(st.session_state.data)
                 if df.empty:
                     continue
+
+                success_count = len(st.session_state.data)
+                success_rate = min(1.0, success_count / max(top_n, 1))
+                latest_name = str(msg["data"].get("name", "-"))
+
+                success_progress_bar.progress(success_rate)
+                success_text.markdown(
+                    f"**현재 성공한 종목 수:** {success_count} / {top_n}  \n"
+                    f"**최근 완료:** {latest_name}",
+                    unsafe_allow_html=False,
+                )
 
                 if "score" in df.columns:
                     df = _sort_dataframe(df, sort_mode)
@@ -527,15 +575,27 @@ if btn_search:
                     styled_live_df = style_screener_dataframe(display_df, market)
                     date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
                     header_placeholder.markdown(
-                        f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'><h3>📊 실시간 분석 결과</h3><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>",
-                        unsafe_allow_html=True
+                        f"""
+                        <div style='display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;'>
+                            <h3 style='margin: 0;'>📊 실시간 분석 결과</h3>
+                            <div style='display: flex; gap: 8px; flex-wrap: wrap;'>
+                                <span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>
+                                    📅 기준일 {date_val}
+                                </span>
+                                <span style='background-color: #E8F5E9; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1B5E20;'>
+                                    ✅ 성공 {success_count} / {top_n}
+                                </span>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
                     table_placeholder.dataframe(
                         styled_live_df,
                         use_container_width=True,
                         hide_index=True,
                         column_config=link_config,
-                        selection_mode="row"
+                        selection_mode="row",
                     )
                     continue
 
@@ -545,20 +605,34 @@ if btn_search:
                 styled_live_df = style_screener_dataframe(display_df, market)
                 date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
                 header_placeholder.markdown(
-                    f"<div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'><h3>📊 실시간 분석 결과</h3><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>",
-                    unsafe_allow_html=True
+                    f"""
+                    <div style='display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;'>
+                        <h3 style='margin: 0;'>📊 실시간 분석 결과</h3>
+                        <div style='display: flex; gap: 8px; flex-wrap: wrap;'>
+                            <span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>
+                                📅 기준일 {date_val}
+                            </span>
+                            <span style='background-color: #E8F5E9; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1B5E20;'>
+                                ✅ 성공 {success_count} / {top_n}
+                            </span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
                 )
                 table_placeholder.dataframe(
                     styled_live_df,
                     use_container_width=True,
                     hide_index=True,
                     column_config=link_config,
-                    selection_mode="row"
+                    selection_mode="row",
                 )
 
             elif m_type == "done":
-                progress_bar.progress(1.0)
+                loop_progress_bar.progress(1.0)
+                success_progress_bar.progress(min(1.0, len(st.session_state.data) / max(top_n, 1)))
                 status_text.success(msg["text"])
+                success_text.success(f"최종 성공한 종목 수: {len(st.session_state.data)} / {top_n}")
                 header_placeholder.empty()
                 table_placeholder.empty()
 
@@ -617,7 +691,7 @@ if st.session_state.data:
     with head_col2:
         st.markdown(
             f"<div style='text-align: right; margin-top: 10px;'><span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span></div>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "score", "grade", "confidence", "summary", "detail_text", "missing_fields"]
@@ -632,7 +706,7 @@ if st.session_state.data:
         height=650,
         hide_index=True,
         column_config=link_config,
-        selection_mode="row"
+        selection_mode="row",
     )
 
     if not final_df.empty:
@@ -657,17 +731,20 @@ if st.session_state.data:
         st.info(str(selected_row.get("summary", "-")))
         st.caption(str(selected_row.get("detail_text", "-")))
 
-        detail_table = pd.DataFrame([
-            ["PER", selected_row.get("score_per", 0), selected_row.get("per", "-")],
-            ["PBR", selected_row.get("score_pbr", 0), selected_row.get("pbr", "-")],
-            ["ROE", selected_row.get("score_roe", 0), selected_row.get("roe", "-")],
-            ["PEG", selected_row.get("score_peg", 0), selected_row.get("peg", "-")],
-            ["EPS3Y", selected_row.get("score_eps3y", 0), selected_row.get("eps3y", "-")],
-            ["CAGR", selected_row.get("score_cagr", 0), selected_row.get("cagr", "-")],
-            ["RSI", selected_row.get("score_rsi", 0), selected_row.get("rsi", "-")],
-            ["최고점대비", selected_row.get("score_peak_diff", 0), selected_row.get("peak_diff", "-")],
-            ["누락지표", "-", selected_row.get("missing_fields", "") or "-"],
-        ], columns=["항목", "점수", "원본값"])
+        detail_table = pd.DataFrame(
+            [
+                ["PER", selected_row.get("score_per", 0), selected_row.get("per", "-")],
+                ["PBR", selected_row.get("score_pbr", 0), selected_row.get("pbr", "-")],
+                ["ROE", selected_row.get("score_roe", 0), selected_row.get("roe", "-")],
+                ["PEG", selected_row.get("score_peg", 0), selected_row.get("peg", "-")],
+                ["EPS3Y", selected_row.get("score_eps3y", 0), selected_row.get("eps3y", "-")],
+                ["CAGR", selected_row.get("score_cagr", 0), selected_row.get("cagr", "-")],
+                ["RSI", selected_row.get("score_rsi", 0), selected_row.get("rsi", "-")],
+                ["최고점대비", selected_row.get("score_peak_diff", 0), selected_row.get("peak_diff", "-")],
+                ["누락지표", "-", selected_row.get("missing_fields", "") or "-"],
+            ],
+            columns=["항목", "점수", "원본값"],
+        )
         st.dataframe(detail_table, use_container_width=True, hide_index=True)
 
     rename_dict = {
