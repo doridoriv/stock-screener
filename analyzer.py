@@ -260,14 +260,22 @@ def _score_peak_diff(val):
         return 1, True
     return 0, True
 
-def _missing_label(score_input_map):
+def _missing_label(score_input_map, opt_fundamental=True, opt_peak=True):
     missing = []
-    for key, val in score_input_map.items():
-        if _is_missing(val):
+    core_keys = []
+    # 사용자가 옵션으로 활성화한 핵심 지표만 누락 목록에 등록되도록 안전망 구축
+    if opt_fundamental:
+        core_keys.extend(["per", "pbr", "roe", "peg", "eps3y", "cagr"])
+    core_keys.append("rsi")
+    if opt_peak:
+        core_keys.append("peak_diff")
+
+    for key in core_keys:
+        if key in score_input_map and _is_missing(score_input_map[key]):
             missing.append(key.upper())
     return missing
 
-def evaluate_investment_score(stock_row, market=None):
+def evaluate_investment_score(stock_row, market=None, opt_fundamental=True, opt_peak=True):
     per_score, per_ok = _score_per(stock_row.get("per"))
     pbr_score, pbr_ok = _score_pbr(stock_row.get("pbr"))
     roe_score, roe_ok = _score_roe(stock_row.get("roe"))
@@ -325,16 +333,17 @@ def evaluate_investment_score(stock_row, market=None):
     rsi_val = _safe_float(stock_row.get("rsi"))
     peak_diff_val = _safe_float(stock_row.get("peak_diff"))
 
+    # 음수(적자 및 자본잠식) 종목이 투자 장점으로 오인되는 심각한 오류 완벽 격리 해결
     if not pd.isna(per_val):
-        if per_val <= 10:
+        if 0 < per_val <= 10:
             positives.append(f"PER {per_val:.1f}")
-        elif per_val >= 25:
-            cautions.append(f"PER {per_val:.1f}")
+        elif per_val >= 25 or per_val < 0:
+            cautions.append(f"PER {per_val:.1f}" + (" (적자)" if per_val < 0 else ""))
     if not pd.isna(pbr_val):
-        if pbr_val <= 1.2:
+        if 0 < pbr_val <= 1.2:
             positives.append(f"PBR {pbr_val:.2f}")
-        elif pbr_val >= 3:
-            cautions.append(f"PBR {pbr_val:.2f}")
+        elif pbr_val >= 3 or pbr_val < 0:
+            cautions.append(f"PBR {pbr_val:.2f}" + (" (자본잠식)" if pbr_val < 0 else ""))
     if not pd.isna(roe_val):
         if roe_val >= 15:
             positives.append(f"ROE {roe_val:.1f}%")
@@ -364,7 +373,7 @@ def evaluate_investment_score(stock_row, market=None):
     positives = positives[:3]
     cautions = cautions[:2]
 
-    missing = _missing_label(stock_row)
+    missing = _missing_label(stock_row, opt_fundamental=opt_fundamental, opt_peak=opt_peak)
     missing_text = ""
     if missing:
         missing_text = " / ".join(missing)
@@ -437,14 +446,12 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
             app_queue.put({"type": "progress", "value": 5, "text": f"{market_text} 상위 {top_n}위 종목 로드 중..."})
             
-            # [결함 격리 및 캐시 아키텍처 설계 반영]
             try:
                 df_kr = fdr.StockListing(market_type)
                 if df_kr is None or df_kr.empty:
                     raise Exception("FDR 데이터 공백 발생")
                 df_kr = df_kr.dropna(subset=["Marcap"]).sort_values(by="Marcap", ascending=False).head(top_n)
                 
-                # 수집 성공 시 추후 비상 상황 백업용 로컬 캐시 생성/갱신 (공백 방어)
                 try:
                     cache_dir = os.path.dirname(US_MARKETCAP_CACHE_FILE)
                     kr_cache_path = os.path.join(cache_dir, "kr_marketcap_cache.json")
@@ -458,7 +465,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
             except Exception as e:
-                # KRX 서버 접속 불가 시 실행되는 최강 안전망 (Fallback)
                 app_queue.put({"type": "progress", "value": 5, "text": f"⚠️ 거래소 연결 혼잡으로 로컬 백업 명단을 불러옵니다..."})
                 cache_dir = os.path.dirname(US_MARKETCAP_CACHE_FILE)
                 kr_cache_path = os.path.join(cache_dir, "kr_marketcap_cache.json")
@@ -474,7 +480,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     except:
                         pass
                 
-                # 캐시 파일마저 없는 완전 최초 실행 단계 시 하드코딩 우량 명단 작동 (절대 에러가 나지 않는 구조)
                 if not loaded_cache:
                     fallback_data = {
                         "KOSPI": [
@@ -502,7 +507,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     }
                     df_kr = pd.DataFrame(fallback_data.get(market_type, [])).head(top_n)
 
-            # KeyError 예방 및 안전한 딕셔너리 언패킹 매핑 구조 고도화
             for idx, (_, r_data) in enumerate(df_kr.iterrows(), 1):
                 code_val = str(r_data.get("Code", ""))
                 if not code_val:
@@ -556,9 +560,32 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 last_date_obj = df.index[-1]
                 date_str = last_date_obj.strftime("%Y-%m-%d") if hasattr(last_date_obj, "strftime") else str(last_date_obj)[:10]
 
+                # 루프 상단에서 야후 파이낸스 Ticker 개체를 미리 통합 생성
+                t_obj = None
+                if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                    suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
+                    t_obj = yf.Ticker(f"{symbol}{suffix}")
+                else:
+                    t_obj = yf.Ticker(symbol)
+
+                # 단 한 번만 야후 파이낸스 서버를 조회하도록 캐시 메커니즘 구축 (속도 극대화 지점)
+                _cached_info = None
+                def get_stock_info():
+                    nonlocal _cached_info
+                    if _cached_info is None:
+                        if t_obj is not None:
+                            try:
+                                _cached_info = t_obj.info
+                            except:
+                                _cached_info = {}
+                        else:
+                            _cached_info = {}
+                    return _cached_info
+
                 if market == "미국" and stock["market_cap"] == 0:
                     try:
-                        mc = yf.Ticker(symbol).info.get("marketCap", 0)
+                        info = get_stock_info()
+                        mc = info.get("marketCap", 0)
                         stock["market_cap"] = int(mc / 100000000)
                     except:
                         pass
@@ -579,13 +606,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 eps3y_str = "-"
                 cagr_val = float("nan")
 
-                t_obj = None
-                if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
-                    suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
-                    t_obj = yf.Ticker(f"{symbol}{suffix}")
-                else:
-                    t_obj = yf.Ticker(symbol)
-
                 if opt_fundamental:
                     if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                         f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
@@ -593,7 +613,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
                         if _is_missing(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
                             try:
-                                info = t_obj.info
+                                info = get_stock_info()
                                 per_val_raw = info.get("trailingPE") or info.get("forwardPE") or float("nan")
                             except:
                                 per_val_raw = float("nan")
@@ -609,13 +629,13 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             pbr_val = float("nan")
                         if pd.isna(pbr_val) or pbr_val == 0:
                             try:
-                                info = t_obj.info
+                                info = get_stock_info()
                                 pbr_val = info.get("priceToBook", float("nan"))
                             except:
                                 pass
                     else:
                         try:
-                            info = t_obj.info
+                            info = get_stock_info()
                             per_val_raw = info.get("trailingPE", float("nan"))
                             pbr_val_raw = info.get("priceToBook", float("nan"))
 
@@ -638,7 +658,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
                 try:
                     if t_obj is not None:
-                        info = t_obj.info
+                        info = get_stock_info()
                         if info and "returnOnEquity" in info and info["returnOnEquity"] is not None:
                             roe_val = float(info["returnOnEquity"]) * 100
                 except:
@@ -709,7 +729,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "cagr": cagr_val
                 }
 
-                eval_result = evaluate_investment_score(row_data, market=market)
+                # 평가 모듈에 옵션 플래그 정보를 전달하여 미활성 지표의 누락 표시 차단
+                eval_result = evaluate_investment_score(row_data, market=market, opt_fundamental=opt_fundamental, opt_peak=opt_peak)
                 row_data.update(eval_result)
 
                 app_queue.put({"type": "data", "data": row_data})
