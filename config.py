@@ -1,83 +1,263 @@
 import os
+import json
+import time
+from datetime import datetime, timedelta
+import pandas as pd
+import yfinance as yf
+import FinanceDataReader as fdr
+from config import DEFAULT_US_TICKERS, US_NAME_MAP, US_MARKETCAP_CACHE_FILE
 
-APP_TITLE = "저렴한주식쇼핑 by 유경빈+유채화뿅뿅"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CACHE_DIR = os.path.join(BASE_DIR, "cache")
-US_MARKETCAP_CACHE_FILE = os.path.join(CACHE_DIR, "us_marketcap_cache.json")
+def load_us_market_cap_cache():
+    if os.path.exists(US_MARKETCAP_CACHE_FILE):
+        try:
+            with open(US_MARKETCAP_CACHE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    initial_cache = {}
+    for i, ticker in enumerate(DEFAULT_US_TICKERS, 1):
+        initial_cache[ticker] = {"rank": i, "name": US_NAME_MAP.get(ticker, ticker), "market_cap": 0}
+    return initial_cache
 
-if not os.path.exists(CACHE_DIR):
-    os.makedirs(CACHE_DIR)
+def calculate_rsi(series, period=14):
+    if len(series) < period:
+        return 50.0
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / (loss + 1e-9)
+    rsi = 100 - (100 / (1 + rs))
+    val = rsi.iloc[-1]
+    return float(val) if not pd.isna(val) else 50.0
 
-DEFAULT_US_TICKERS = [
-    "MSFT", "AAPL", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "BRK-B", "TSLA", "AVGO",
-    "WMT", "LLY", "JPM", "V", "XOM", "UNH", "MA", "HD", "PG", "COST",
-    "ORCL", "NFLX", "BAC", "CVX", "AMD", "KO", "PEP", "ADBE", "CRM", "CSCO",
-    "INTC", "QCOM", "CMCSA", "MCD", "IBM", "TMO", "ACN", "WFC", "AXP", "GE",
-    "NKE", "LIN", "PM", "ABT", "TMUS", "CAT", "TXN", "NOW", "MS", "DIS",
-    "AMAT", "HON", "AMGN", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI",
-    "INTU", "COP", "ISRG", "PLTR", "GEV", "LMT", "LRCX", "TJX",
-    "MDLZ", "BLK", "T", "ABBV", "GILD", "C", "BMY", "BKNG", "VRTX", "ADI",
-    "MDT", "BA", "ELV", "ADP", "CI", "CB", "MMC", "REGN", "SYK", "DE"
-]
+def get_per_grade(val):
+    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
+        return "정보없음"
+    try:
+        v = float(val)
+        if v < 0: return f"{v:.1f} (적자)"
+        elif v <= 10: return f"{v:.1f} (초저평가)"
+        elif v <= 20: return f"{v:.1f} (적정)"
+        elif v <= 40: return f"{v:.1f} (고평가)"
+        else: return f"{v:.1f} (초고평가)"
+    except:
+        return "정보없음"
 
-US_NAME_MAP = {
-    "MSFT": "마이크로소프트", "AAPL": "애플", "NVDA": "엔비디아", "AMZN": "아마존", "META": "메타",
-    "GOOGL": "알파벳 A", "GOOG": "알파벳 C", "BRK-B": "버크셔 해서웨이 B", "TSLA": "테슬라", "AVGO": "브로드컴",
-    "WMT": "월마트", "LLY": "일라이 릴리", "JPM": "제이피모간 체이스", "V": "비자", "XOM": "엑슨모빌",
-    "UNH": "유나이티드헬스 그룹", "MA": "마스터카드", "HD": "홈디포", "PG": "프록터 앤 갬블(P&G)", "COST": "코스트코",
-    "ORCL": "오라클", "NFLX": "넷플릭스", "BAC": "뱅크 오브 아메리카", "CVX": "셰브론", "AMD": "어드밴스드 마이크로 디바이스",
-    "KO": "코카콜라", "PEP": "펩시코", "ADBE": "어도비", "CRM": "세일즈포스", "CSCO": "시스코 시스템즈",
-    "INTC": "인텔", "QCOM": "퀄컴", "CMCSA": "컴캐스트", "MCD": "맥도날드", "IBM": "IBM",
-    "TMO": "써모 피셔 사이언티픽", "ACN": "액센추어", "WFC": "웰스 파고", "AXP": "아메리칸 익스프레스", "GE": "제너럴 일렉트릭(GE)",
-    "NKE": "나이키", "LIN": "린데", "PM": "필립모리스 인터내셔널", "ABT": "애보트 래보라토리", "TMUS": "티모바일 US",
-    "CAT": "캐터필러", "TXN": "텍사스 인스트루먼트", "NOW": "서비스나우", "MS": "모간 스탠리", "DIS": "월트 디즈니",
-    "AMAT": "어플라이드 머티어리얼즈", "HON": "허니웰", "AMGN": "암젠", "UNP": "유니온 퍼시픽", "GS": "골드만삭스",
-    "PFE": "화이자", "RTX": "레이시온 테크놀로지스", "LOW": "로우스", "NEE": "넥스트에라 에너지", "SPGI": "S&P 글로벌",
-    "INTU": "인튜이트", "COP": "코노코필립스", "ISRG": "인튜이티브 서지컬", "PLTR": "팔란티어 테크놀로지스", "GEV": "GE 버노바",
-    "LMT": "록히드 마틴", "LRCX": "램 리서치", "TJX": "TJX 컴퍼니즈", "MDLZ": "몬델리즈 인터내셔널", "BLK": "블랙록",
-    "T": "AT&T", "ABBV": "애브비", "GILD": "길리어드 사이언시즈", "C": "씨티그룹", "BMY": "브리스톨 마이어스 스퀴브",
-    "BKNG": "부킹 홀딩스", "VRTX": "버텍스 파마슈티컬스", "ADI": "아날로그 디바이스", "MDT": "메드트로닉", "BA": "보잉",
-    "ELV": "엘레반스 헬스", "ADP": "오토매틱 데이터 프로세싱", "CI": "시그나", "CB": "처브", "MMC": "마시 앤 맥레넌",
-    "REGN": "리제네론 파마슈티컬스", "SYK": "스트라이커", "DE": "존 디어"
-}
+def get_pbr_grade(val):
+    if pd.isna(val) or val == "N/A" or val == "None" or val == "비활성":
+        return "정보없음"
+    try:
+        if isinstance(val, str):
+            val = val.replace(",", "").strip()
+        v = float(val)
+        if v < 0: return f"{v:.2f} (자본잠식)"
+        elif v <= 1.0: return f"{v:.2f} (절대저평가)"
+        elif v <= 1.5: return f"{v:.2f} (적정)"
+        elif v <= 3.0: return f"{v:.2f} (고평가)"
+        else: return f"{v:.2f} (초고평가)"
+    except:
+        return "정보없음"
 
-COL_INFOS = [
-    {"id": "rank", "text": "순위", "width": 50, "anchor": "center"},
-    {"id": "symbol", "text": "티커", "width": 70, "anchor": "center"},
-    {"id": "name", "text": "종목명", "width": 160, "anchor": "w"},
-    {"id": "market_cap", "text": "시가총액", "width": 100, "anchor": "e"},
-    {"id": "price", "text": "현재가", "width": 90, "anchor": "e"},
-    {"id": "peak", "text": "최고점", "width": 90, "anchor": "e"},
-    {"id": "peak_diff", "text": "최고점대비", "width": 80, "anchor": "center"},
-    {"id": "ma200", "text": "200일선", "width": 90, "anchor": "e"},
-    {"id": "diff", "text": "200일괴리율", "width": 80, "anchor": "center"},
-    {"id": "rsi", "text": "RSI", "width": 70, "anchor": "center"},
-    {"id": "per", "text": "PER", "width": 70, "anchor": "center"},
-    {"id": "pbr", "text": "PBR", "width": 70, "anchor": "center"},
-    {"id": "roe", "text": "ROE", "width": 70, "anchor": "center"},
-    {"id": "peg", "text": "PEG", "width": 70, "anchor": "center"},
-    {"id": "eps3y", "text": "EPS3Y", "width": 70, "anchor": "center"},
-    {"id": "cagr", "text": "CAGR", "width": 80, "anchor": "center"},
-    {"id": "score", "text": "점수", "width": 70, "anchor": "center"},
-    {"id": "grade", "text": "등급", "width": 60, "anchor": "center"},
-    {"id": "confidence", "text": "신뢰도", "width": 80, "anchor": "center"},
-]
+def fetch_stock_data(market, symbol, start_date, end_date):
+    try:
+        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+            df = fdr.DataReader(symbol, start=start_date, end=end_date)
+        else:
+            df = yf.download(symbol, start=start_date, end=end_date, progress=False)
+        
+        if df.empty or len(df) < 200:
+            return None
+            
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [col[0] for col in df.columns]
+            
+        return df
+    except:
+        return None
 
-SCORE_WEIGHTS = {
-    "per": 15,
-    "pbr": 10,
-    "roe": 20,
-    "peg": 20,
-    "eps3y": 10,
-    "cagr": 15,
-    "rsi": 5,
-    "peak_diff": 5,
-}
+def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data):
+    try:
+        tickers_to_screen = []
+        kr_fundamental_map = {}
+        
+        if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+            market_type = 'KOSDAQ' if market == "한국(코스닥)" else 'KOSPI'
+            market_text = "코스닥" if market == "한국(코스닥)" else "코스피"
+            
+            app_queue.put({"type": "progress", "value": 5, "text": f"{market_text} 상위 {top_n}위 종목 로드 중..."})
+            df_kr = fdr.StockListing(market_type)
+            df_kr = df_kr.dropna(subset=['Marcap']).sort_values(by='Marcap', ascending=False).head(top_n)
+            
+            for idx, row in enumerate(df_kr.iterrows(), 1):
+                r_data = row[1]
+                mcap_val = int(r_data['Marcap'] / 100000000) if not pd.isna(r_data['Marcap']) else 0
+                tickers_to_screen.append({
+                    "symbol": r_data['Code'], "name": r_data['Name'], "rank": idx, "market_cap": mcap_val
+                })
+                kr_fundamental_map[r_data['Code']] = {
+                    "per": r_data['PER'] if 'PER' in r_data else "N/A",
+                    "pbr": r_data['PBR'] if 'PBR' in r_data else "N/A",
+                    "bps": r_data['BPS'] if 'BPS' in r_data else "N/A"
+                }
+        else:
+            for ticker, info in list(us_market_cap_data.items())[:top_n]:
+                tickers_to_screen.append({"symbol": ticker, "name": info["name"], "rank": info["rank"], "market_cap": info["market_cap"]})
 
-GRADE_RULES = [
-    (90, "S"),
-    (80, "A"),
-    (70, "B"),
-    (60, "C"),
-    (0, "D"),
-]
+        total_stocks = len(tickers_to_screen)
+        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        end_date = datetime.now().strftime('%Y-%m-%d')
+
+        for idx, stock in enumerate(tickers_to_screen, 1):
+            if stop_requested_func():
+                app_queue.put({"type": "stopped", "count": idx - 1})
+                return
+
+            symbol = stock["symbol"]
+            name = stock["name"]
+            
+            app_queue.put({"type": "progress", "value": int((idx / total_stocks) * 100), "text": f"분석 중: {name} [{idx}/{total_stocks}]"})
+
+            try:
+                df = fetch_stock_data(market, symbol, start_date, end_date)
+                if df is None: continue
+
+                last_date_obj = df.index[-1]
+                date_str = last_date_obj.strftime('%Y-%m-%d') if hasattr(last_date_obj, 'strftime') else str(last_date_obj)[:10]
+
+                if market == "미국" and stock["market_cap"] == 0:
+                    try:
+                        mc = yf.Ticker(symbol).info.get('marketCap', 0)
+                        stock["market_cap"] = int(mc / 100000000)
+                    except: pass
+
+                close_series = df['Close']
+                current_price = float(close_series.iloc[-1])
+                
+                ma200_series = close_series.rolling(window=200).mean()
+                current_ma200 = float(ma200_series.iloc[-1])
+                if pd.isna(current_ma200) or current_ma200 == 0: continue
+
+                diff_val = ((current_price - current_ma200) / current_ma200) * 100
+                rsi_val = calculate_rsi(close_series, 14)
+
+                per_val, pbr_val = float('nan'), float('nan')
+                roe_val, peg_val = float('nan'), float('nan')
+                eps3y_str = "-"
+                cagr_val = float('nan')
+
+                t_obj = None
+                if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                    suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
+                    t_obj = yf.Ticker(f"{symbol}{suffix}")
+                else:
+                    t_obj = yf.Ticker(symbol)
+
+                if opt_fundamental:
+                    if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
+                        f_info = kr_fundamental_map.get(symbol, {"per": "N/A", "pbr": "N/A", "bps": "N/A"})
+                        per_val_raw = f_info.get("per", "N/A")
+                        
+                        if pd.isna(per_val_raw) or str(per_val_raw) in ["N/A", "0", "nan", "None"]:
+                            try:
+                                info = t_obj.info
+                                per_val_raw = info.get('trailingPE') or info.get('forwardPE') or float('nan')
+                            except: per_val_raw = float('nan')
+                            
+                        try: per_val = float(per_val_raw) if not pd.isna(per_val_raw) else float('nan')
+                        except: per_val = float('nan')
+                        
+                        try: pbr_val = float(f_info.get("pbr", float('nan')))
+                        except: pbr_val = float('nan')
+                        if pd.isna(pbr_val) or pbr_val == 0:
+                            try:
+                                info = t_obj.info
+                                pbr_val = info.get('priceToBook', float('nan'))
+                            except: pass
+                    else:
+                        try:
+                            info = t_obj.info
+                            per_val_raw = info.get('trailingPE', float('nan'))
+                            pbr_val_raw = info.get('priceToBook', float('nan'))
+                            
+                            if (pbr_val_raw == 'N/A' or pbr_val_raw is None or pd.isna(pbr_val_raw)) and info.get('bookValue'):
+                                try:
+                                    pbr_val_raw = current_price / float(info.get('bookValue'))
+                                except:
+                                    pbr_val_raw = float('nan')
+
+                            try: per_val = float(per_val_raw) if per_val_raw != 'N/A' else float('nan')
+                            except: per_val = float('nan')
+                            try: pbr_val = float(pbr_val_raw) if pbr_val_raw != 'N/A' else float('nan')
+                            except: pbr_val = float('nan')
+                        except: 
+                            per_val, pbr_val = float('nan'), float('nan')
+
+                # ROE 데이터 추출
+                try:
+                    if t_obj is not None:
+                        info = t_obj.info
+                        if info and 'returnOnEquity' in info and info['returnOnEquity'] is not None:
+                            roe_val = float(info['returnOnEquity']) * 100
+                except:
+                    pass
+
+                # EPS3Y 및 CAGR 연간 데이터 기반 판정 코드
+                try:
+                    if t_obj is not None:
+                        financials = t_obj.financials
+                        if financials is not None and not financials.empty:
+                            eps_rows = [r for r in financials.index if 'Diluted EPS' in str(r) or 'Basic EPS' in str(r)]
+                            if eps_rows:
+                                eps_series = financials.loc[eps_rows[0]].dropna()
+                                eps_series = eps_series.sort_index(ascending=True)
+                                
+                                if len(eps_series) >= 3:
+                                    recent_eps = eps_series.values[-3:]
+                                    v1, v2, v3 = recent_eps[0], recent_eps[1], recent_eps[2]
+                                    
+                                    if v1 < v2 < v3:
+                                        eps3y_str = "↑"
+                                    else:
+                                        eps3y_str = "↓"
+                                        
+                                    if v1 <= 0 and v2 <= 0 and v3 <= 0:
+                                        eps3y_str = "적자"
+                                        
+                                    if len(eps_series) >= 4:
+                                        eps_start = eps_series.values[-4]
+                                        eps_end = eps_series.values[-1]
+                                        if eps_start > 0 and eps_end > 0:
+                                            cagr_val = ((eps_end / eps_start) ** (1/3) - 1) * 100
+                                    else:
+                                        eps_start = eps_series.values[-3]
+                                        eps_end = eps_series.values[-1]
+                                        if eps_start > 0 and eps_end > 0:
+                                            cagr_val = ((eps_end / eps_start) ** (1/2) - 1) * 100
+                except:
+                    pass
+
+                # PEG 계산 (PEG = PER / EPS CAGR(3년))
+                if pd.notna(per_val) and per_val > 0 and pd.notna(cagr_val) and cagr_val > 0 and eps3y_str != "적자":
+                    try:
+                        peg_val = per_val / cagr_val
+                    except:
+                        peg_val = float('nan')
+
+                peak_price, peak_diff = float('nan'), float('nan')
+                if opt_peak:
+                    peak_price = float(close_series.max())
+                    peak_diff = ((current_price - peak_price) / peak_price) * 100
+
+                app_queue.put({"type": "data", "data": {
+                    "rank": stock["rank"], "symbol": symbol, "name": name, "data_date": date_str, "market_cap": stock["market_cap"],
+                    "price": current_price, "ma200": current_ma200, "diff": diff_val, "rsi": rsi_val,
+                    "per": per_val, "pbr": pbr_val, "peak": peak_price, "peak_diff": peak_diff,
+                    "roe": roe_val, "peg": peg_val, "eps3y": eps3y_str, "cagr": cagr_val
+                }})
+            except: continue
+            time.sleep(0.05)
+
+        if not stop_requested_func():
+            app_queue.put({"type": "done", "count": total_stocks, "text": f"{market} 상위 {top_n}종목 스크리닝 완료!"})
+    except Exception as e:
+        app_queue.put({"type": "error", "text": f"엔진 오류 발생: {e}"})

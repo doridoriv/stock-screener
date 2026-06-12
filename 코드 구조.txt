@@ -1,24 +1,5 @@
-✦ 제안해주신 대로 D:\차트\25.py 파일을 역할별로 4개의 파일로 분리하여 D:\차트\Optimization\ 폴더에 저장했습니다. 이제
-  코드가 훨씬 관리하기 편해졌으며, 새로운 기능을 추가할 때 발생할 수 있는 부작용을 최소화할 수 있습니다.
-
-  📂 생성된 파일 구조 (D:\차트\Optimization\)
-
-   1. config.py: 프로그램의 모든 설정값(앱 타이틀, 티커 리스트, 이름 맵, 컬럼 정보)을 담고 있습니다.
-   2. analyzer.py: 데이터 분석 및 로직의 핵심입니다. RSI 계산, PER/PBR 등급 판정, 그리고 실제 종목 스크리닝을 수행하는
-      screening_worker 함수가 포함되어 있습니다.
-   3. gui.py: ScreenerApp 클래스를 포함하며, 화면을 구성하고 사용자의 입력을 받아 analyzer에게 작업을 요청하는 역할만
-      수행합니다.
-   4. 1.py: 프로그램의 시작점입니다. GUI를 초기화하고 실행합니다.
-
-  💡 다음 단계 (업그레이드 전략)
-
-  이제 구조가 정돈되었으므로, 다음에 논의했던 '성장성/ROE' 기능을 추가할 때는 다음과 같이 작업하시면 됩니다:
-
-   * 데이터 추가: analyzer.py의 screening_worker 함수에서 yf.Ticker(symbol).info를 통해 ROE나 EPS 성장률 데이터를
-     가져오도록 수정합니다.
-   * 등급 판정: analyzer.py에 get_roe_grade 같은 함수를 추가하여 로직을 정의합니다.
-   * 화면 표시: config.py의 COL_INFOS에 새로운 컬럼을 추가하고, gui.py의 render_row에서 해당 데이터를 출력하도록 살짝만
-     수정하면 됩니다.
-
-  이제 D:\차트\Optimization\1.py를 실행하여 프로그램이 이전과 동일하게 잘 작동하는지 확인해 보세요! 추가로 궁금한 점이나
-  바로 '성장성' 로직을 넣고 싶으시다면 말씀해 주세요.
+streamlit
+pandas
+yfinance
+finance-datareader
+requests
