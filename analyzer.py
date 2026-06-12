@@ -263,7 +263,6 @@ def _score_peak_diff(val):
 def _missing_label(score_input_map, opt_fundamental=True, opt_peak=True):
     missing = []
     core_keys = []
-    # 사용자가 옵션으로 활성화한 핵심 지표만 누락 목록에 등록되도록 안전망 구축
     if opt_fundamental:
         core_keys.extend(["per", "pbr", "roe", "peg", "eps3y", "cagr"])
     core_keys.append("rsi")
@@ -333,7 +332,6 @@ def evaluate_investment_score(stock_row, market=None, opt_fundamental=True, opt_
     rsi_val = _safe_float(stock_row.get("rsi"))
     peak_diff_val = _safe_float(stock_row.get("peak_diff"))
 
-    # 음수(적자 및 자본잠식) 종목이 투자 장점으로 오인되는 심각한 오류 완벽 격리 해결
     if not pd.isna(per_val):
         if 0 < per_val <= 10:
             positives.append(f"PER {per_val:.1f}")
@@ -450,7 +448,11 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 df_kr = fdr.StockListing(market_type)
                 if df_kr is None or df_kr.empty:
                     raise Exception("FDR 데이터 공백 발생")
-                df_kr = df_kr.dropna(subset=["Marcap"]).sort_values(by="Marcap", ascending=False).head(top_n)
+                
+                # [전략 3 보완] 사용자가 현재 8개만 요청했더라도 다음번 다수 종목 요청을 고려해 상위 200개를 캐시 파일에 넉넉하게 빌드
+                df_kr_sorted = df_kr.dropna(subset=["Marcap"]).sort_values(by="Marcap", ascending=False)
+                df_kr_full = df_kr_sorted.head(200)
+                df_kr = df_kr_sorted.head(top_n)
                 
                 try:
                     cache_dir = os.path.dirname(US_MARKETCAP_CACHE_FILE)
@@ -459,7 +461,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     if os.path.exists(kr_cache_path):
                         with open(kr_cache_path, "r", encoding="utf-8") as f:
                             kr_cache = json.load(f)
-                    kr_cache[market_type] = df_kr[["Code", "Name", "Marcap", "PER", "PBR", "BPS"]].to_dict(orient="records")
+                    kr_cache[market_type] = df_kr_full[["Code", "Name", "Marcap", "PER", "PBR", "BPS"]].to_dict(orient="records")
                     with open(kr_cache_path, "w", encoding="utf-8") as f:
                         json.dump(kr_cache, f, ensure_ascii=False, indent=4)
                 except:
@@ -481,6 +483,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                         pass
                 
                 if not loaded_cache:
+                    # [전략 3 보완] 하드코딩 백업 데이터를 최소 40종목 스케일로 대폭 확장하여 '지맘대로 끊기는 현상' 차단
                     fallback_data = {
                         "KOSPI": [
                             {"Code": "005930", "Name": "삼성전자", "Marcap": 400000000000000, "PER": 10.5, "PBR": 1.2, "BPS": 51000},
@@ -492,7 +495,37 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             {"Code": "005490", "Name": "POSCO홀딩스", "Marcap": 36000000000000, "PER": 12.5, "PBR": 0.52, "BPS": 610000},
                             {"Code": "035420", "Name": "NAVER", "Marcap": 31000000000000, "PER": 21.0, "PBR": 1.45, "BPS": 122000},
                             {"Code": "006400", "Name": "삼성SDI", "Marcap": 29000000000000, "PER": 13.4, "PBR": 1.15, "BPS": 325000},
-                            {"Code": "068270", "Name": "셀트리온", "Marcap": 33000000000000, "PER": 41.2, "PBR": 3.6, "BPS": 52000}
+                            {"Code": "068270", "Name": "셀트리온", "Marcap": 33000000000000, "PER": 41.2, "PBR": 3.6, "BPS": 52000},
+                            {"Code": "000810", "Name": "삼성화재", "Marcap": 15000000000000, "PER": 7.5, "PBR": 0.85, "BPS": 320000},
+                            {"Code": "012330", "Name": "현대모비스", "Marcap": 22000000000000, "PER": 6.1, "PBR": 0.55, "BPS": 410000},
+                            {"Code": "055550", "Name": "신한지주", "Marcap": 25000000000000, "PER": 5.8, "PBR": 0.42, "BPS": 95000},
+                            {"Code": "105560", "Name": "KB금융", "Marcap": 28000000000000, "PER": 6.3, "PBR": 0.48, "BPS": 115000},
+                            {"Code": "032830", "Name": "삼성생명", "Marcap": 16000000000000, "PER": 8.1, "PBR": 0.40, "BPS": 210000},
+                            {"Code": "015760", "Name": "한국전력", "Marcap": 14000000000000, "PER": -5.2, "PBR": 0.28, "BPS": 78000},
+                            {"Code": "003550", "Name": "LG", "Marcap": 12000000000000, "PER": 7.2, "PBR": 0.52, "BPS": 155000},
+                            {"Code": "033780", "Name": "KT&G", "Marcap": 13000000000000, "PER": 10.8, "PBR": 1.10, "BPS": 89000},
+                            {"Code": "009150", "Name": "삼성전기", "Marcap": 11000000000000, "PER": 12.8, "PBR": 1.35, "BPS": 92000},
+                            {"Code": "017670", "Name": "SK텔레콤", "Marcap": 11500000000000, "PER": 9.5, "PBR": 0.95, "BPS": 53000},
+                            {"Code": "010950", "Name": "S-Oil", "Marcap": 8500000000000, "PER": 8.2, "PBR": 0.98, "BPS": 76000},
+                            {"Code": "011200", "Name": "HMM", "Marcap": 12000000000000, "PER": 4.1, "PBR": 0.52, "BPS": 34000},
+                            {"Code": "018260", "Name": "삼성에스디에스", "Marcap": 12500000000000, "PER": 14.8, "PBR": 1.40, "BPS": 110000},
+                            {"Code": "000100", "Name": "유한양행", "Marcap": 6500000000000, "PER": 45.2, "PBR": 2.80, "BPS": 28000},
+                            {"Code": "034730", "Name": "SK", "Marcap": 11000000000000, "PER": 9.1, "PBR": 0.45, "BPS": 340000},
+                            {"Code": "000880", "Name": "한화솔루션", "Marcap": 5200000000000, "PER": -8.5, "PBR": 0.65, "BPS": 46000},
+                            {"Code": "010130", "Name": "고려아연", "Marcap": 10500000000000, "PER": 13.2, "PBR": 1.12, "BPS": 450000},
+                            {"Code": "086790", "Name": "하나금융지주", "Marcap": 17500000000000, "PER": 5.1, "PBR": 0.38, "BPS": 112000},
+                            {"Code": "323410", "Name": "카카오뱅크", "Marcap": 11500000000000, "PER": 28.5, "PBR": 1.95, "BPS": 12500},
+                            {"Code": "259960", "Name": "크래프톤", "Marcap": 12000000000000, "PER": 15.2, "PBR": 2.10, "BPS": 115000},
+                            {"Code": "034020", "Name": "두산에너빌리티", "Marcap": 10500000000000, "PER": 22.1, "PBR": 1.25, "BPS": 13500},
+                            {"Code": "009540", "Name": "HD한국조선해양", "Marcap": 9500000000000, "PER": 18.5, "PBR": 0.88, "BPS": 145000},
+                            {"Code": "004020", "Name": "현대제철", "Marcap": 4500000000000, "PER": 6.8, "PBR": 0.25, "BPS": 135000},
+                            {"Code": "028260", "Name": "삼성물산", "Marcap": 25000000000000, "PER": 9.3, "PBR": 0.68, "BPS": 215000},
+                            {"Code": "035720", "Name": "카카오", "Marcap": 22000000000000, "PER": 35.2, "PBR": 2.10, "BPS": 22500},
+                            {"Code": "090430", "Name": "아모레퍼시픽", "Marcap": 8500000000000, "PER": 32.1, "PBR": 1.85, "BPS": 72000},
+                            {"Code": "011170", "Name": "롯데케미칼", "Marcap": 4200000000000, "PER": -4.2, "PBR": 0.32, "BPS": 310000},
+                            {"Code": "003490", "Name": "대한항공", "Marcap": 8200000000000, "PER": 7.1, "PBR": 0.82, "BPS": 28000},
+                            {"Code": "047050", "Name": "포스코인터내셔널", "Marcap": 9200000000000, "PER": 12.1, "PBR": 1.95, "BPS": 42000},
+                            {"Code": "024110", "Name": "기업은행", "Marcap": 11000000000000, "PER": 4.2, "PBR": 0.31, "BPS": 41000}
                         ],
                         "KOSDAQ": [
                             {"Code": "247540", "Name": "에코프로비엠", "Marcap": 24500000000000, "PER": 44.0, "PBR": 6.8, "BPS": 29000},
@@ -502,7 +535,39 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                             {"Code": "028300", "Name": "HLB", "Marcap": 9800000000000, "PER": -4.8, "PBR": 4.8, "BPS": 4800},
                             {"Code": "214150", "Name": "클래시스", "Marcap": 2450000000000, "PER": 27.0, "PBR": 5.2, "BPS": 7800},
                             {"Code": "035900", "Name": "JYP Ent.", "Marcap": 2950000000000, "PER": 22.5, "PBR": 4.2, "BPS": 14500},
-                            {"Code": "293490", "Name": "카카오게임즈", "Marcap": 2850000000000, "PER": 19.5, "PBR": 1.4, "BPS": 24000}
+                            {"Code": "293490", "Name": "카카오게임즈", "Marcap": 2850000000000, "PER": 19.5, "PBR": 1.4, "BPS": 24000},
+                            {"Code": "066970", "Name": "엘앤에프", "Marcap": 5400000000000, "PER": -12.5, "PBR": 3.8, "BPS": 38000},
+                            {"Code": "277810", "Name": "레인보우로보틱스", "Marcap": 3200000000000, "PER": 150.0, "PBR": 15.2, "BPS": 11000},
+                            {"Code": "039200", "Name": "오스템임플란트", "Marcap": 2800000000000, "PER": 18.2, "PBR": 4.5, "BPS": 32000},
+                            {"Code": "145020", "Name": "휴젤", "Marcap": 2400000000000, "PER": 24.1, "PBR": 3.1, "BPS": 65000},
+                            {"Code": "041510", "Name": "에스엠", "Marcap": 2100000000000, "PER": 16.5, "PBR": 2.1, "BPS": 48000},
+                            {"Code": "263750", "Name": "펄어비스", "Marcap": 2500000000000, "PER": 45.2, "PBR": 3.4, "BPS": 14000},
+                            {"Code": "036830", "Name": "솔브레인", "Marcap": 2200000000000, "PER": 11.2, "PBR": 1.8, "BPS": 135000},
+                            {"Code": "091990", "Name": "셀트리온제약", "Marcap": 3100000000000, "PER": 55.0, "PBR": 5.8, "BPS": 12000},
+                            {"Code": "214310", "Name": "심텍", "Marcap": 1100000000000, "PER": 9.5, "PBR": 1.6, "BPS": 22000},
+                            {"Code": "036490", "Name": "SK머티리얼즈", "Marcap": 2400000000000, "PER": 15.6, "PBR": 4.8, "BPS": 51000},
+                            {"Code": "005290", "Name": "동진쎄미켐", "Marcap": 1900000000000, "PER": 12.3, "PBR": 2.4, "BPS": 16000},
+                            {"Code": "122870", "Name": "와이지엔터테인먼트", "Marcap": 1050000000000, "PER": 18.5, "PBR": 2.1, "BPS": 24000},
+                            {"Code": "025980", "Name": "아난티", "Marcap": 650000000000, "PER": 8.5, "PBR": 0.95, "BPS": 7200},
+                            {"Code": "069080", "Name": "웹젠", "Marcap": 580000000000, "PER": 7.2, "PBR": 0.85, "BPS": 19000},
+                            {"Code": "056190", "Name": "에스에프에이", "Marcap": 1150000000000, "PER": 9.1, "PBR": 0.92, "BPS": 34000},
+                            {"Code": "034230", "Name": "파라다이스", "Marcap": 1250000000000, "PER": 13.4, "PBR": 1.05, "BPS": 12500},
+                            {"Code": "088390", "Name": "이엔에프테크놀로지", "Marcap": 420000000000, "PER": 6.8, "PBR": 0.72, "BPS": 31000},
+                            {"Code": "067160", "Name": "아프리카TV", "Marcap": 950000000000, "PER": 14.2, "PBR": 3.1, "BPS": 28000},
+                            {"Code": "036540", "Name": "매일유업", "Marcap": 320000000000, "PER": 5.8, "PBR": 0.61, "BPS": 82000},
+                            {"Code": "064550", "Name": "바이오ニア", "Marcap": 850000000000, "PER": 22.0, "PBR": 3.5, "BPS": 9500},
+                            {"Code": "042000", "Name": "카페24", "Marcap": 450000000000, "PER": -14.5, "PBR": 2.1, "BPS": 11000},
+                            {"Code": "290670", "Name": "대주전자재료", "Marcap": 1450000000000, "PER": 45.0, "PBR": 5.2, "BPS": 18000},
+                            {"Code": "110790", "Name": "천보", "Marcap": 1250000000000, "PER": 32.5, "PBR": 3.8, "BPS": 31000},
+                            {"Code": "084370", "Name": "유진테크", "Marcap": 850000000000, "PER": 14.1, "PBR": 1.9, "BPS": 21000},
+                            {"Code": "036810", "Name": "에이테크솔루션", "Marcap": 150000000000, "PER": 15.2, "PBR": 1.05, "BPS": 11000},
+                            {"Code": "054780", "Name": "키이스트", "Marcap": 120000000000, "PER": -18.2, "PBR": 1.85, "BPS": 4200},
+                            {"Code": "235980", "Name": "메드팩토", "Marcap": 250000000000, "PER": -3.5, "PBR": 4.1, "BPS": 3200},
+                            {"Code": "068760", "Name": "셀리버리", "Marcap": 80000000000, "PER": -1.2, "PBR": 5.2, "BPS": 1500},
+                            {"Code": "215600", "Name": "신흥에스이씨", "Marcap": 380000000000, "PER": 8.2, "PBR": 1.45, "BPS": 35000},
+                            {"Code": "023160", "Name": "태웅", "Marcap": 280000000000, "PER": 11.1, "PBR": 0.65, "BPS": 19000},
+                            {"Code": "038500", "Name": "삼표시멘트", "Marcap": 310000000000, "PER": 9.5, "PBR": 0.55, "BPS": 6200},
+                            {"Code": "078600", "Name": "대주산업", "Marcap": 80000000000, "PER": 12.2, "PBR": 0.95, "BPS": 2400}
                         ]
                     }
                     df_kr = pd.DataFrame(fallback_data.get(market_type, [])).head(top_n)
@@ -535,7 +600,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 })
 
         total_stocks = len(tickers_to_screen)
-        start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
+        
+        # [전략 2 구현] 데이터 획득 기간을 365일에서 2년(730일)으로 늘려서 MA200 통과 및 스킵 리스크 원천 봉쇄
+        start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
         end_date = datetime.now().strftime("%Y-%m-%d")
 
         for idx, stock in enumerate(tickers_to_screen, 1):
@@ -560,7 +627,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 last_date_obj = df.index[-1]
                 date_str = last_date_obj.strftime("%Y-%m-%d") if hasattr(last_date_obj, "strftime") else str(last_date_obj)[:10]
 
-                # 루프 상단에서 야후 파이낸스 Ticker 개체를 미리 통합 생성
                 t_obj = None
                 if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                     suffix = ".KQ" if market == "한국(코스닥)" else ".KS"
@@ -568,7 +634,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 else:
                     t_obj = yf.Ticker(symbol)
 
-                # 단 한 번만 야후 파이낸스 서버를 조회하도록 캐시 메커니즘 구축 (속도 극대화 지점)
                 _cached_info = None
                 def get_stock_info():
                     nonlocal _cached_info
@@ -664,6 +729,11 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 except:
                     pass
 
+                # [전략 1 구현] 야후 파이낸스가 한국 주식 ROE를 누락할 시, FDR의 거래소 기반 PBR/PER 비율로 역산 연동 처리
+                if market in ["한국(코스피)", "한국(코스닥)", "한국"] and pd.isna(roe_val):
+                    if pd.notna(per_val) and pd.notna(pbr_val) and per_val > 0:
+                        roe_val = (pbr_val / per_val) * 100
+
                 try:
                     if t_obj is not None:
                         financials = t_obj.financials
@@ -729,7 +799,6 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "cagr": cagr_val
                 }
 
-                # 평가 모듈에 옵션 플래그 정보를 전달하여 미활성 지표의 누락 표시 차단
                 eval_result = evaluate_investment_score(row_data, market=market, opt_fundamental=opt_fundamental, opt_peak=opt_peak)
                 row_data.update(eval_result)
 
