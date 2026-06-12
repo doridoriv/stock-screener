@@ -86,7 +86,7 @@ top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 sort_mode = st.sidebar.selectbox(
     "정렬 기준",
     ["점수", "시가총액", "PER", "PBR", "ROE", "PEG", "최고점대비", "200일괴리율"],
-    index=0,
+    index=1,
 )
 opt_fundamental = st.sidebar.checkbox("기본 재무지표 사용", value=True)
 opt_peak = st.sidebar.checkbox("최고점 비교 사용", value=True)
