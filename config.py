@@ -10,6 +10,22 @@ US_MARKETCAP_CACHE_FILE = os.path.join(CACHE_DIR, "us_marketcap_cache.json")
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
+# 안전성 확보를 위한 크롤링 지연 시간 및 재시도 설정 (안전제일)
+REQUEST_TIMEOUT = 10
+MAX_RETRIES = 5
+BACKOFF_FACTOR = 1.0  # 지수 백오프 계수
+MIN_SLEEP = 0.5
+MAX_SLEEP = 1.5
+
+# User-Agent 풀 (데이터 제공처의 차단을 피하기 위해 사용)
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
+]
+
 # 미국 시장 기본 분석 티커 풀 목록 (기본 백업용)
 DEFAULT_US_TICKERS = [
     "MSFT", "AAPL", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "BRK-B", "TSLA", "AVGO",
