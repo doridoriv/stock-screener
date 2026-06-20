@@ -110,7 +110,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         yf_symbols = base_df['yf_symbol'].tolist()
 
         # 3. YF 주가 일괄 다운로드 및 행렬(Matrix) 기술적 지표 연산
-        app_queue.put({"type": "progress", "value": 30, "text": "주가 매트릭스 병렬 연산 중..."})
+        app_queue.put({"type": "progress", "value": 10, "text": "한국 시장 데이터 로드 중..."})
         start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
         
         # 다운로드 후 데이터프레임 구조화

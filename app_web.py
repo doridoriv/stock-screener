@@ -154,7 +154,7 @@ if st.session_state.data:
     # use_container_width=False: 글자 길이에 맞춰 타이트하게 열 너비가 자동 조절됨 (여백 제거)
     # hide_index=True: 왼쪽에 뜨는 쓸데없는 0, 1, 2 인덱스 번호 삭제
     
-    st.dataframe(styled_df, width=None, hide_index=True) # width=None은 데이터 크기에 맞춤
-    
+    st.dataframe(styled_df, width='content', hide_index=True)
+
 else:
     st.info("👈 왼쪽 사이드바에서 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
