@@ -26,6 +26,7 @@ from config import (
     MAX_SLEEP,
     USER_AGENTS,
     CACHE_DIR,
+    US_MAX_WORKERS,
 )
 
 # ==========================================
@@ -41,52 +42,27 @@ def _get_safe_yfinance_session():
     return session
 
 def download_prices_robust(yf_symbols, start_date):
+    """Fetch closing prices for a list of symbols using FinanceDataReader.
+    Returns a DataFrame with columns named by the original yf_symbols.
     """
-    야후 파이낸스 차단 상황을 고려한 고신뢰성 주가 다운로더:
-    먼저 yfinance.download로 고속 일괄 다운로드를 시도하고,
-    만약 실패하거나 빈 데이터가 반환될 경우 FinanceDataReader로 개별 병렬 다운로드를 수행합니다.
-    """
-    try:
-        print("1단계: yfinance 일괄 주가 다운로드 시도...")
-        session = _get_safe_yfinance_session()
-        df_yf = yf.download(yf_symbols, start=start_date, progress=False, session=session)
-        if df_yf is not None and not df_yf.empty:
-            closes = df_yf['Close']
-            if isinstance(closes, pd.Series):
-                closes = closes.to_frame(name=yf_symbols[0])
-            if not closes.empty and closes.iloc[-1].notna().any():
-                print("[OK] yfinance 일괄 다운로드 성공!")
-                return closes
-    except Exception as e:
-        print(f"yfinance 일괄 다운로드 실패 ({e}), FinanceDataReader 백업 모드로 전환합니다.")
-        
-    print("2단계: FinanceDataReader 백업 개별 다운로드 시작...")
-    closes_dict = {}
-    
-    def fetch_single_fdr(sym):
+    price_series = {}
+    for sym in yf_symbols:
         try:
             clean_sym = sym.split('.')[0]
-            time.sleep(random.uniform(0.1, 0.3))
             df = fdr.DataReader(clean_sym, start_date)
             if df is not None and not df.empty and 'Close' in df.columns:
-                return sym, df['Close']
-        except Exception as ex:
-            print(f"FDR 다운로드 실패 ({sym}): {ex}")
-        return sym, None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        results = executor.map(fetch_single_fdr, yf_symbols)
-        for sym, series in results:
-            if series is not None and not series.empty:
-                closes_dict[sym] = series
-                
-    if closes_dict:
-        closes = pd.DataFrame(closes_dict)
-        closes = closes.ffill().bfill()
-        print(f"[OK] FinanceDataReader로 {len(closes.columns)}개 종목 주가 복구 완료!")
-        return closes
-        
-    raise ValueError("모든 주가 다운로드 수단이 차단되었습니다. 네트워크를 확인해 주세요.")
+                price_series[sym] = df['Close']
+            else:
+                print(f"[WARN] No price data for {sym} via FinanceDataReader")
+        except Exception as e:
+            print(f"[ERROR] FinanceDataReader failed for {sym}: {e}")
+        time.sleep(random.uniform(MIN_SLEEP, MAX_SLEEP))
+    if not price_series:
+        raise RuntimeError("All price fetches failed.")
+    closes = pd.concat(price_series, axis=1)
+    closes = closes.ffill().bfill()
+    print(f"[OK] FinanceDataReader fetched {len(closes.columns)} symbols.")
+    return closes
 
 def _get_us_10y_yield():
     try:
@@ -94,6 +70,16 @@ def _get_us_10y_yield():
         return round(float(hist['Close'].iloc[-1]), 2) if not hist.empty else 4.25
     except:
         return 4.25
+
+def fetch_us_market_cap(symbol: str) -> int:
+    """Fetch market cap from yfinance safely."""
+    try:
+        t = yf.Ticker(symbol, session=_get_safe_yfinance_session())
+        info = t.info
+        return int(info.get('marketCap', 0))
+    except Exception as e:
+        print(f"[WARN] market cap fetch failed for {symbol}: {e}")
+        return 0
 
 # ==========================================
 # 2. 로컬 캐시 및 최근 마감 거래일 날짜 연산
@@ -374,12 +360,12 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         "eps_cagr": np.nan,
         "eps3y": "-"
     }
-    
+
     try:
         time.sleep(random.uniform(0.3, 0.8))
         t = yf.Ticker(symbol, session=_get_safe_yfinance_session())
         info = t.info
-        
+
         res_dict["eps_growth"] = round((info.get("earningsGrowth", 0) or 0) * 100, 2)
         res_dict["per"] = info.get("trailingPE", np.nan)
         res_dict["pbr"] = info.get("priceToBook", np.nan)
@@ -387,18 +373,18 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         res_dict["debt_ratio"] = info.get("debtToEquity", np.nan)
         res_dict["foreign_supply"] = round((info.get("heldPercentInstitutions", 0) or 0) * 100, 2)
         res_dict["revenue_growth"] = round((info.get("revenueGrowth", 0) or 0) * 100, 2)
-        
+
         # 연간 재무제표를 바탕으로 과거 평균 PER 및 EPS 트렌드 산출
         fin = t.financials
         if "Diluted EPS" in fin.index:
             eps_series = fin.loc["Diluted EPS"]
             dates = eps_series.index
             dates_naive = pd.to_datetime(dates).tz_localize(None)
-            
+
             # 각 재무결산일 즈음의 주가 다운로드
             history = t.history(start=min(dates_naive) - pd.Timedelta(days=10), end=max(dates_naive) + pd.Timedelta(days=10))
             history.index = history.index.tz_localize(None)
-            
+
             pe_history = []
             eps_vals = {}
             for dt, eps in eps_series.items():
@@ -410,11 +396,12 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
                     closest_idx = history.index.get_indexer([dt_naive], method='nearest')[0]
                     price = history.iloc[closest_idx]['Close']
                     pe_history.append(price / eps)
-                except: pass
-                
+                except Exception:
+                    pass
+
             if pe_history:
                 res_dict["hist_per_avg"] = round(np.mean(pe_history), 2)
-                
+
             if len(eps_vals) >= 2:
                 sorted_years = sorted(eps_vals.keys())
                 trend_vals = [str(round(eps_vals[y], 2)) for y in sorted_years[-3:]]
@@ -462,7 +449,20 @@ def fetch_us_top100_tickers(top_n=100) -> list:
                         "name": item.get("name", item.get("symbol")),
                         "market_cap": item.get("market_cap", 0)
                     })
-            if len(tickers_info) >= top_n:
+            if len(tickers_info) > 0:
+                # 캐시된 종목 수가 부족한 경우 DEFAULT_US_TICKERS로 채우되, 캐시의 시총 정보를 보존합니다.
+                if len(tickers_info) < top_n:
+                    existing_symbols = {t["yf_symbol"] for t in tickers_info}
+                    for sym in DEFAULT_US_TICKERS:
+                        if len(tickers_info) >= top_n:
+                            break
+                        if sym not in existing_symbols:
+                            tickers_info.append({
+                                "yf_symbol": sym,
+                                "symbol": sym,
+                                "name": US_NAME_MAP.get(sym, sym),
+                                "market_cap": 0
+                            })
                 return tickers_info
     except Exception as e:
         print("로컬 미국 시총 캐시 읽기 오류, 기본 목록 대체:", e)
@@ -564,7 +564,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             data['yf_symbol'] = sym
             return data
             
-        num_workers = 3 if market_text == "미국" else 5
+        # 미국 시장 워커 수를 config 설정에 따르게 함
+        num_workers = US_MAX_WORKERS if market_text == "미국" else 5
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(process_fundamental, sym) for sym in yf_symbols]
             for i, future in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -603,8 +604,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         df['peg'] = np.where((df['per'] > 0) & (df['eps_growth'] > 0), round(df['per'] / df['eps_growth'], 2), np.nan)
         df['cagr'] = df['eps_cagr']
         
-        # 스코어 기준 내림차순 정렬 및 순위 부여
-        df = df.sort_values(by="score", ascending=False)
+        # 시가총액 기준 내림차순 정렬 및 순위 부여
+        df = df.sort_values(by="market_cap", ascending=False)
         df['rank'] = range(1, len(df) + 1)
 
         # 6. 저장 및 UI 전송
