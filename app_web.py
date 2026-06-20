@@ -279,7 +279,6 @@ def style_screener_dataframe(df, market_type):
 # ==========================================
 # [패치 반영] 가변 너비 맞춤형 기획 연동 설정
 # ==========================================
-# 고정 너비(width="small") 속성을 버리고, 데이터 흐름에 기댄 유연체계로 변경합니다.
 link_config = {
     "순위": st.column_config.NumberColumn("순위", format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
@@ -350,9 +349,11 @@ def _display_market_panel(panel: dict):
         view_df["risk_score"] = view_df["risk_score"].apply(lambda x: f"{int(x)}" if pd.notna(x) else "-")
         view_df["effect"] = view_df["effect"].fillna("-")
         view_df["trend"] = view_df["trend"].fillna("-")
+        
+        # [패치 반영] use_container_width=True 무력화를 피하기 위해 최신 표준인 width="stretch"로 전면 교체
         st.dataframe(
             view_df[["label", "symbol", "trend", "effect", "risk_score", "latest", "ret20", "ret60"]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -367,14 +368,15 @@ st.markdown("---")
 
 col1, col2, col3, col_empty = st.columns([1.2, 1.2, 1.2, 5])
 
+# [패치 반영] st.button 내부에 충돌을 일으키던 use_container_width=True 제거로 이벤트 완전 안전화
 with col1:
-    btn_search = st.button("🔍 검색", use_container_width=True)
+    btn_search = st.button("🔍 검색")
 
 with col2:
-    btn_load = st.button("📂 불러오기", use_container_width=True)
+    btn_load = st.button("📂 불러오기")
 
 with col3:
-    btn_stop = st.button("⏹ 검색 중지", use_container_width=True)
+    btn_stop = st.button("⏹ 검색 중지")
 
 if btn_stop:
     if st.session_state.stop_event is not None:
@@ -471,9 +473,11 @@ if btn_search:
                     """,
                     unsafe_allow_html=True,
                 )
+                
+                # [패치 반영] 실시간 재생 테이블 컴포넌트의 use_container_width 옵션을 width="stretch"로 교체하여 먹통 현상 완전 해결
                 table_placeholder.dataframe(
                     styled_live_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config=link_config,
                     selection_mode="row",
@@ -541,9 +545,10 @@ if st.session_state.data:
     display_final_df = final_df[available_cols]
     styled_final_df = style_screener_dataframe(display_final_df, market)
 
+    # [패치 반영] 결과 뷰어 테이블의 use_container_width 옵션을 width="stretch"로 교체
     st.dataframe(
         styled_final_df,
-        use_container_width=True,
+        width="stretch",
         height=650,
         hide_index=True,
         column_config=link_config,
@@ -587,7 +592,9 @@ if st.session_state.data:
             ],
             columns=["항목", "가중점수", "원본값"],
         )
-        st.dataframe(detail_table, use_container_width=True, hide_index=True)
+        
+        # [패치 반영] 상세 지표 테이블의 use_container_width 옵션을 width="stretch"로 교체
+        st.dataframe(detail_table, width="stretch", hide_index=True)
 
     # 다운로드용 CSV 컬럼 변환 백업
     csv_df = display_final_df.copy()
