@@ -26,9 +26,14 @@ def handle_market_change():
     
     if cache_file and os.path.exists(cache_file):
         try:
-            df_cached = pd.read_csv(cache_file).head(st.session_state.top_n)
-            st.session_state.data = df_cached.to_dict(orient='records')
-            st.session_state.sidebar_state = "collapsed"
+            df_cached = pd.read_csv(cache_file)
+            if len(df_cached) >= st.session_state.top_n:
+                df_cached = df_cached.head(st.session_state.top_n)
+                st.session_state.data = df_cached.to_dict(orient='records')
+                st.session_state.sidebar_state = "collapsed"
+            else:
+                # 캐시된 종목 수가 원하는 개수보다 적으면 데이터 분석을 직접 실행하도록 비움
+                st.session_state.data = []
         except:
             st.session_state.data = []
     else:
@@ -124,7 +129,7 @@ with col3:
         st_queue = StreamlitQueue(progress_bar)
         
         try:
-            # 안전제일 수집 엔진 기동
+            # 안전제일 수집 엔진 기동 (force_scrape=True로 강제 분석 실행)
             analyzer.screening_worker(
                 market=st.session_state.selected_market,
                 top_n=st.session_state.top_n,
@@ -132,7 +137,8 @@ with col3:
                 stop_requested_func=lambda: False,
                 opt_fundamental=True,
                 opt_peak=True,
-                us_market_cap_data=analyzer.load_us_market_cap_cache()
+                us_market_cap_data=analyzer.load_us_market_cap_cache(),
+                force_scrape=True
             )
             
             # 수집 완료 후 데이터를 세션에 저장

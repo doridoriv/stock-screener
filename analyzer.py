@@ -430,7 +430,7 @@ def fetch_us_top100_tickers(top_n=100) -> list:
 # ==========================================
 # 7. [핵심] Pandas & NumPy 벡터화 스크리닝 엔진
 # ==========================================
-def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data):
+def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data, force_scrape=False):
     try:
         market_text = "코스닥" if market == "한국(코스닥)" else "코스피" if market in ["한국(코스피)", "한국"] else "미국"
         
@@ -438,11 +438,14 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         target_date_str = get_latest_market_date(market_text)
         cache_file = _get_daily_cache_path(market_text, target_date_str)
         
-        if os.path.exists(cache_file):
-            df_cached = pd.read_csv(cache_file).head(top_n)
-            app_queue.put({"type": "data", "data": df_cached.to_dict(orient='records')})
-            app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 캐시 데이터 로드 완료!"})
-            return
+        if not force_scrape and os.path.exists(cache_file):
+            df_cached = pd.read_csv(cache_file)
+            if len(df_cached) >= top_n:
+                df_cached = df_cached.head(top_n)
+                app_queue.put({"type": "data", "data": df_cached.to_dict(orient='records')})
+                app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 캐시 데이터 로드 완료!"})
+                return
+
 
         # 2. 명단 추출
         app_queue.put({"type": "progress", "value": 10, "text": "시총 명단 로드 중..."})
