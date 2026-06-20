@@ -151,11 +151,13 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
     df["rank"] = range(1, len(df) + 1)
     return df
 
-
 def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
 
+    # ==========================================
+    # [패치 5, 6] PyArrow 직렬화 및 링크 데이터 유효성 강제 정제
+    # ==========================================
     if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
         urls = []
         for idx, row in formatted_df.iterrows():
@@ -177,15 +179,24 @@ def style_screener_dataframe(df, market_type):
                     base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
                 url = f"{base_url}?ticker={sym}&name={row_name}"
             else:
-                code_str = str(sym).zfill(6)
+                code_str = "".join(filter(str.isdigit, sym)).zfill(6)
+                if not code_str or code_str == "000000":
+                    code_str = sym.zfill(6)
                 url = f"https://finance.naver.com/item/main.naver?code={code_str}&ticker={code_str}&name={row_name}"
-            urls.append(url)
+            
+            urls.append(str(url))
 
-        formatted_df["symbol"] = urls
-        formatted_df["name"] = urls
+        formatted_df["symbol"] = pd.Series(urls, index=formatted_df.index, dtype=str)
+        formatted_df["name"] = pd.Series(urls, index=formatted_df.index, dtype=str)
+
+    # [오타 수정 완료] 누락된 신규 4대 지표 컬럼이 없을 경우 결측치(None)로 자동 생성
+    required_missing_cols = ["eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply"]
+    for c in required_missing_cols:
+        if c not in formatted_df.columns:  # <- 이 부분의 오타를 정상 수정했습니다.
+            formatted_df[c] = None
 
     # ==========================================
-    # [패치 반영] 신규 4대 지표 한글 매핑 추가
+    # 한글 컬럼명 매핑 (보이지 않던 지표 명확히 노출)
     # ==========================================
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명",
@@ -196,14 +207,14 @@ def style_screener_dataframe(df, market_type):
         "peak_diff": "최고점대비(%)", "ma200": "200일선", "diff": "200일괴리율(%)",
         "rsi": "RSI", "per": "현재PER", "pbr": "PBR", "roe": "ROE(%)", "peg": "PEG",
         "eps3y": "EPS 3년 추세", "cagr": "CAGR(%)", "confidence": "신뢰도(%)",
-        "summary": "AI한줄해석", "detail_text": "점수상세", "missing_fields": "누락지표"
+        "summary": "AI한줄해석"
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
 
     styler = formatted_df.style
     format_dict = {}
 
-    # 신규 지표 포맷터 장착
+    # 신규 지표 포맷터
     if "EPS성장률(%)" in formatted_df.columns:
         format_dict["EPS성장률(%)"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
     if "과거평균PER" in formatted_df.columns:
@@ -213,13 +224,13 @@ def style_screener_dataframe(df, market_type):
     if "외인/기관지분(%)" in formatted_df.columns:
         format_dict["외인/기관지분(%)"] = lambda x: f"{x:.2f}%" if pd.notna(x) else "-"
 
-    # 기존 포맷터 스키마 동기화
+    # 기존 지표 포맷터 (결측치 데이터 유입 시 int 변환 에러 방어 완료)
     if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "종합점수" in formatted_df.columns: format_dict["종합점수"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
-    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: (f"${x:,.2f}" if is_us else f"{int(x):,}원") if pd.notna(x) else "-"
+    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: (f"${x:,.2f}" if is_us else f"{int(x):,}원") if pd.notna(x) else "-"
+    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: (f"${x:,.2f}" if is_us else f"{int(x):,}원") if pd.notna(x) else "-"
     if "최고점대비(%)" in formatted_df.columns: format_dict["최고점대비(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
     if "200일괴리율(%)" in formatted_df.columns: format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
     if "RSI" in formatted_df.columns: format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
@@ -233,7 +244,7 @@ def style_screener_dataframe(df, market_type):
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{"text-align": "center", "white-space": "nowrap"})
 
-    # 하이라이트 컬러 스크립트 규격화
+    # 조건부 색상 규칙 적용
     def color_per(val):
         try:
             v = float(val)
@@ -274,7 +285,6 @@ def style_screener_dataframe(df, market_type):
     if target_cols: styler = styler.map(apply_strict_color_rules, subset=target_cols)
 
     return styler
-
 
 # ==========================================
 # [패치 반영] 가변 너비 맞춤형 기획 연동 설정
