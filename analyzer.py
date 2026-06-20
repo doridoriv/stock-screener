@@ -92,7 +92,7 @@ def get_latest_market_date(market: str) -> str:
 def _get_daily_cache_path(market_text: str, date_str: str) -> str:
     return os.path.join(CACHE_DIR, f"snapshot_{market_text}_{date_str}.csv")
 
-def _find_latest_valid_cache(market_text: str):
+def find_latest_valid_cache(market_text: str):
     """
     가장 최근 거래일의 캐시가 있으면 가져오고, 없으면 최대 8일 전 캐시까지 탐색합니다.
     """

@@ -14,32 +14,30 @@ if "selected_market" not in st.session_state:
 if "top_n" not in st.session_state:
     st.session_state.top_n = 50
 
-# 사이드바 초기 상태를 세션에 저장 (기본값: 열림)
+# 사이드바 초기 상태를 세션에 저장 (기본값: 닫힘)
 if "sidebar_state" not in st.session_state:
-    st.session_state.sidebar_state = "expanded"
+    st.session_state.sidebar_state = "collapsed"
 
 # 시장 교체 시 캐시 데이터를 자동 로드하여 사용자 편의성 제공
 def handle_market_change():
     market = st.session_state.selected_market
     market_text = "코스피" if market in ["한국(코스피)", "한국"] else "코스닥" if market == "한국(코스닥)" else "미국"
-    latest_date = analyzer.get_latest_market_date(market_text)
-    cache_file = os.path.join(analyzer.CACHE_DIR, f"snapshot_{market_text}_{latest_date}.csv")
+    cache_file = analyzer.find_latest_valid_cache(market_text)
     
-    if os.path.exists(cache_file):
+    if cache_file and os.path.exists(cache_file):
         try:
             df_cached = pd.read_csv(cache_file).head(st.session_state.top_n)
             st.session_state.data = df_cached.to_dict(orient='records')
             st.session_state.sidebar_state = "collapsed"
         except:
             st.session_state.data = []
-            st.session_state.sidebar_state = "expanded"
     else:
         st.session_state.data = []
-        st.session_state.sidebar_state = "expanded"
 
 # 스타트업 시 기본 캐시 자동 로딩
 if "data" not in st.session_state:
     handle_market_change()
+
 
 st.set_page_config(
     page_title=APP_TITLE, 
@@ -86,35 +84,40 @@ class StreamlitQueue:
 with st.sidebar:
     st.title("📊 장기 투자 스크리너")
     st.caption("2046년 은퇴를 향한 우상향 마라톤")
-    
     st.divider()
-    
-    # selectbox의 key를 세션 상태 변수와 연동하여 자동으로 캐시 룩업 발동
+    st.info("💡 모든 시장 분석 및 데이터 갱신 기능은 메인 화면 상단의 컨트롤 패널을 이용해 주세요. 사이드바는 더 넓은 화면을 위해 자동으로 닫힙니다.")
+
+# ==========================================
+# 5. 메인 대시보드 화면 및 컨트롤 패널
+# ==========================================
+st.header(f"🎯 {st.session_state.selected_market} 핵심 종목 분석 결과")
+
+# 메인 화면 상단에 3개 컬럼으로 구성된 컨트롤 패널 배치 (사이드바가 닫혀있어도 항상 검색 가능)
+col1, col2, col3 = st.columns([3, 3, 2], vertical_alignment="bottom")
+
+with col1:
     st.selectbox(
         "🌍 시장 선택", 
         ["한국(코스피)", "한국(코스닥)", "미국"],
         key="selected_market",
         on_change=handle_market_change
     )
-    
+
+with col2:
     st.slider(
         "🔍 탐색 종목 수", 
         10, 100, 50, step=10,
         key="top_n",
         on_change=handle_market_change
     )
-    
-    st.divider()
-    
-    # 수동 검색 버튼 (캐시가 이미 있을 때 중복 요청을 유도하지 않기 위해 상태 체크)
+
+with col3:
     market_text = "코스피" if st.session_state.selected_market in ["한국(코스피)", "한국"] else "코스닥" if st.session_state.selected_market == "한국(코스닥)" else "미국"
-    latest_date = analyzer.get_latest_market_date(market_text)
-    cache_file = os.path.join(analyzer.CACHE_DIR, f"snapshot_{market_text}_{latest_date}.csv")
+    cache_file = analyzer.find_latest_valid_cache(market_text)
     
     button_label = "🚀 종목 분석 시작"
-    if os.path.exists(cache_file):
-        button_label = "🔄 최신 데이터 강제 갱신"
-        st.info("💡 선택하신 시장의 오늘 마감 데이터가 이미 로컬 캐시에 저장되어 있습니다. 최신 수집 데이터가 로딩되었습니다.")
+    if cache_file and os.path.exists(cache_file):
+        button_label = "🔄 데이터 강제 갱신"
         
     if st.button(button_label, use_container_width=True, type="primary"):
         progress_bar = st.progress(0, text="엔진 예열 중...")
@@ -145,10 +148,7 @@ with st.sidebar:
             progress_bar.empty()
             st.error(f"🚨 엔진 오류 발생: {e}")
 
-# ==========================================
-# 5. 메인 대시보드 화면 및 컬러 렌더링
-# ==========================================
-st.header(f"🎯 {st.session_state.selected_market} 핵심 종목 분석 결과")
+st.divider()
 
 if st.session_state.data:
     df = pd.DataFrame(st.session_state.data)
@@ -160,9 +160,12 @@ if st.session_state.data:
     display_cols = [col["text"] for col in TABLE_COLUMNS if col["text"] in df_renamed.columns]
     df_display = df_renamed[display_cols]
     
-    # 텍스트와 숫자가 섞여 연산 오류를 내는 것을 방지하기 위해 수치형 변환
-    float_cols = ["EPS성장률(%)", "과거평균PER", "현재PER", "PBR", "ROE(%)", "PEG", "CAGR(%)", "최고점대비(%)", "200일괴리율(%)", "RSI", "외인/기관지분(%)", "美10년물금리"]
-    for col in float_cols:
+    # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
+    numeric_ids = ["rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply", 
+                   "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr"]
+    numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
+    
+    for col in numeric_cols:
         if col in df_display.columns:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
             
@@ -178,7 +181,7 @@ if st.session_state.data:
     def color_kr_style(val):
         """플러스는 빨강, 마이너스는 파랑 (HTS/MTS 표준)"""
         try:
-            v = float(str(val).replace(',', '').replace('%', '').replace('원', '').replace('$', ''))
+            v = float(val)
             if v > 0: return 'color: #FF4B4B; font-weight: bold;'
             elif v < 0: return 'color: #00BFFF; font-weight: bold;'
         except: pass
@@ -206,31 +209,37 @@ if st.session_state.data:
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
-    # 포맷 딕셔너리 빌딩 (단위 바인딩 및 빈 칸 처리)
-    fmt_dict = {}
+    # --- [Streamlit Native Column Config] ---
+    # 문자/숫자에 따라 컬럼 정렬(오른쪽/왼쪽) 및 포맷 단위(원, $, %, 억 등)를
+    # 데이터 타입을 보존하면서 브라우저가 자동 너비 조절하도록 설정
     is_kr = st.session_state.selected_market.startswith("한국")
-    for col in df_display.columns:
-        if col in ["현재가", "최고점", "200일선"]:
-            fmt_dict[col] = (lambda x, is_kr=is_kr: f"{int(x):,}원" if pd.notna(x) and is_kr else f"${x:,.2f}" if pd.notna(x) else "-")
-        elif col == "시가총액(억)":
-            fmt_dict[col] = (lambda x, is_kr=is_kr: f"{int(x):,}억" if pd.notna(x) and is_kr else f"${int(x):,}억" if pd.notna(x) else "-")
-        elif col in ["EPS성장률(%)", "ROE(%)", "최고점대비(%)", "200일괴리율(%)", "CAGR(%)", "외인/기관지분(%)", "美10년물금리"]:
-            fmt_dict[col] = (lambda x: f"{x:,.2f}%" if pd.notna(x) else "-")
-        elif col in ["과거평균PER", "현재PER", "PBR", "PEG", "RSI"]:
-            fmt_dict[col] = (lambda x: f"{x:,.2f}" if pd.notna(x) else "-")
-
-    styled_df = styled_df.format(fmt_dict, na_rep="-")
-
-    # 사이드바가 닫혔을 때 다시 켜는 힌트 출력
-    if st.session_state.sidebar_state == "collapsed":
-        st.markdown(
-            '<div class="sidebar-toggle-hint">💡 다른 시장 분석 또는 종목 개수 조정을 원하시면 좌측 상단의 <b>&gt;</b> 화살표를 눌러 사이드바를 펼쳐주세요.</div>', 
-            unsafe_allow_html=True
-        )
+    col_config = {}
+    
+    for col in TABLE_COLUMNS:
+        col_id = col["id"]
+        col_text = col["text"]
+        
+        if col_text not in df_display.columns:
+            continue
+            
+        if col_id in ["price", "peak", "ma200"]:
+            fmt = "%d원" if is_kr else "$%,.2f"
+            col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
+        elif col_id == "market_cap":
+            fmt = "%,d억" if is_kr else "$%,d억"
+            col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
+        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond"]:
+            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f%%")
+        elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
+            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f")
+        elif col_id in ["rank", "score"]:
+            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%d")
+        else:
+            col_config[col_text] = st.column_config.TextColumn(col_text)
 
     # --- [최종 화면 렌더링] ---
-    # use_container_width=True: 가로 길이에 맞추되 columns가 반응형으로 자동 정렬
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    # use_container_width=True: 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
+    st.dataframe(styled_df, use_container_width=True, hide_index=True, column_config=col_config)
 
 else:
-    st.info("👈 왼쪽 사이드바에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
+    st.info("💡 위 컨트롤 패널에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
