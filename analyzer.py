@@ -31,9 +31,66 @@ from config import (
 # ==========================================
 # 1. 코어 보조 및 매크로 지표 수집
 # ==========================================
+def _get_safe_yfinance_session():
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    })
+    return session
+
+def download_prices_robust(yf_symbols, start_date):
+    """
+    야후 파이낸스 차단 상황을 고려한 고신뢰성 주가 다운로더:
+    먼저 yfinance.download로 고속 일괄 다운로드를 시도하고,
+    만약 실패하거나 빈 데이터가 반환될 경우 FinanceDataReader로 개별 병렬 다운로드를 수행합니다.
+    """
+    try:
+        print("1단계: yfinance 일괄 주가 다운로드 시도...")
+        session = _get_safe_yfinance_session()
+        df_yf = yf.download(yf_symbols, start=start_date, progress=False, session=session)
+        if df_yf is not None and not df_yf.empty:
+            closes = df_yf['Close']
+            if isinstance(closes, pd.Series):
+                closes = closes.to_frame(name=yf_symbols[0])
+            if not closes.empty and closes.iloc[-1].notna().any():
+                print("[OK] yfinance 일괄 다운로드 성공!")
+                return closes
+    except Exception as e:
+        print(f"yfinance 일괄 다운로드 실패 ({e}), FinanceDataReader 백업 모드로 전환합니다.")
+        
+    print("2단계: FinanceDataReader 백업 개별 다운로드 시작...")
+    closes_dict = {}
+    
+    def fetch_single_fdr(sym):
+        try:
+            clean_sym = sym.split('.')[0]
+            time.sleep(random.uniform(0.1, 0.3))
+            df = fdr.DataReader(clean_sym, start_date)
+            if df is not None and not df.empty and 'Close' in df.columns:
+                return sym, df['Close']
+        except Exception as ex:
+            print(f"FDR 다운로드 실패 ({sym}): {ex}")
+        return sym, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        results = executor.map(fetch_single_fdr, yf_symbols)
+        for sym, series in results:
+            if series is not None and not series.empty:
+                closes_dict[sym] = series
+                
+    if closes_dict:
+        closes = pd.DataFrame(closes_dict)
+        closes = closes.ffill().bfill()
+        print(f"[OK] FinanceDataReader로 {len(closes.columns)}개 종목 주가 복구 완료!")
+        return closes
+        
+    raise ValueError("모든 주가 다운로드 수단이 차단되었습니다. 네트워크를 확인해 주세요.")
+
 def _get_us_10y_yield():
     try:
-        hist = yf.Ticker("^TNX").history(period="1d")
+        hist = yf.Ticker("^TNX", session=_get_safe_yfinance_session()).history(period="1d")
         return round(float(hist['Close'].iloc[-1]), 2) if not hist.empty else 4.25
     except:
         return 4.25
@@ -177,8 +234,8 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
             
             # 1. 기업 실적 분석 테이블 (Table 4)
             if '주요재무정보' in txt and '매출액' in txt:
-                table.columns = [col[1] if isinstance(col, tuple) else col for col in table.columns]
-                table = table.set_index('주요재무정보')
+                first_col = table.columns[0]
+                table = table.set_index(first_col)
                 
                 eps_row = next((table.loc[idx] for idx in table.index if 'EPS' in str(idx)), None)
                 per_row = next((table.loc[idx] for idx in table.index if 'PER' in str(idx)), None)
@@ -187,9 +244,10 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
                 rev_row = next((table.loc[idx] for idx in table.index if '매출액' in str(idx)), None)
                 op_row = next((table.loc[idx] for idx in table.index if '영업이익' in str(idx) and '영업이익률' not in str(idx)), None)
 
-                # 결산 년도 명단 추출 (추정 데이터 E가 붙은 해 제외)
-                years = [col for col in table.columns if col.endswith('.12') and not col.endswith('(E)')]
-                years.sort()
+                # 연간 실적 컬럼만 필터링하여 중복 컬럼명(2025.12 연간/분기 중복 등) 충돌 방지
+                annual_cols = [col for col in table.columns if isinstance(col, tuple) and col[0] == '최근 연간 실적']
+                years = [col for col in annual_cols if col[1].endswith('.12') and not col[1].endswith('(E)')]
+                years.sort(key=lambda x: x[1])
                 
                 # EPS 성장률 & trend & CAGR 연산
                 if eps_row is not None:
@@ -319,7 +377,7 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
     
     try:
         time.sleep(random.uniform(0.3, 0.8))
-        t = yf.Ticker(symbol)
+        t = yf.Ticker(symbol, session=_get_safe_yfinance_session())
         info = t.info
         
         res_dict["eps_growth"] = round((info.get("earningsGrowth", 0) or 0) * 100, 2)
@@ -378,54 +436,46 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
 # ==========================================
 def fetch_us_top100_tickers(top_n=100) -> list:
     """
-    S&P500 편입 종목 전체를 가져온 뒤, yfinance fast_info 속성을 사용하여
-    초고속 병렬(ThreadPool) 구조로 시가총액을 추출해 상위 N개의 명단을 만듭니다.
+    미국 시가총액 상위 100선 추출:
+    매번 500개 종목을 조회하여 야후 파이낸스 차단을 유도하지 않고,
+    로컬 캐시파일(us_marketcap_cache.json)이 있으면 이를 읽고, 
+    없으면 config.py의 DEFAULT_US_TICKERS 목록을 기반으로 즉시 반환합니다.
     """
     try:
-        print("S&P500 명단 로드 중...")
-        df_sp = fdr.StockListing("S&P500")
-        symbols = df_sp['Symbol'].tolist()
-        
-        def get_market_cap(sym):
-            try:
-                time.sleep(random.uniform(0.05, 0.15))
-                t = yf.Ticker(sym)
-                mcap = t.fast_info.market_cap
-                return sym, mcap
-            except:
-                return sym, 0
-                
-        print(f"S&P500 {len(symbols)}개 종목 시가총액 병렬 분석 가동 (차단 방지)...")
-        market_caps = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            results = executor.map(get_market_cap, symbols)
-            for sym, mcap in results:
-                if mcap is not None and mcap > 0:
-                    market_caps[sym] = mcap
-                    
-        sorted_symbols = sorted(market_caps.items(), key=lambda x: x[1], reverse=True)[:top_n]
-        
-        tickers_info = []
-        for i, (sym, mcap) in enumerate(sorted_symbols, 1):
-            name = df_sp[df_sp['Symbol'] == sym]['Name'].values[0] if sym in df_sp['Symbol'].values else sym
-            tickers_info.append({
-                "yf_symbol": sym,
-                "symbol": sym,
-                "name": US_NAME_MAP.get(sym, name),
-                "market_cap": int(mcap / 100000000)
-            })
-        return tickers_info
+        cache_data = load_us_market_cap_cache()
+        if cache_data:
+            tickers_info = []
+            if isinstance(cache_data, dict):
+                sorted_items = sorted(cache_data.items(), key=lambda x: x[1].get("market_cap", 0), reverse=True)
+                for sym, info in sorted_items[:top_n]:
+                    tickers_info.append({
+                        "yf_symbol": sym,
+                        "symbol": sym,
+                        "name": info.get("name", sym),
+                        "market_cap": info.get("market_cap", 0)
+                    })
+            else: # 리스트인 경우
+                for item in cache_data[:top_n]:
+                    tickers_info.append({
+                        "yf_symbol": item.get("symbol", item.get("yf_symbol")),
+                        "symbol": item.get("symbol", item.get("yf_symbol")),
+                        "name": item.get("name", item.get("symbol")),
+                        "market_cap": item.get("market_cap", 0)
+                    })
+            if len(tickers_info) >= top_n:
+                return tickers_info
     except Exception as e:
-        print("동적 미국 명단 산출 오류, 기본 목록 대체:", e)
-        tickers_info = []
-        for i, sym in enumerate(DEFAULT_US_TICKERS[:top_n], 1):
-            tickers_info.append({
-                "yf_symbol": sym,
-                "symbol": sym,
-                "name": US_NAME_MAP.get(sym, sym),
-                "market_cap": 0
-            })
-        return tickers_info
+        print("로컬 미국 시총 캐시 읽기 오류, 기본 목록 대체:", e)
+        
+    tickers_info = []
+    for i, sym in enumerate(DEFAULT_US_TICKERS[:top_n], 1):
+        tickers_info.append({
+            "yf_symbol": sym,
+            "symbol": sym,
+            "name": US_NAME_MAP.get(sym, sym),
+            "market_cap": 0
+        })
+    return tickers_info
 
 # ==========================================
 # 7. [핵심] Pandas & NumPy 벡터화 스크리닝 엔진
@@ -471,10 +521,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         app_queue.put({"type": "progress", "value": 30, "text": "주가 정보 연산 중..."})
         start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
         
-        batch_hist = yf.download(yf_symbols, start=start_date, progress=False)
-        closes = batch_hist['Close']
-        if isinstance(closes, pd.Series):
-            closes = closes.to_frame(name=yf_symbols[0])
+        closes = download_prices_robust(yf_symbols, start_date)
 
         current_prices = closes.iloc[-1]
         ma200 = closes.rolling(window=200).mean().iloc[-1]
