@@ -3,7 +3,12 @@ import pandas as pd
 import streamlit as st
 
 import analyzer
+import market_analyzer
 from config import APP_TITLE, TABLE_COLUMNS
+
+@st.cache_data(ttl=1800) # 캐시 유지 시간 30분
+def get_cached_market_panel():
+    return market_analyzer.build_market_panel()
 
 # ==========================================
 # 1. 페이지 및 세션 상태 초기화 (사이드바 자동 제어)
@@ -97,6 +102,26 @@ with st.sidebar:
 # ==========================================
 st.header(f"🎯 {st.session_state.selected_market} 핵심 종목 분석 결과")
 
+# 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
+try:
+    market_data = get_cached_market_panel()
+    
+    state_color = "🔴 위험회피 (Risk-Off)"
+    if market_data["market_state"] == "위험선호":
+        state_color = "🟢 위험선호 (Risk-On)"
+    elif market_data["market_state"] == "중립":
+        state_color = "🟡 중립 (Neutral)"
+        
+    col_m1, col_m2 = st.columns([1, 4])
+    with col_m1:
+        st.metric(label="시장 위험 선호도", value=f"{market_data['market_score']}점", delta=market_data["market_state"])
+    with col_m2:
+        st.info(f"**상태:** {state_color}  |  **요약:** {market_data['summary']}")
+except Exception as e:
+    st.error(f"시장 분석 패널 로드 오류: {e}")
+
+st.divider()
+
 # 메인 화면 상단에 3개 컬럼으로 구성된 컨트롤 패널 배치 (사이드바가 닫혀있어도 항상 검색 가능)
 col1, col2, col3 = st.columns([3, 3, 2], vertical_alignment="bottom")
 
@@ -168,7 +193,8 @@ if st.session_state.data:
     
     # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
     numeric_ids = ["rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply", 
-                   "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr"]
+                   "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
+                   "revenue_growth", "operating_growth", "debt_ratio"]
     numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
     
     for col in numeric_cols:
@@ -211,7 +237,7 @@ if st.session_state.data:
         styled_df = style_method(highlight_score, subset=["종합점수"])
         
     # 색상을 입힐 핵심 지표 컬럼
-    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "최고점대비(%)", "ROE(%)"] if c in df_display.columns]
+    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "최고점대비(%)", "ROE(%)", "매출성장률(%)", "영업이익성장률(%)"] if c in df_display.columns]
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
@@ -234,7 +260,7 @@ if st.session_state.data:
         elif col_id == "market_cap":
             fmt = "%,d억" if is_kr else "$%,d억"
             col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
-        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond"]:
+        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
             col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
             col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f")
