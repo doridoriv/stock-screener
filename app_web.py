@@ -12,11 +12,12 @@ import analyzer
 import market_analyzer
 from config import APP_TITLE, CACHE_DIR
 
-# ==========================================
-# [패치 반영] 사이드바 자동 개폐 상태 제어 시스템
-# ==========================================
+# 세션 상태 초기화 (사이드바 상태 및 검색 가동 플래그 관리)
 if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "expanded"
+
+if "searching" not in st.session_state:
+    st.session_state.searching = False
 
 st.set_page_config(
     page_title=APP_TITLE, 
@@ -24,7 +25,7 @@ st.set_page_config(
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-# 반응형 최적화를 위한 CSS 스타일 레이아웃 (width 강제 고정 제거와 시너지)
+# 반응형 최적화를 위한 CSS 스타일 레이아웃
 st.markdown(
     """
     <style>
@@ -62,7 +63,7 @@ st.markdown(
             line-height: 1.15 !important;
         }
 
-        [data-testid="stDataFrame"] [role="gridcell"] div,
+        [data-testid="stDataFrame"] [role="gridcell division"] div,
         [data-testid="stDataFrame"] [role="columnheader"] div {
             white-space: nowrap;
             overflow: hidden;
@@ -157,9 +158,6 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
 
-    # =========================================================================
-    # [패치 5, 6] PyArrow 직렬화 및 링크 데이터 유효성 강제 정제
-    # =========================================================================
     if "symbol" in formatted_df.columns:
         formatted_df["symbol"] = formatted_df["symbol"].fillna("").astype(str).str.strip()
     if "name" in formatted_df.columns:
@@ -200,15 +198,11 @@ def style_screener_dataframe(df, market_type):
         formatted_df["symbol"] = pd.Series(urls, index=formatted_df.index, dtype=str)
         formatted_df["name"] = pd.Series(urls, index=formatted_df.index, dtype=str)
 
-    # [패치 3 보완] 신규 4대 지표 컬럼 결측치 생성 시 형변환 에러 방지를 위해 명확한 float64 타입 시리즈 부여
     required_missing_cols = ["eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply"]
     for c in required_missing_cols:
         if c not in formatted_df.columns:
             formatted_df[c] = pd.Series([np.nan] * len(formatted_df), dtype="float64")
 
-    # ==========================================
-    # 한글 컬럼명 매핑 (보이지 않던 지표 명확히 노출)
-    # ==========================================
     rename_dict = {
         "rank": "순위", "symbol": "티커", "name": "종목명",
         "score": "종합점수", "grade": "등급",
@@ -225,7 +219,6 @@ def style_screener_dataframe(df, market_type):
     styler = formatted_df.style
     format_dict = {}
 
-    # 신규 지표 포맷터
     if "EPS성장률(%)" in formatted_df.columns:
         format_dict["EPS성장률(%)"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
     if "과거평균PER" in formatted_df.columns:
@@ -235,7 +228,6 @@ def style_screener_dataframe(df, market_type):
     if "외인/기관지분(%)" in formatted_df.columns:
         format_dict["외인/기관지분(%)"] = lambda x: f"{x:.2f}%" if pd.notna(x) else "-"
 
-    # 기존 지표 포맷터 (결측치 데이터 유입 시 int 변환 에러 방어 완료)
     if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "종합점수" in formatted_df.columns: format_dict["종합점수"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
     if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
@@ -255,7 +247,6 @@ def style_screener_dataframe(df, market_type):
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{"text-align": "center", "white-space": "nowrap"})
 
-    # 조건부 색상 규칙 적용
     def color_per(val):
         try:
             v = float(val)
@@ -297,22 +288,17 @@ def style_screener_dataframe(df, market_type):
 
     return styler
 
-# ==========================================
-# [패치 반영] 가변 너비 맞춤형 기획 연동 설정
-# ==========================================
+
 link_config = {
     "순위": st.column_config.NumberColumn("순위", format="%d"),
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
     "종합점수": st.column_config.NumberColumn("종합점수"),
     "등급": st.column_config.TextColumn("등급"),
-    
-    # 4대 지표 전 전 배치 연동 규격
     "EPS성장률(%)": st.column_config.NumberColumn("EPS성장률(%)"),
     "과거평균PER": st.column_config.NumberColumn("과거평균PER"),
     "美10년물금리": st.column_config.NumberColumn("美10년물금리"),
     "외인/기관지분(%)": st.column_config.NumberColumn("외인/기관지분(%)"),
-
     "시가총액(억)": st.column_config.NumberColumn("시가총액(억)"),
     "현재가": st.column_config.NumberColumn("현재가"),
     "최고점": st.column_config.NumberColumn("최고점"),
@@ -332,7 +318,6 @@ link_config = {
     "누락지표": st.column_config.TextColumn("누락지표"),
 }
 
-# 공통 표준 컬럼 순서 스키마 배열 (4대 지표 메인 상단 배치)
 STANDARD_COLUMN_ORDER = [
     "rank", "symbol", "name", "score", "grade",
     "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply",
@@ -371,7 +356,6 @@ def _display_market_panel(panel: dict):
         view_df["effect"] = view_df["effect"].fillna("-")
         view_df["trend"] = view_df["trend"].fillna("-")
         
-        # [패치 반영] use_container_width=True 무력화를 피하기 위해 최신 표준인 width="stretch"로 전면 교체
         st.dataframe(
             view_df[["label", "symbol", "trend", "effect", "risk_score", "latest", "ret20", "ret60"]],
             width="stretch",
@@ -401,6 +385,7 @@ with col3:
 if btn_stop:
     if st.session_state.stop_event is not None:
         st.session_state.stop_event.set()
+    st.session_state.searching = False
     st.toast("⏹ 스크리닝 중지 신호를 보냈습니다.", icon="⚠️")
 
 if btn_load:
@@ -413,17 +398,18 @@ if btn_load:
         except Exception as e:
             st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
     else:
-        st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
+        st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다. 먼저 [🔍 검색]을 실행하세요.")
 
-# 검색 버튼 실행 시 시스템 가동 트리거
+# ==========================================
+# [중요 대수술] 세션 기반 검색 가동 트리거 제어 시스템
+# ==========================================
 if btn_search:
-    # ------------------------------------------
-    # [사이드바 자동 제어 연동] 트리거 작동 시 자동 축소 전환
-    # ------------------------------------------
+    st.session_state.searching = True
     if st.session_state.sidebar_state == "expanded":
         st.session_state.sidebar_state = "collapsed"
-        st.rerun()
+        st.rerun()  # 사이드바가 닫히면서 소멸되던 스레드 구동 신호를 아래에서 세션으로 보존
 
+if st.session_state.searching:
     st.session_state.data = []
 
     loop_progress_bar = st.progress(0)
@@ -494,7 +480,6 @@ if btn_search:
                     unsafe_allow_html=True,
                 )
                 
-                # [패치 반영] 실시간 재생 테이블 컴포넌트의 use_container_width 옵션을 width="stretch"로 교체하여 먹통 현상 완전 해결
                 table_placeholder.dataframe(
                     styled_live_df,
                     width="stretch",
@@ -515,12 +500,15 @@ if btn_search:
                     final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                st.session_state.searching = False
+                st.rerun()
                 break
 
             elif m_type == "error":
                 st.error(msg["text"])
                 header_placeholder.empty()
                 table_placeholder.empty()
+                st.session_state.searching = False
                 break
 
             elif m_type == "stopped":
@@ -533,15 +521,18 @@ if btn_search:
                     final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                st.session_state.searching = False
+                st.rerun()
                 break
 
         except queue.Empty:
             time.sleep(0.1)
             if not worker_thread.is_alive() and app_queue.empty():
+                st.session_state.searching = False
                 break
 
 # 최종 메인 뷰어 테이블 렌더링 파트
-if st.session_state.data:
+if st.session_state.data and not st.session_state.searching:
     final_df = pd.DataFrame(st.session_state.data)
 
     if "score" in final_df.columns:
@@ -565,7 +556,6 @@ if st.session_state.data:
     display_final_df = final_df[available_cols]
     styled_final_df = style_screener_dataframe(display_final_df, market)
 
-    # [패치 반영] 결과 뷰어 테이블의 use_container_width 옵션을 width="stretch"로 교체
     st.dataframe(
         styled_final_df,
         width="stretch",
@@ -575,9 +565,6 @@ if st.session_state.data:
         selection_mode="row",
     )
 
-    # ------------------------------------------
-    # 종목 선택 점수 상세보기 패널 세분화
-    # ------------------------------------------
     if not final_df.empty:
         st.markdown("### 🔎 점수 상세보기")
         detail_options = final_df.apply(lambda r: f"{r['symbol']} | {r['name']}", axis=1).tolist()
@@ -614,14 +601,13 @@ if st.session_state.data:
         )
         
         # =========================================================================
-        # [🔥 중요 패치] '가중점수' 컬럼 내 문자열("-")과 numpy.int64 혼용에 따른 PyArrow 직렬화 에러 완벽 해결
+        # [🔥 완벽 패치] 가중점수와 원본값 컬럼의 복합 타입 Arrow 크래시 완벽 차단
         # =========================================================================
         detail_table["가중점수"] = detail_table["가중점수"].astype(str)
+        detail_table["원본값"] = detail_table["원본값"].astype(str)
         
-        # [패치 반영] 상세 지표 테이블의 use_container_width 옵션을 width="stretch"로 교체
         st.dataframe(detail_table, width="stretch", hide_index=True)
 
-    # 다운로드용 CSV 컬럼 변환 백업
     csv_df = display_final_df.copy()
     csv = csv_df.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
@@ -630,9 +616,6 @@ if st.session_state.data:
         file_name=f"screener_{datetime.now().strftime('%Y%m%d')}.csv",
         mime="text/csv",
     )
-else:
-    # ------------------------------------------
-    # 첫 진입 시 다음 이용자를 위해 확장 상태 복원 기본값 세팅
-    # ------------------------------------------
+elif not st.session_state.searching:
     st.session_state.sidebar_state = "expanded"
     st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
