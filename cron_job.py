@@ -23,15 +23,18 @@ def run_auto_screening(market, top_n=50):
     
     # 3. 수집 엔진(screening_worker) 가동 (동기식 블로킹 실행)
     try:
+       
         analyzer.screening_worker(
             market=market,
             top_n=top_n,
             app_queue=app_queue,
-            stop_check_func=stop_check_func,
+            stop_requested_func=stop_check_func, # stop_check_func -> stop_requested_func 로 변경
             opt_fundamental=True,
             opt_peak=True,
             us_market_cap_data=us_market_cap_data
-        )
+)
+
+        
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ❌ {market} 엔진 가동 중 치명적 오류 발생: {e}")
         return
