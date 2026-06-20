@@ -1,0 +1,282 @@
+{
+  "AAPL": {
+    "rank": 1,
+    "name": "애플",
+    "market_cap": 33200
+  },
+  "MSFT": {
+    "rank": 2,
+    "name": "마이크로소프트",
+    "market_cap": 31500
+  },
+  "NVDA": {
+    "rank": 3,
+    "name": "엔비디아",
+    "market_cap": 31100
+  },
+  "GOOGL": {
+    "rank": 4,
+    "name": "알파벳A",
+    "market_cap": 21500
+  },
+  "GOOG": {
+    "rank": 5,
+    "name": "알파벳C",
+    "market_cap": 21500
+  },
+  "AMZN": {
+    "rank": 6,
+    "name": "아마존",
+    "market_cap": 19500
+  },
+  "META": {
+    "rank": 7,
+    "name": "메타 플랫폼스",
+    "market_cap": 12500
+  },
+  "BRK-B": {
+    "rank": 8,
+    "name": "버크셔해서웨이",
+    "market_cap": 8800
+  },
+  "LLY": {
+    "rank": 9,
+    "name": "일라이릴리",
+    "market_cap": 8200
+  },
+  "AVGO": {
+    "rank": 10,
+    "name": "브로드컴",
+    "market_cap": 6600
+  },
+  "TSLA": {
+    "rank": 11,
+    "name": "테슬라",
+    "market_cap": 6200
+  },
+  "JPM": {
+    "rank": 12,
+    "name": "JP모건 체이스",
+    "market_cap": 5800
+  },
+  "WMT": {
+    "rank": 13,
+    "name": "월마트",
+    "market_cap": 5300
+  },
+  "V": {
+    "rank": 14,
+    "name": "비자",
+    "market_cap": 4800
+  },
+  "UNH": {
+    "rank": 15,
+    "name": "유나이티드헬스",
+    "market_cap": 4500
+  },
+  "XOM": {
+    "rank": 16,
+    "name": "엑슨모빌",
+    "market_cap": 4700
+  },
+  "MA": {
+    "rank": 17,
+    "name": "마스터카드",
+    "market_cap": 4100
+  },
+  "PG": {
+    "rank": 18,
+    "name": "프록터앤갬블",
+    "market_cap": 3900
+  },
+  "COST": {
+    "rank": 19,
+    "name": "코스트코",
+    "market_cap": 3700
+  },
+  "JNJ": {
+    "rank": 20,
+    "name": "존슨앤존슨",
+    "market_cap": 3500
+  },
+  "ORCL": {
+    "rank": 21,
+    "name": "오라클",
+    "market_cap": 3600
+  },
+  "ABBV": {
+    "rank": 22,
+    "name": "애브비",
+    "market_cap": 3100
+  },
+  "BAC": {
+    "rank": 23,
+    "name": "뱅크오브아메리카",
+    "market_cap": 3100
+  },
+  "NFLX": {
+    "rank": 24,
+    "name": "넷플릭스",
+    "market_cap": 2800
+  },
+  "KO": {
+    "rank": 25,
+    "name": "코카콜라",
+    "market_cap": 2700
+  },
+  "AMD": {
+    "rank": 26,
+    "name": "AMD",
+    "market_cap": 2500
+  },
+  "PEP": {
+    "rank": 27,
+    "name": "펩시코",
+    "market_cap": 2300
+  },
+  "CRM": {
+    "rank": 28,
+    "name": "세일즈포스",
+    "market_cap": 2300
+  },
+  "CVX": {
+    "rank": 29,
+    "name": "쉐브론",
+    "market_cap": 2800
+  },
+  "ADBE": {
+    "rank": 30,
+    "name": "어도비",
+    "market_cap": 2200
+  },
+  "QCOM": {
+    "rank": 31,
+    "name": "퀄컴",
+    "market_cap": 2200
+  },
+  "CSCO": {
+    "rank": 32,
+    "name": "시스코 시스템즈",
+    "market_cap": 1900
+  },
+  "WFC": {
+    "rank": 33,
+    "name": "웰스 파고",
+    "market_cap": 2100
+  },
+  "AXP": {
+    "rank": 34,
+    "name": "아메리칸 익스프레스",
+    "market_cap": 1700
+  },
+  "GE": {
+    "rank": 35,
+    "name": "제너럴 일렉트릭",
+    "market_cap": 1800
+  },
+  "PM": {
+    "rank": 36,
+    "name": "필립 모리스",
+    "market_cap": 1500
+  },
+  "NOW": {
+    "rank": 37,
+    "name": "서비스나우",
+    "market_cap": 1500
+  },
+  "TXN": {
+    "rank": 38,
+    "name": "텍사스 인스트루먼트",
+    "market_cap": 1700
+  },
+  "CAT": {
+    "rank": 39,
+    "name": "캐터필러",
+    "market_cap": 1600
+  },
+  "HON": {
+    "rank": 40,
+    "name": "허니웰",
+    "market_cap": 1300
+  },
+  "AMGN": {
+    "rank": 41,
+    "name": "암젠",
+    "market_cap": 1600
+  },
+  "INTU": {
+    "rank": 42,
+    "name": "인튜이트",
+    "market_cap": 1600
+  },
+  "UNP": {
+    "rank": 43,
+    "name": "유니온 퍼시픽",
+    "market_cap": 1400
+  },
+  "GS": {
+    "rank": 44,
+    "name": "골드만삭스",
+    "market_cap": 1500
+  },
+  "PFE": {
+    "rank": 45,
+    "name": "화이자",
+    "market_cap": 1600
+  },
+  "RTX": {
+    "rank": 46,
+    "name": "RTX",
+    "market_cap": 1400
+  },
+  "LOW": {
+    "rank": 47,
+    "name": "로우스",
+    "market_cap": 1300
+  },
+  "NEE": {
+    "rank": 48,
+    "name": "넥스트에라 에너지",
+    "market_cap": 1400
+  },
+  "SPGI": {
+    "rank": 49,
+    "name": "S&P 글로벌",
+    "market_cap": 1400
+  },
+  "LMT": {
+    "rank": 50,
+    "name": "록히드 마틴",
+    "market_cap": 1100
+  },
+  "MDT": {
+    "rank": 51,
+    "name": "메드트로닉",
+    "market_cap": 1100
+  },
+  "SYK": {
+    "rank": 52,
+    "name": "스트라이커",
+    "market_cap": 1100
+  },
+  "IBM": {
+    "rank": 53,
+    "name": "IBM",
+    "market_cap": 1700
+  },
+  "DIS": {
+    "rank": 54,
+    "name": "디즈니",
+    "market_cap": 1800
+  },
+  "NKE": {
+    "rank": 55,
+    "name": "나이키",
+    "market_cap": 1100
+  },
+  "EL": {
+    "rank": 56,
+    "name": "에스티 로더",
+    "market_cap": 300
+  }
+}
