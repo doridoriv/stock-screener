@@ -149,7 +149,7 @@ with col3:
     if cache_file and os.path.exists(cache_file):
         button_label = "🔄 데이터 강제 갱신"
         
-    if st.button(button_label, use_container_width=True, type="primary"):
+    if st.button(button_label, width="stretch", type="primary"):
         progress_bar = st.progress(0, text="엔진 예열 중...")
         st_queue = StreamlitQueue(progress_bar)
         
@@ -270,8 +270,8 @@ if st.session_state.data:
             col_config[col_text] = st.column_config.TextColumn(col_text)
 
     # --- [최종 화면 렌더링] ---
-    # use_container_width=True: 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
-    st.dataframe(styled_df, use_container_width=True, hide_index=True, column_config=col_config)
+    # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
+    st.dataframe(styled_df, width="stretch", hide_index=True, column_config=col_config)
 
 else:
     st.info("💡 위 컨트롤 패널에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
