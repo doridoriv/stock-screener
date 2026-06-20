@@ -19,6 +19,9 @@ if "sidebar_state" not in st.session_state:
 if "searching" not in st.session_state:
     st.session_state.searching = False
 
+if "data" not in st.session_state:
+    st.session_state.data = []
+
 st.set_page_config(
     page_title=APP_TITLE, 
     layout="wide", 
@@ -80,9 +83,6 @@ st.markdown(
 
 st.title(f"🚀 {APP_TITLE}")
 st.markdown("웹 브라우저에서 실시간으로 주식 데이터를 분석하고 저평가 종목을 찾습니다.")
-
-if "data" not in st.session_state:
-    st.session_state.data = []
 
 if "stop_event" not in st.session_state:
     st.session_state.stop_event = None
@@ -400,18 +400,15 @@ if btn_load:
     else:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다. 먼저 [🔍 검색]을 실행하세요.")
 
-# ==========================================
-# [중요 대수술] 세션 기반 검색 가동 트리거 제어 시스템
-# ==========================================
+# [세션 기반 검색 가동 트리거 제어]
 if btn_search:
     st.session_state.searching = True
+    st.session_state.data = []  # 기존 데이터 초기화
     if st.session_state.sidebar_state == "expanded":
         st.session_state.sidebar_state = "collapsed"
-        st.rerun()  # 사이드바가 닫히면서 소멸되던 스레드 구동 신호를 아래에서 세션으로 보존
+        st.rerun()
 
 if st.session_state.searching:
-    st.session_state.data = []
-
     loop_progress_bar = st.progress(0)
     success_progress_bar = st.progress(0)
     status_text = st.empty()
@@ -431,6 +428,8 @@ if st.session_state.searching:
     )
     worker_thread.start()
 
+    # 스레드로부터 데이터 수집 루프 시작
+    temp_data_list = []
     while True:
         try:
             msg = app_queue.get_nowait()
@@ -441,12 +440,15 @@ if st.session_state.searching:
                 status_text.text(msg["text"])
 
             elif m_type == "data":
-                st.session_state.data.append(msg["data"])
-                df = pd.DataFrame(st.session_state.data)
+                temp_data_list.append(msg["data"])
+                # 실시간 화면 동기화를 위해 세션에도 동시 적재
+                st.session_state.data = list(temp_data_list)
+                
+                df = pd.DataFrame(temp_data_list)
                 if df.empty:
                     continue
 
-                success_count = len(st.session_state.data)
+                success_count = len(temp_data_list)
                 success_rate = min(1.0, success_count / max(top_n, 1))
                 latest_name = str(msg["data"].get("name", "-"))
 
@@ -485,49 +487,50 @@ if st.session_state.searching:
                     width="stretch",
                     hide_index=True,
                     column_config=link_config,
-                    selection_mode="row",
                 )
 
             elif m_type == "done":
                 loop_progress_bar.progress(1.0)
                 status_text.success(msg["text"])
-                success_text.success(f"최종 성공한 종목 수: {len(st.session_state.data)} / {top_n}")
-                header_placeholder.empty()
-                table_placeholder.empty()
-
+                
+                # [안전성 패치] 최종 확보된 임시 데이터를 세션 상태에 완전 박제 유도
+                st.session_state.data = list(temp_data_list)
+                
                 if st.session_state.data:
                     final_save_df = pd.DataFrame(st.session_state.data)
                     final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                
                 st.session_state.searching = False
+                time.sleep(0.5)  # 저장 보장 안정성 갭
                 st.rerun()
                 break
 
             elif m_type == "error":
                 st.error(msg["text"])
-                header_placeholder.empty()
-                table_placeholder.empty()
                 st.session_state.searching = False
                 break
 
             elif m_type == "stopped":
-                st.warning(f"분석 중지: {msg['count']}개 완료")
-                header_placeholder.empty()
-                table_placeholder.empty()
-
+                st.warning(f"분석 중지: {len(temp_data_list)}개 완료")
+                st.session_state.data = list(temp_data_list)
+                
                 if st.session_state.data:
                     final_save_df = pd.DataFrame(st.session_state.data)
                     final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+                
                 st.session_state.searching = False
+                time.sleep(0.5)
                 st.rerun()
                 break
 
         except queue.Empty:
             time.sleep(0.1)
             if not worker_thread.is_alive() and app_queue.empty():
+                st.session_state.data = list(temp_data_list)
                 st.session_state.searching = False
                 break
 
@@ -600,9 +603,6 @@ if st.session_state.data and not st.session_state.searching:
             columns=["항목", "가중점수", "원본값"],
         )
         
-        # =========================================================================
-        # [🔥 완벽 패치] 가중점수와 원본값 컬럼의 복합 타입 Arrow 크래시 완벽 차단
-        # =========================================================================
         detail_table["가중점수"] = detail_table["가중점수"].astype(str)
         detail_table["원본값"] = detail_table["원본값"].astype(str)
         
