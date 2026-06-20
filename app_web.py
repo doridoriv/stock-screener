@@ -158,10 +158,11 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
 
-    if "symbol" in formatted_df.columns:
-        formatted_df["symbol"] = formatted_df["symbol"].fillna("").astype(str).str.strip()
-    if "name" in formatted_df.columns:
-        formatted_df["name"] = formatted_df["name"].fillna("").astype(str).str.strip()
+    # [💡 핵심 수정 패치] PyArrow 직렬화 에러(ArrowTypeError) 방지를 위한 문자열 강제 전처리
+    text_columns = ["symbol", "name", "grade", "eps3y", "summary", "detail_text", "missing_fields"]
+    for col in text_columns:
+        if col in formatted_df.columns:
+            formatted_df[col] = formatted_df[col].fillna("").astype(str).str.strip()
 
     if "symbol" in formatted_df.columns and "name" in formatted_df.columns:
         urls = []
@@ -169,7 +170,7 @@ def style_screener_dataframe(df, market_type):
             sym = row["symbol"]
             row_name = row["name"]
 
-            if not sym or sym == "nan":
+            if not sym or sym == "nan" or sym == "":
                 urls.append("")
                 continue
 
@@ -493,7 +494,6 @@ if st.session_state.searching:
                 loop_progress_bar.progress(1.0)
                 status_text.success(msg["text"])
                 
-                # [안전성 패치] 최종 확보된 임시 데이터를 세션 상태에 완전 박제 유도
                 st.session_state.data = list(temp_data_list)
                 
                 if st.session_state.data:
