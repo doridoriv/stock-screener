@@ -11,8 +11,19 @@ import analyzer
 import market_analyzer
 from config import APP_TITLE, CACHE_DIR
 
-st.set_page_config(page_title=APP_TITLE, layout="wide", initial_sidebar_state="expanded")
+# ==========================================
+# [패치 반영] 사이드바 자동 개폐 상태 제어 시스템
+# ==========================================
+if "sidebar_state" not in st.session_state:
+    st.session_state.sidebar_state = "expanded"
 
+st.set_page_config(
+    page_title=APP_TITLE, 
+    layout="wide", 
+    initial_sidebar_state=st.session_state.sidebar_state
+)
+
+# 반응형 최적화를 위한 CSS 스타일 레이아웃 (width 강제 고정 제거와 시너지)
 st.markdown(
     """
     <style>
@@ -86,7 +97,7 @@ top_n = st.sidebar.slider("분석 종목 수 (상위)", 1, 100, 50)
 sort_mode = st.sidebar.selectbox(
     "정렬 기준",
     ["점수", "시가총액", "PER", "PBR", "ROE", "PEG", "최고점대비", "200일괴리율"],
-    index=1,
+    index=0,
 )
 opt_fundamental = st.sidebar.checkbox("기본 재무지표 사용", value=True)
 opt_peak = st.sidebar.checkbox("최고점 비교 사용", value=True)
@@ -107,24 +118,12 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
         return df
 
     ascending_map = {
-        "점수": False,
-        "시가총액": False,
-        "PER": True,
-        "PBR": True,
-        "ROE": False,
-        "PEG": True,
-        "최고점대비": True,
-        "200일괴리율": True,
+        "점수": False, "시가총액": False, "PER": True, "PBR": True,
+        "ROE": False, "PEG": True, "최고점대비": True, "200일괴리율": True,
     }
     sort_col_map = {
-        "점수": "score",
-        "시가총액": "market_cap",
-        "PER": "per",
-        "PBR": "pbr",
-        "ROE": "roe",
-        "PEG": "peg",
-        "최고점대비": "peak_diff",
-        "200일괴리율": "diff",
+        "점수": "score", "시가총액": "market_cap", "PER": "per", "PBR": "pbr",
+        "ROE": "roe", "PEG": "peg", "최고점대비": "peak_diff", "200일괴리율": "diff",
     }
 
     sort_col = sort_col_map.get(sort_key, "score")
@@ -139,14 +138,6 @@ def _sort_dataframe(df: pd.DataFrame, sort_key: str) -> pd.DataFrame:
 
     if "score" in df.columns and sort_col != "score":
         sort_cols.append("score")
-        ascending_list.append(False)
-
-    if "confidence" in df.columns:
-        sort_cols.append("confidence")
-        ascending_list.append(False)
-
-    if "market_cap" in df.columns and sort_col != "market_cap":
-        sort_cols.append("market_cap")
         ascending_list.append(False)
 
     try:
@@ -182,10 +173,7 @@ def style_screener_dataframe(df, market_type):
                         "DIS", "HON", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI", "COP",
                         "GEV", "LMT", "TJX", "BLK", "T", "ABBV", "GILD", "C", "BMY"
                     }
-                    if sym in nyse_tickers:
-                        suffix = ".N"
-                    else:
-                        suffix = ".O"
+                    suffix = ".N" if sym in nyse_tickers else ".O"
                     base_url = f"https://m.stock.naver.com/worldstock/stock/{sym}{suffix}/total"
                 url = f"{base_url}?ticker={sym}&name={row_name}"
             else:
@@ -196,272 +184,142 @@ def style_screener_dataframe(df, market_type):
         formatted_df["symbol"] = urls
         formatted_df["name"] = urls
 
+    # ==========================================
+    # [패치 반영] 신규 4대 지표 한글 매핑 추가
+    # ==========================================
     rename_dict = {
-        "rank": "순위",
-        "symbol": "티커",
-        "name": "종목명",
-        "market_cap": "시가총액(억)",
-        "price": "현재가",
-        "peak": "최고점",
-        "peak_diff": "최고점대비",
-        "ma200": "200일선",
-        "diff": "200일괴리율(%)",
-        "rsi": "RSI",
-        "per": "PER",
-        "pbr": "PBR",
-        "roe": "ROE",
-        "peg": "PEG",
-        "eps3y": "EPS3Y",
-        "cagr": "CAGR",
-        "score": "점수",
-        "grade": "등급",
-        "confidence": "신뢰도(%)",
-        "summary": "AI한줄해석",
-        "detail_text": "점수상세",
-        "missing_fields": "누락지표",
+        "rank": "순위", "symbol": "티커", "name": "종목명",
+        "score": "종합점수", "grade": "등급",
+        "eps_growth": "EPS성장률(%)", "hist_per_avg": "과거평균PER",
+        "us_10y_bond": "美10년물금리", "foreign_supply": "외인/기관지분(%)",
+        "market_cap": "시가총액(억)", "price": "현재가", "peak": "최고점",
+        "peak_diff": "최고점대비(%)", "ma200": "200일선", "diff": "200일괴리율(%)",
+        "rsi": "RSI", "per": "현재PER", "pbr": "PBR", "roe": "ROE(%)", "peg": "PEG",
+        "eps3y": "EPS 3년 추세", "cagr": "CAGR(%)", "confidence": "신뢰도(%)",
+        "summary": "AI한줄해석", "detail_text": "점수상세", "missing_fields": "누락지표"
     }
     formatted_df = formatted_df.rename(columns=rename_dict)
 
     styler = formatted_df.style
     format_dict = {}
 
-    if "순위" in formatted_df.columns:
-        format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
-    if "시가총액(억)" in formatted_df.columns:
-        format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
-    if "현재가" in formatted_df.columns:
-        format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "200일선" in formatted_df.columns:
-        format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점" in formatted_df.columns:
-        format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
-    if "최고점대비" in formatted_df.columns:
-        format_dict["최고점대비"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
-    if "200일괴리율(%)" in formatted_df.columns:
-        format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
-    if "RSI" in formatted_df.columns:
-        format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PER" in formatted_df.columns:
-        format_dict["PER"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
-    if "PBR" in formatted_df.columns:
-        format_dict["PBR"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "ROE" in formatted_df.columns:
-        format_dict["ROE"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
-    if "PEG" in formatted_df.columns:
-        format_dict["PEG"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
-    if "EPS3Y" in formatted_df.columns:
-        format_dict["EPS3Y"] = lambda x: str(x) if pd.notna(x) else "-"
-    if "CAGR" in formatted_df.columns:
-        format_dict["CAGR"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
-    if "점수" in formatted_df.columns:
-        format_dict["점수"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
-    if "신뢰도(%)" in formatted_df.columns:
-        format_dict["신뢰도(%)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
+    # 신규 지표 포맷터 장착
+    if "EPS성장률(%)" in formatted_df.columns:
+        format_dict["EPS성장률(%)"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
+    if "과거평균PER" in formatted_df.columns:
+        format_dict["과거평균PER"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "美10년물금리" in formatted_df.columns:
+        format_dict["美10년물금리"] = lambda x: f"{x:.2f}%" if pd.notna(x) else "-"
+    if "외인/기관지분(%)" in formatted_df.columns:
+        format_dict["외인/기관지분(%)"] = lambda x: f"{x:.2f}%" if pd.notna(x) else "-"
+
+    # 기존 포맷터 스키마 동기화
+    if "순위" in formatted_df.columns: format_dict["순위"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
+    if "종합점수" in formatted_df.columns: format_dict["종합점수"] = lambda x: f"{int(x)}" if pd.notna(x) else "-"
+    if "시가총액(억)" in formatted_df.columns: format_dict["시가총액(억)"] = lambda x: f"{int(x):,}억" if pd.notna(x) and x > 0 else "-"
+    if "현재가" in formatted_df.columns: format_dict["현재가"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "200일선" in formatted_df.columns: format_dict["200일선"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점" in formatted_df.columns: format_dict["최고점"] = lambda x: f"${x:,.2f}" if is_us else f"{int(x):,}원" if pd.notna(x) else "-"
+    if "최고점대비(%)" in formatted_df.columns: format_dict["최고점대비(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
+    if "200일괴리율(%)" in formatted_df.columns: format_dict["200일괴리율(%)"] = lambda x: f"+{x:.2f}%" if pd.notna(x) and x > 0 else f"{x:.2f}%" if pd.notna(x) and x < 0 else "0.00%" if pd.notna(x) else "-"
+    if "RSI" in formatted_df.columns: format_dict["RSI"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "현재PER" in formatted_df.columns: format_dict["현재PER"] = lambda x: f"{x:.1f}" if pd.notna(x) else "-"
+    if "PBR" in formatted_df.columns: format_dict["PBR"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "ROE(%)" in formatted_df.columns: format_dict["ROE(%)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
+    if "PEG" in formatted_df.columns: format_dict["PEG"] = lambda x: f"{x:.2f}" if pd.notna(x) else "-"
+    if "CAGR(%)" in formatted_df.columns: format_dict["CAGR(%)"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
+    if "신뢰도(%)" in formatted_df.columns: format_dict["신뢰도(%)"] = lambda x: f"{x:.1f}%" if pd.notna(x) else "-"
 
     styler = styler.format(format_dict)
     styler = styler.set_properties(**{"text-align": "center", "white-space": "nowrap"})
 
+    # 하이라이트 컬러 스크립트 규격화
     def color_per(val):
         try:
             v = float(val)
-            if pd.isna(v):
-                return ""
-            if v <= 5:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v <= 10:
-                return "color: #1976D2; font-weight: bold;"
-            elif v <= 15:
-                return "color: #0288D1; font-weight: bold;"
-            elif v <= 20:
-                return "color: #E65100; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
-
-    def color_pbr(val):
-        try:
-            v = float(val)
-            if pd.isna(v):
-                return ""
-            if v <= 0.5:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v <= 1.0:
-                return "color: #1976D2; font-weight: bold;"
-            elif v <= 2.0:
-                return "color: #0288D1; font-weight: bold;"
-            elif v <= 3.0:
-                return "color: #E65100; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
-
-    def color_peg(val):
-        try:
-            v = float(val)
-            if pd.isna(v):
-                return ""
-            if v <= 0.5:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v <= 1.0:
-                return "color: #1976D2; font-weight: bold;"
-            elif v <= 1.5:
-                return "color: #0288D1; font-weight: bold;"
-            elif v <= 2.0:
-                return "color: #E65100; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
-
-    def color_roe(val):
-        try:
-            v = float(val)
-            if pd.isna(v):
-                return ""
-            if v >= 20:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v >= 15:
-                return "color: #1976D2; font-weight: bold;"
-            elif v >= 10:
-                return "color: #0288D1; font-weight: bold;"
-            elif v >= 5:
-                return "color: #E65100; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
-
-    def color_rsi(val):
-        try:
-            v = float(val)
-            if pd.isna(v):
-                return ""
-            if v >= 70:
-                return "color: #D32F2F; font-weight: bold;"
-            elif v >= 50:
-                return "color: #E65100; font-weight: bold;"
-            elif v >= 30:
-                return "color: #1976D2; font-weight: bold;"
-            else:
-                return "color: #0D47A1; font-weight: bold;"
-        except:
-            return ""
+            if pd.isna(v): return ""
+            if v <= 10: return "color: #1976D2; font-weight: bold;"
+            if v <= 20: return "color: #E65100; font-weight: bold;"
+            return "color: #D32F2F; font-weight: bold;"
+        except: return ""
 
     def color_score(val):
         try:
             v = float(val)
-            if pd.isna(v):
-                return ""
-            if v >= 90:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v >= 80:
-                return "color: #1976D2; font-weight: bold;"
-            elif v >= 70:
-                return "color: #2E7D32; font-weight: bold;"
-            elif v >= 60:
-                return "color: #EF6C00; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
+            if pd.isna(v): return ""
+            if v >= 80: return "color: #1976D2; font-weight: bold;"
+            if v >= 60: return "color: #2E7D32; font-weight: bold;"
+            return "color: #D32F2F; font-weight: bold;"
+        except: return ""
 
     def color_grade(val):
         s = str(val).strip().upper()
-        if s == "S":
-            return "color: #0D47A1; font-weight: bold;"
-        if s == "A":
-            return "color: #1976D2; font-weight: bold;"
-        if s == "B":
-            return "color: #2E7D32; font-weight: bold;"
-        if s == "C":
-            return "color: #EF6C00; font-weight: bold;"
-        if s == "D":
-            return "color: #D32F2F; font-weight: bold;"
-        return ""
-
-    def color_confidence(val):
-        try:
-            v = float(val)
-            if pd.isna(v):
-                return ""
-            if v >= 90:
-                return "color: #0D47A1; font-weight: bold;"
-            elif v >= 75:
-                return "color: #1976D2; font-weight: bold;"
-            elif v >= 60:
-                return "color: #2E7D32; font-weight: bold;"
-            elif v >= 45:
-                return "color: #EF6C00; font-weight: bold;"
-            else:
-                return "color: #D32F2F; font-weight: bold;"
-        except:
-            return ""
+        if s in ["S", "A"]: return "color: #1976D2; font-weight: bold;"
+        if s == "B": return "color: #2E7D32; font-weight: bold;"
+        return "color: #D32F2F; font-weight: bold;"
 
     def apply_strict_color_rules(val):
         try:
             v = float(val)
-            if v > 0:
-                return "color: #D32F2F; font-weight: bold;"
-            elif v < 0:
-                return "color: #1976D2; font-weight: bold;"
-        except:
-            if isinstance(val, str):
-                if "+" in val:
-                    return "color: #D32F2F; font-weight: bold;"
-                if "-" in val:
-                    return "color: #1976D2; font-weight: bold;"
+            if v > 0: return "color: #D32F2F; font-weight: bold;"
+            if v < 0: return "color: #1976D2; font-weight: bold;"
+        except: pass
         return "color: #212121;"
 
-    if "PER" in formatted_df.columns:
-        styler = styler.map(color_per, subset=["PER"])
-    if "PBR" in formatted_df.columns:
-        styler = styler.map(color_pbr, subset=["PBR"])
-    if "PEG" in formatted_df.columns:
-        styler = styler.map(color_peg, subset=["PEG"])
-    if "ROE" in formatted_df.columns:
-        styler = styler.map(color_roe, subset=["ROE"])
-    if "RSI" in formatted_df.columns:
-        styler = styler.map(color_rsi, subset=["RSI"])
-    if "점수" in formatted_df.columns:
-        styler = styler.map(color_score, subset=["점수"])
-    if "등급" in formatted_df.columns:
-        styler = styler.map(color_grade, subset=["등급"])
-    if "신뢰도(%)" in formatted_df.columns:
-        styler = styler.map(color_confidence, subset=["신뢰도(%)"])
+    if "현재PER" in formatted_df.columns: styler = styler.map(color_per, subset=["현재PER"])
+    if "종합점수" in formatted_df.columns: styler = styler.map(color_score, subset=["종합점수"])
+    if "등급" in formatted_df.columns: styler = styler.map(color_grade, subset=["등급"])
 
-    target_cols = [c for c in ["최고점대비", "200일괴리율(%)"] if c in formatted_df.columns]
-    if target_cols:
-        styler = styler.map(apply_strict_color_rules, subset=target_cols)
+    target_cols = [c for c in ["최고점대비(%)", "200일괴리율(%)"] if c in formatted_df.columns]
+    if target_cols: styler = styler.map(apply_strict_color_rules, subset=target_cols)
 
     return styler
 
 
+# ==========================================
+# [패치 반영] 가변 너비 맞춤형 기획 연동 설정
+# ==========================================
+# 고정 너비(width="small") 속성을 버리고, 데이터 흐름에 기댄 유연체계로 변경합니다.
 link_config = {
-    "순위": st.column_config.NumberColumn("순위", width="small", format="%d"),
-    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)", width="small"),
-    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)", width="medium"),
-    "시가총액(억)": st.column_config.NumberColumn("시가총액(억)", width="small"),
-    "현재가": st.column_config.NumberColumn("현재가", width="small"),
-    "최고점": st.column_config.NumberColumn("최고점", width="small"),
-    "최고점대비": st.column_config.NumberColumn("최고점대비", width="small"),
-    "200일선": st.column_config.NumberColumn("200일선", width="small"),
-    "200일괴리율(%)": st.column_config.NumberColumn("200일괴리율(%)", width="small"),
-    "RSI": st.column_config.NumberColumn("RSI", width="small"),
-    "PER": st.column_config.NumberColumn("PER", width="small"),
-    "PBR": st.column_config.NumberColumn("PBR", width="small"),
-    "ROE": st.column_config.NumberColumn("ROE", width="small"),
-    "PEG": st.column_config.NumberColumn("PEG", width="small"),
-    "EPS3Y": st.column_config.TextColumn("EPS3Y", width="small"),
-    "CAGR": st.column_config.NumberColumn("CAGR", width="small"),
-    "점수": st.column_config.NumberColumn("점수", width="small"),
-    "등급": st.column_config.TextColumn("등급", width="small"),
-    "신뢰도(%)": st.column_config.NumberColumn("신뢰도(%)", width="small", format="%.1f%%"),
-    "AI한줄해석": st.column_config.TextColumn("AI한줄해석", width="large"),
-    "점수상세": st.column_config.TextColumn("점수상세", width="large"),
-    "누락지표": st.column_config.TextColumn("누락지표", width="medium"),
+    "순위": st.column_config.NumberColumn("순위", format="%d"),
+    "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
+    "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
+    "종합점수": st.column_config.NumberColumn("종합점수"),
+    "등급": st.column_config.TextColumn("등급"),
+    
+    # 4대 지표 전 전 배치 연동 규격
+    "EPS성장률(%)": st.column_config.NumberColumn("EPS성장률(%)"),
+    "과거평균PER": st.column_config.NumberColumn("과거평균PER"),
+    "美10년물금리": st.column_config.NumberColumn("美10년물금리"),
+    "외인/기관지분(%)": st.column_config.NumberColumn("외인/기관지분(%)"),
+
+    "시가총액(억)": st.column_config.NumberColumn("시가총액(억)"),
+    "현재가": st.column_config.NumberColumn("현재가"),
+    "최고점": st.column_config.NumberColumn("최고점"),
+    "최고점대비(%)": st.column_config.NumberColumn("최고점대비(%)"),
+    "200일선": st.column_config.NumberColumn("200일선"),
+    "200일괴리율(%)": st.column_config.NumberColumn("200일괴리율(%)"),
+    "RSI": st.column_config.NumberColumn("RSI"),
+    "현재PER": st.column_config.NumberColumn("현재PER"),
+    "PBR": st.column_config.NumberColumn("PBR"),
+    "ROE(%)": st.column_config.NumberColumn("ROE(%)"),
+    "PEG": st.column_config.NumberColumn("PEG"),
+    "EPS 3년 추세": st.column_config.TextColumn("EPS 3년 추세"),
+    "CAGR(%)": st.column_config.NumberColumn("CAGR(%)"),
+    "신뢰도(%)": st.column_config.NumberColumn("신뢰도(%)", format="%.1f%%"),
+    "AI한줄해석": st.column_config.TextColumn("AI한줄해석"),
+    "점수상세": st.column_config.TextColumn("점수상세"),
+    "누락지표": st.column_config.TextColumn("누락지표"),
 }
+
+# 공통 표준 컬럼 순서 스키마 배열 (4대 지표 메인 상단 배치)
+STANDARD_COLUMN_ORDER = [
+    "rank", "symbol", "name", "score", "grade",
+    "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply",
+    "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", 
+    "per", "pbr", "roe", "peg", "eps3y", "cagr", "confidence", 
+    "summary", "detail_text", "missing_fields"
+]
 
 
 def _display_market_panel(panel: dict):
@@ -474,12 +332,9 @@ def _display_market_panel(panel: dict):
         return
 
     cols = st.columns([1.1, 1.1, 1.1, 1.1])
-    with cols[0]:
-        st.metric("시장점수", f"{panel.get('market_score', 0):.1f}")
-    with cols[1]:
-        st.metric("시장상태", panel.get("market_state", "-"))
-    with cols[2]:
-        st.metric("가용도", f"{panel.get('confidence', 0):.1f}%")
+    with cols[0]: st.metric("시장점수", f"{panel.get('market_score', 0):.1f}")
+    with cols[1]: st.metric("시장상태", panel.get("market_state", "-"))
+    with cols[2]: st.metric("가용도", f"{panel.get('confidence', 0):.1f}%")
     with cols[3]:
         updated = st.session_state.market_panel_updated.strftime("%H:%M:%S") if st.session_state.market_panel_updated else "-"
         st.metric("갱신시각", updated)
@@ -538,7 +393,15 @@ if btn_load:
     else:
         st.warning(f"💾 {market} 시장에 자동 저장된 백업 데이터가 존재하지 않습니다.")
 
+# 검색 버튼 실행 시 시스템 가동 트리거
 if btn_search:
+    # ------------------------------------------
+    # [사이드바 자동 제어 연동] 트리거 작동 시 자동 축소 전환
+    # ------------------------------------------
+    if st.session_state.sidebar_state == "expanded":
+        st.session_state.sidebar_state = "collapsed"
+        st.rerun()
+
     st.session_state.data = []
 
     loop_progress_bar = st.progress(0)
@@ -581,63 +444,28 @@ if btn_search:
 
                 success_progress_bar.progress(success_rate)
                 success_text.markdown(
-                    f"**현재 성공한 종목 수:** {success_count} / {top_n}  \n"
-                    f"**최근 완료:** {latest_name}",
-                    unsafe_allow_html=False,
+                    f"**현재 성공한 종목 수:** {success_count} / {top_n}  \n**최근 완료:** {latest_name}"
                 )
 
                 if "score" in df.columns:
                     df = _sort_dataframe(df, sort_mode)
                 else:
-                    column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr"]
-                    available_cols = [c for c in column_order if c in df.columns]
                     if "market_cap" in df.columns and len(df) > 0:
                         df = df.sort_values(by="market_cap", ascending=False)
                         df["rank"] = range(1, len(df) + 1)
-                    display_df = df[available_cols]
-                    styled_live_df = style_screener_dataframe(display_df, market)
-                    date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
-                    header_placeholder.markdown(
-                        f"""
-                        <div style='display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;'>
-                            <h3 style='margin: 0;'>📊 실시간 분석 결과</h3>
-                            <div style='display: flex; gap: 8px; flex-wrap: wrap;'>
-                                <span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>
-                                    📅 기준일 {date_val}
-                                </span>
-                                <span style='background-color: #E8F5E9; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1B5E20;'>
-                                    ✅ 성공 {success_count} / {top_n}
-                                </span>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    table_placeholder.dataframe(
-                        styled_live_df,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config=link_config,
-                        selection_mode="row",
-                    )
-                    continue
 
-                column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "score", "grade", "confidence", "summary", "detail_text", "missing_fields"]
-                available_cols = [c for c in column_order if c in df.columns]
+                available_cols = [c for c in STANDARD_COLUMN_ORDER if c in df.columns]
                 display_df = df[available_cols]
                 styled_live_df = style_screener_dataframe(display_df, market)
                 date_val = df["data_date"].iloc[0] if "data_date" in df.columns and len(df) > 0 else "-"
+                
                 header_placeholder.markdown(
                     f"""
                     <div style='display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px;'>
                         <h3 style='margin: 0;'>📊 실시간 분석 결과</h3>
                         <div style='display: flex; gap: 8px; flex-wrap: wrap;'>
-                            <span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>
-                                📅 기준일 {date_val}
-                            </span>
-                            <span style='background-color: #E8F5E9; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1B5E20;'>
-                                ✅ 성공 {success_count} / {top_n}
-                            </span>
+                            <span style='background-color: #F0F2F6; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1F2937;'>📅 기준일 {date_val}</span>
+                            <span style='background-color: #E8F5E9; padding: 6px 12px; border-radius: 8px; font-weight: bold; color: #1B5E20;'>✅ 성공 {success_count} / {top_n}</span>
                         </div>
                     </div>
                     """,
@@ -653,7 +481,6 @@ if btn_search:
 
             elif m_type == "done":
                 loop_progress_bar.progress(1.0)
-                success_progress_bar.progress(min(1.0, len(st.session_state.data) / max(top_n, 1)))
                 status_text.success(msg["text"])
                 success_text.success(f"최종 성공한 종목 수: {len(st.session_state.data)} / {top_n}")
                 header_placeholder.empty()
@@ -661,11 +488,7 @@ if btn_search:
 
                 if st.session_state.data:
                     final_save_df = pd.DataFrame(st.session_state.data)
-                    if "score" in final_save_df.columns:
-                        final_save_df = _sort_dataframe(final_save_df, sort_mode)
-                    elif "market_cap" in final_save_df.columns and len(final_save_df) > 0:
-                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
-                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
+                    final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
                 break
@@ -683,11 +506,7 @@ if btn_search:
 
                 if st.session_state.data:
                     final_save_df = pd.DataFrame(st.session_state.data)
-                    if "score" in final_save_df.columns:
-                        final_save_df = _sort_dataframe(final_save_df, sort_mode)
-                    elif "market_cap" in final_save_df.columns and len(final_save_df) > 0:
-                        final_save_df = final_save_df.sort_values(by="market_cap", ascending=False)
-                        final_save_df["rank"] = range(1, len(final_save_df) + 1)
+                    final_save_df = _sort_dataframe(final_save_df, sort_mode) if "score" in final_save_df.columns else final_save_df
                     file_path = os.path.join(CACHE_DIR, f"screener_auto_save_{market}.csv")
                     final_save_df.to_csv(file_path, index=False, encoding="utf-8-sig")
                 break
@@ -697,6 +516,7 @@ if btn_search:
             if not worker_thread.is_alive() and app_queue.empty():
                 break
 
+# 최종 메인 뷰어 테이블 렌더링 파트
 if st.session_state.data:
     final_df = pd.DataFrame(st.session_state.data)
 
@@ -717,9 +537,7 @@ if st.session_state.data:
             unsafe_allow_html=True,
         )
 
-    column_order = ["rank", "symbol", "name", "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "eps3y", "cagr", "score", "grade", "confidence", "summary", "detail_text", "missing_fields"]
-    available_cols = [c for c in column_order if c in final_df.columns]
-
+    available_cols = [c for c in STANDARD_COLUMN_ORDER if c in final_df.columns]
     display_final_df = final_df[available_cols]
     styled_final_df = style_screener_dataframe(display_final_df, market)
 
@@ -732,21 +550,19 @@ if st.session_state.data:
         selection_mode="row",
     )
 
+    # ------------------------------------------
+    # 종목 선택 점수 상세보기 패널 세분화
+    # ------------------------------------------
     if not final_df.empty:
         st.markdown("### 🔎 점수 상세보기")
         detail_options = final_df.apply(lambda r: f"{r['symbol']} | {r['name']}", axis=1).tolist()
         selected_label = st.selectbox("종목 선택", detail_options)
-
         selected_row = final_df.iloc[detail_options.index(selected_label)]
 
         d1, d2, d3, d4 = st.columns(4)
-        with d1:
-            st.metric("점수", f"{int(selected_row.get('score', 0))}")
-        with d2:
-            st.metric("등급", str(selected_row.get("grade", "-")))
-        with d3:
-            conf = selected_row.get("confidence", 0)
-            st.metric("신뢰도", f"{float(conf):.1f}%")
+        with d1: st.metric("점수", f"{int(selected_row.get('score', 0))}")
+        with d2: st.metric("등급", str(selected_row.get("grade", "-")))
+        with d3: st.metric("신뢰도", f"{float(selected_row.get('confidence', 0)):.1f}%")
         with d4:
             rsi_val = selected_row.get("rsi", None)
             st.metric("RSI", f"{float(rsi_val):.1f}" if pd.notna(rsi_val) else "-")
@@ -754,47 +570,27 @@ if st.session_state.data:
         st.info(str(selected_row.get("summary", "-")))
         st.caption(str(selected_row.get("detail_text", "-")))
 
+        # 하단 상세 지표 대조표 확장
         detail_table = pd.DataFrame(
             [
-                ["PER", selected_row.get("score_per", 0), selected_row.get("per", "-")],
+                ["EPS 성장률(%)", "-", selected_row.get("eps_growth", "-")],
+                ["과거 평균 PER", "-", selected_row.get("hist_per_avg", "-")],
+                ["미국 10년물 금리", "-", selected_row.get("us_10y_bond", "-")],
+                ["외인/기관 지분율(%)", "-", selected_row.get("foreign_supply", "-")],
+                ["현재 PER", selected_row.get("score_per", 0), selected_row.get("per", "-")],
                 ["PBR", selected_row.get("score_pbr", 0), selected_row.get("pbr", "-")],
                 ["ROE", selected_row.get("score_roe", 0), selected_row.get("roe", "-")],
                 ["PEG", selected_row.get("score_peg", 0), selected_row.get("peg", "-")],
                 ["EPS3Y", selected_row.get("score_eps3y", 0), selected_row.get("eps3y", "-")],
                 ["CAGR", selected_row.get("score_cagr", 0), selected_row.get("cagr", "-")],
-                ["RSI", selected_row.get("score_rsi", 0), selected_row.get("rsi", "-")],
-                ["최고점대비", selected_row.get("score_peak_diff", 0), selected_row.get("peak_diff", "-")],
                 ["누락지표", "-", selected_row.get("missing_fields", "") or "-"],
             ],
-            columns=["항목", "점수", "원본값"],
+            columns=["항목", "가중점수", "원본값"],
         )
         st.dataframe(detail_table, use_container_width=True, hide_index=True)
 
-    rename_dict = {
-        "rank": "순위",
-        "symbol": "티커",
-        "name": "종목명",
-        "market_cap": "시가총액(억)",
-        "price": "현재가",
-        "peak": "최고점",
-        "peak_diff": "최고점대비",
-        "ma200": "200일선",
-        "diff": "200일괴리율(%)",
-        "rsi": "RSI",
-        "per": "PER",
-        "pbr": "PBR",
-        "roe": "ROE",
-        "peg": "PEG",
-        "eps3y": "EPS3Y",
-        "cagr": "CAGR",
-        "score": "점수",
-        "grade": "등급",
-        "confidence": "신뢰도(%)",
-        "summary": "AI한줄해석",
-        "detail_text": "점수상세",
-        "missing_fields": "누락지표",
-    }
-    csv_df = final_df.rename(columns=rename_dict)
+    # 다운로드용 CSV 컬럼 변환 백업
+    csv_df = display_final_df.copy()
     csv = csv_df.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
         label="📥 결과 다운로드 (CSV)",
@@ -803,4 +599,8 @@ if st.session_state.data:
         mime="text/csv",
     )
 else:
+    # ------------------------------------------
+    # 첫 진입 시 다음 이용자를 위해 확장 상태 복원 기본값 세팅
+    # ------------------------------------------
+    st.session_state.sidebar_state = "expanded"
     st.info("상단의 [🔍 검색] 버튼을 눌러 분석을 시작하세요.")
