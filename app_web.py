@@ -157,10 +157,9 @@ def style_screener_dataframe(df, market_type):
     formatted_df = df.copy()
     is_us = (market_type == "미국")
 
-    # -------------------------------------------------------------------------
-    # [패치 5, 6] PyArrow 직렬화 및 링크 데이터 유효성 강제 정제 (Expected bytes 방어)
-    # -------------------------------------------------------------------------
-    # 결측치(NaN, None)가 섞여있으면 LinkColumn이 뻗어버리므로 먼저 순수 str 변환 및 빈값 채우기 수행
+    # =========================================================================
+    # [패치 5, 6] PyArrow 직렬화 및 링크 데이터 유효성 강제 정제
+    # =========================================================================
     if "symbol" in formatted_df.columns:
         formatted_df["symbol"] = formatted_df["symbol"].fillna("").astype(str).str.strip()
     if "name" in formatted_df.columns:
@@ -198,11 +197,10 @@ def style_screener_dataframe(df, market_type):
             
             urls.append(str(url))
 
-        # 컬럼 내부 구조를 안전한 고정 문자열 배열 타입 구조로 치환하여 Arrow 크래시 해결
         formatted_df["symbol"] = pd.Series(urls, index=formatted_df.index, dtype=str)
         formatted_df["name"] = pd.Series(urls, index=formatted_df.index, dtype=str)
 
-    # 누락된 신규 4대 지표 컬럼이 없을 경우 float64 타입의 결측치로 안전 생성하여 포맷터 에러 차단
+    # [패치 3 보완] 신규 4대 지표 컬럼 결측치 생성 시 형변환 에러 방지를 위해 명확한 float64 타입 시리즈 부여
     required_missing_cols = ["eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply"]
     for c in required_missing_cols:
         if c not in formatted_df.columns:
@@ -227,7 +225,7 @@ def style_screener_dataframe(df, market_type):
     styler = formatted_df.style
     format_dict = {}
 
-    # 신규 지표 포맷터 방어 코딩 적용
+    # 신규 지표 포맷터
     if "EPS성장률(%)" in formatted_df.columns:
         format_dict["EPS성장률(%)"] = lambda x: f"+{x:.1f}%" if pd.notna(x) and x >= 0 else f"{x:.1f}%" if pd.notna(x) else "-"
     if "과거평균PER" in formatted_df.columns:
@@ -304,7 +302,6 @@ def style_screener_dataframe(df, market_type):
 # ==========================================
 link_config = {
     "순위": st.column_config.NumberColumn("순위", format="%d"),
-    # URL 정규식 가독성 파싱 최적화 반영
     "티커": st.column_config.LinkColumn("티커", display_text=r"ticker=([^&]*)"),
     "종목명": st.column_config.LinkColumn("종목명", display_text=r"name=([^&]*)"),
     "종합점수": st.column_config.NumberColumn("종합점수"),
@@ -374,7 +371,7 @@ def _display_market_panel(panel: dict):
         view_df["effect"] = view_df["effect"].fillna("-")
         view_df["trend"] = view_df["trend"].fillna("-")
         
-        # [패치 반영] 최신 표준 규격 width="stretch" 배치 연동
+        # [패치 반영] use_container_width=True 무력화를 피하기 위해 최신 표준인 width="stretch"로 전면 교체
         st.dataframe(
             view_df[["label", "symbol", "trend", "effect", "risk_score", "latest", "ret20", "ret60"]],
             width="stretch",
@@ -392,7 +389,6 @@ st.markdown("---")
 
 col1, col2, col3, col_empty = st.columns([1.2, 1.2, 1.2, 5])
 
-# [패치 반영] 불필요한 레이아웃 중복 제거 완료
 with col1:
     btn_search = st.button("🔍 검색")
 
@@ -421,7 +417,9 @@ if btn_load:
 
 # 검색 버튼 실행 시 시스템 가동 트리거
 if btn_search:
+    # ------------------------------------------
     # [사이드바 자동 제어 연동] 트리거 작동 시 자동 축소 전환
+    # ------------------------------------------
     if st.session_state.sidebar_state == "expanded":
         st.session_state.sidebar_state = "collapsed"
         st.rerun()
@@ -496,7 +494,7 @@ if btn_search:
                     unsafe_allow_html=True,
                 )
                 
-                # [패치 반영] 실시간 화면의 한글 맵핑 유실 방지를 위한 레이아웃 보완 구성
+                # [패치 반영] 실시간 재생 테이블 컴포넌트의 use_container_width 옵션을 width="stretch"로 교체하여 먹통 현상 완전 해결
                 table_placeholder.dataframe(
                     styled_live_df,
                     width="stretch",
@@ -567,7 +565,7 @@ if st.session_state.data:
     display_final_df = final_df[available_cols]
     styled_final_df = style_screener_dataframe(display_final_df, market)
 
-    # [패치 반영] 메인 결과 테이블의 한글 컬럼 포맷 완전 노출
+    # [패치 반영] 결과 뷰어 테이블의 use_container_width 옵션을 width="stretch"로 교체
     st.dataframe(
         styled_final_df,
         width="stretch",
@@ -615,7 +613,12 @@ if st.session_state.data:
             columns=["항목", "가중점수", "원본값"],
         )
         
-        # [패치 반영] 상세 매칭 지표 테이블 width="stretch" 동기화
+        # =========================================================================
+        # [🔥 중요 패치] '가중점수' 컬럼 내 문자열("-")과 numpy.int64 혼용에 따른 PyArrow 직렬화 에러 완벽 해결
+        # =========================================================================
+        detail_table["가중점수"] = detail_table["가중점수"].astype(str)
+        
+        # [패치 반영] 상세 지표 테이블의 use_container_width 옵션을 width="stretch"로 교체
         st.dataframe(detail_table, width="stretch", hide_index=True)
 
     # 다운로드용 CSV 컬럼 변환 백업
