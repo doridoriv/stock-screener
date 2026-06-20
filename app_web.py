@@ -258,7 +258,7 @@ if st.session_state.data:
             fmt = "%d원" if is_kr else "$%,.2f"
             col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
         elif col_id == "market_cap":
-            fmt = "%,d억" if is_kr else "$%,d"
+            fmt = "%,d억" if is_kr else "$%,.1fB"
             col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
         elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
             col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f%%")

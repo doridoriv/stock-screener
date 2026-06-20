@@ -435,19 +435,25 @@ def fetch_us_top100_tickers(top_n=100) -> list:
             if isinstance(cache_data, dict):
                 sorted_items = sorted(cache_data.items(), key=lambda x: x[1].get("market_cap", 0), reverse=True)
                 for sym, info in sorted_items[:top_n]:
+                    cap_val = info.get("market_cap", 0)
+                    if cap_val > 1000000:
+                        cap_val = round(cap_val / 1000000000, 2)
                     tickers_info.append({
                         "yf_symbol": sym,
                         "symbol": sym,
                         "name": info.get("name", sym),
-                        "market_cap": info.get("market_cap", 0)
+                        "market_cap": cap_val
                     })
             else: # 리스트인 경우
                 for item in cache_data[:top_n]:
+                    cap_val = item.get("market_cap", 0)
+                    if cap_val > 1000000:
+                        cap_val = round(cap_val / 1000000000, 2)
                     tickers_info.append({
                         "yf_symbol": item.get("symbol", item.get("yf_symbol")),
                         "symbol": item.get("symbol", item.get("yf_symbol")),
                         "name": item.get("name", item.get("symbol")),
-                        "market_cap": item.get("market_cap", 0)
+                        "market_cap": cap_val
                     })
             if len(tickers_info) > 0:
                 # 캐시된 종목 수가 부족한 경우 DEFAULT_US_TICKERS로 채우되, 캐시의 시총 정보를 보존합니다.
@@ -554,13 +560,63 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         fund_rows = []
         us_10y = _get_us_10y_yield()
         
+        # [패치] 이전 캐시 데이터 로드 (yfinance 429 차단 대비 하이브리드 캐시 복원용)
+        prev_cache_file = find_latest_valid_cache(market_text)
+        prev_fund_map = {}
+        if prev_cache_file and os.path.exists(prev_cache_file):
+            try:
+                prev_df = pd.read_csv(prev_cache_file)
+                key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
+                for _, row in prev_df.iterrows():
+                    sym = row[key_col]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr"]
+                    data_dict = {}
+                    for f in fund_fields:
+                        val = row.get(f)
+                        if pd.notna(val) and val != "-" and str(val).strip() != "None" and str(val).strip() != "":
+                            data_dict[f] = val
+                    if data_dict:
+                        prev_fund_map[sym] = data_dict
+            except Exception as e:
+                print(f"[WARN] Failed to load previous cache for fallback: {e}")
+        
         def process_fundamental(sym):
             if stop_requested_func():
                 return None
+            
+            # force_scrape가 아니며 이전 캐시에 6개 이상 채워진 데이터가 있는 경우 스킵(차단 원천 우회)
+            use_cached = False
+            if not force_scrape and sym in prev_fund_map and len(prev_fund_map[sym]) >= 6:
+                use_cached = True
+                
+            if use_cached:
+                data = {
+                    "eps_growth": np.nan, "hist_per_avg": np.nan, "foreign_supply": np.nan,
+                    "per": np.nan, "pbr": np.nan, "roe": np.nan, "debt_ratio": np.nan,
+                    "revenue_growth": np.nan, "operating_growth": np.nan, "eps_cagr": np.nan,
+                    "eps3y": "-"
+                }
+                data.update(prev_fund_map[sym])
+                if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
+                    data['eps_cagr'] = prev_fund_map[sym]['cagr']
+                data['yf_symbol'] = sym
+                return data
+                
+            # 수집 시도
             if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                 data = fetch_kr_fundamental_naver(sym)
             else:
                 data = fetch_us_fundamental_yfinance(sym)
+                
+            # 수집 실패 시 이전 캐시로 폴백 보완
+            is_empty = all(pd.isna(data.get(k)) or data.get(k) == "-" or data.get(k) == 0.0 for k in ["eps_growth", "roe", "revenue_growth"])
+            if is_empty and sym in prev_fund_map:
+                print(f"[INFO] Fundamental fetch failed/empty for {sym}. Falling back to previous cache.")
+                for k, v in prev_fund_map[sym].items():
+                    data[k] = v
+                if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
+                    data['eps_cagr'] = prev_fund_map[sym]['cagr']
+            
             data['yf_symbol'] = sym
             return data
             
