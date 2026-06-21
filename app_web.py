@@ -117,6 +117,18 @@ try:
         st.metric(label="시장 위험 선호도", value=f"{market_data['market_score']}점", delta=market_data["market_state"])
     with col_m2:
         st.info(f"**상태:** {state_color}  |  **요약:** {market_data['summary']}")
+        
+    # 데이터 신선도 및 갱신 상태 힌트 표시
+    market_text = "코스피" if st.session_state.selected_market in ["한국(코스피)", "한국"] else "코스닥" if st.session_state.selected_market == "한국(코스닥)" else "미국"
+    cache_file = analyzer.find_latest_valid_cache(market_text)
+    if cache_file and os.path.exists(cache_file):
+        mtime = datetime.fromtimestamp(os.path.getmtime(cache_file)).strftime("%Y-%m-%d %H:%M")
+        try:
+            temp_df = pd.read_csv(cache_file, nrows=1)
+            data_date = temp_df['data_date'].iloc[0] if 'data_date' in temp_df.columns else "미지정"
+        except:
+            data_date = "미지정"
+        st.caption(f"ℹ️ **데이터 기준 영업일**: `{data_date}` | **로컬 파일 최종 동기화 시각**: `{mtime}` | **상태**: 🟢 안정적인 로컬 데이터베이스 캐시 사용 중")
 except Exception as e:
     st.error(f"시장 분석 패널 로드 오류: {e}")
 
@@ -202,6 +214,11 @@ if st.session_state.data:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
             
     is_kr = st.session_state.selected_market.startswith("한국")
+    
+    # CAGR 결측값을 적절히 채우고 수치 타입 명확화
+    cagr_col = col_map.get("cagr")
+    if cagr_col and cagr_col in df_display.columns:
+        df_display[cagr_col] = pd.to_numeric(df_display[cagr_col], errors='coerce')
     market_cap_col = col_map.get("market_cap")
     
     if market_cap_col and market_cap_col in df_display.columns:
@@ -278,7 +295,7 @@ if st.session_state.data:
             if is_kr:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d억")
             else:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,.1fB")
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.1fB")
         elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
@@ -289,8 +306,10 @@ if st.session_state.data:
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
 
     # --- [최종 화면 렌더링] ---
+    # NaN/None 값을 "N/A" 혹은 "-"로 정렬 및 보기 편하도록 포맷팅 지정
+    formatted_styled_df = styled_df.format(na_rep="N/A", precision=2)
     # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
-    st.dataframe(styled_df, width="stretch", hide_index=True, column_config=col_config)
+    st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
 
 else:
     st.info("💡 위 컨트롤 패널에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
