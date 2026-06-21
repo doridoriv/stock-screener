@@ -201,6 +201,18 @@ if st.session_state.data:
         if col in df_display.columns:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
             
+    is_kr = st.session_state.selected_market.startswith("한국")
+    market_cap_col = col_map.get("market_cap")
+    
+    if market_cap_col and market_cap_col in df_display.columns:
+        if not is_kr:
+            # Scale down large USD values to Billions
+            df_display[market_cap_col] = df_display[market_cap_col].apply(
+                lambda x: x / 1000000000 if pd.notna(x) and x > 1000000 else x
+            )
+            # Rename column header for US
+            df_display = df_display.rename(columns={market_cap_col: "시가총액"})
+            
     # --- [데이터 프레임 컬러 & 스타일링 로직] ---
     def highlight_grade(val):
         """등급별 가시성 높은 색상 적용"""
@@ -244,30 +256,37 @@ if st.session_state.data:
     # --- [Streamlit Native Column Config] ---
     # 문자/숫자에 따라 컬럼 정렬(오른쪽/왼쪽) 및 포맷 단위(원, $, %, 억 등)를
     # 데이터 타입을 보존하면서 브라우저가 자동 너비 조절하도록 설정
-    is_kr = st.session_state.selected_market.startswith("한국")
     col_config = {}
     
     for col in TABLE_COLUMNS:
         col_id = col["id"]
         col_text = col["text"]
         
-        if col_text not in df_display.columns:
+        actual_col_text = col_text
+        if col_id == "market_cap" and not is_kr:
+            actual_col_text = "시가총액"
+            
+        if actual_col_text not in df_display.columns:
             continue
             
         if col_id in ["price", "peak", "ma200"]:
-            fmt = "%d원" if is_kr else "$%,.2f"
-            col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
+            if is_kr:
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d", suffix="원")
+            else:
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.2f")
         elif col_id == "market_cap":
-            fmt = "%,d억" if is_kr else "$%,.1fB"
-            col_config[col_text] = st.column_config.NumberColumn(col_text, format=fmt)
+            if is_kr:
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d", suffix="억")
+            else:
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,.1f", prefix="$", suffix="B")
         elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
-            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f%%")
+            col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
-            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%.2f")
+            col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f")
         elif col_id in ["rank", "score"]:
-            col_config[col_text] = st.column_config.NumberColumn(col_text, format="%d")
+            col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%d")
         else:
-            col_config[col_text] = st.column_config.TextColumn(col_text)
+            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
 
     # --- [최종 화면 렌더링] ---
     # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정

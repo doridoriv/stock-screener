@@ -366,18 +366,37 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         t = yf.Ticker(symbol, session=_get_safe_yfinance_session())
         info = t.info
 
-        res_dict["eps_growth"] = round((info.get("earningsGrowth", 0) or 0) * 100, 2)
+        info_eps_growth = info.get("earningsGrowth")
+        if info_eps_growth is not None:
+            res_dict["eps_growth"] = round(float(info_eps_growth) * 100, 2)
+            
         res_dict["per"] = info.get("trailingPE", np.nan)
         res_dict["pbr"] = info.get("priceToBook", np.nan)
-        res_dict["roe"] = round((info.get("returnOnEquity", 0) or 0) * 100, 2) if info.get("returnOnEquity") else np.nan
+        
+        roe_val = info.get("returnOnEquity")
+        if roe_val is not None:
+            res_dict["roe"] = round(float(roe_val) * 100, 2)
+            
         res_dict["debt_ratio"] = info.get("debtToEquity", np.nan)
         res_dict["foreign_supply"] = round((info.get("heldPercentInstitutions", 0) or 0) * 100, 2)
-        res_dict["revenue_growth"] = round((info.get("revenueGrowth", 0) or 0) * 100, 2)
+        
+        info_rev_growth = info.get("revenueGrowth")
+        if info_rev_growth is not None:
+            res_dict["revenue_growth"] = round(float(info_rev_growth) * 100, 2)
 
         # 연간 재무제표를 바탕으로 과거 평균 PER 및 EPS 트렌드 산출
         fin = t.financials
+        
+        # EPS 성장률 Fallback (info에서 수집 실패한 경우 연간 EPS 데이터 기반 연산)
         if "Diluted EPS" in fin.index:
-            eps_series = fin.loc["Diluted EPS"]
+            eps_series = fin.loc["Diluted EPS"].dropna()
+            if pd.isna(res_dict["eps_growth"]) and len(eps_series) >= 2:
+                latest_eps = eps_series.iloc[0]
+                prev_eps = eps_series.iloc[1]
+                if prev_eps != 0:
+                    res_dict["eps_growth"] = round(((latest_eps - prev_eps) / abs(prev_eps)) * 100, 2)
+            
+            # 과거 평균 PER 산출용 history 가격 연산
             dates = eps_series.index
             dates_naive = pd.to_datetime(dates).tz_localize(None)
 
@@ -412,6 +431,24 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
                     first_eps = eps_vals[sorted_years[-3]]
                     if first_eps > 0:
                         res_dict["eps_cagr"] = round(((latest_eps / first_eps) ** (1/2) - 1) * 100, 2)
+
+        # 영업이익 성장률 연산
+        if "Operating Income" in fin.index:
+            op_series = fin.loc["Operating Income"].dropna()
+            if len(op_series) >= 2:
+                latest_op = op_series.iloc[0]
+                prev_op = op_series.iloc[1]
+                if prev_op > 0:
+                    res_dict["operating_growth"] = round(((latest_op - prev_op) / prev_op) * 100, 2)
+
+        # 매출액 성장률 Fallback
+        if pd.isna(res_dict["revenue_growth"]) and "Total Revenue" in fin.index:
+            rev_series = fin.loc["Total Revenue"].dropna()
+            if len(rev_series) >= 2:
+                latest_rev = rev_series.iloc[0]
+                prev_rev = rev_series.iloc[1]
+                if prev_rev > 0:
+                    res_dict["revenue_growth"] = round(((latest_rev - prev_rev) / prev_rev) * 100, 2)
                         
     except Exception as e:
         print(f"Error fetching yfinance for {symbol}: {e}")
@@ -608,13 +645,13 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             else:
                 data = fetch_us_fundamental_yfinance(sym)
                 
-            # 수집 실패 시 이전 캐시로 폴백 보완
-            is_empty = all(pd.isna(data.get(k)) or data.get(k) == "-" or data.get(k) == 0.0 for k in ["eps_growth", "roe", "revenue_growth"])
-            if is_empty and sym in prev_fund_map:
-                print(f"[INFO] Fundamental fetch failed/empty for {sym}. Falling back to previous cache.")
+            # 수집 실패 시 이전 캐시로 필드별 개별 보완
+            if sym in prev_fund_map:
                 for k, v in prev_fund_map[sym].items():
-                    data[k] = v
-                if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
+                    val = data.get(k)
+                    if pd.isna(val) or val == "-" or str(val).strip() == "None" or str(val).strip() == "":
+                        data[k] = v
+                if (pd.isna(data.get('eps_cagr')) or data.get('eps_cagr') == "") and 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
                     data['eps_cagr'] = prev_fund_map[sym]['cagr']
             
             data['yf_symbol'] = sym
