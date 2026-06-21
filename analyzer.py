@@ -208,7 +208,17 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
         "revenue_growth": np.nan,
         "operating_growth": np.nan,
         "eps_cagr": np.nan,
-        "eps3y": "-"
+        "eps3y": "-",
+        "revenue": np.nan,
+        "operating_income": np.nan,
+        "net_income": np.nan,
+        "operating_margin": np.nan,
+        "net_margin": np.nan,
+        "operating_cashflow": np.nan,
+        "free_cashflow": np.nan,
+        "cash": np.nan,
+        "total_debt": np.nan,
+        "net_cash": np.nan
     }
     
     try:
@@ -229,6 +239,7 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
                 debt_row = next((table.loc[idx] for idx in table.index if '부채비율' in str(idx)), None)
                 rev_row = next((table.loc[idx] for idx in table.index if '매출액' in str(idx)), None)
                 op_row = next((table.loc[idx] for idx in table.index if '영업이익' in str(idx) and '영업이익률' not in str(idx)), None)
+                net_row = next((table.loc[idx] for idx in table.index if '당기순이익' in str(idx)), None)
 
                 # 연간 실적 컬럼만 필터링하여 중복 컬럼명(2025.12 연간/분기 중복 등) 충돌 방지
                 annual_cols = [col for col in table.columns if isinstance(col, tuple) and col[0] == '최근 연간 실적']
@@ -299,6 +310,7 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
                     try:
                         latest_rev = float(str(rev_row[years[-1]]).replace(',', ''))
                         prev_rev = float(str(rev_row[years[-2]]).replace(',', ''))
+                        res_dict["revenue"] = round(latest_rev, 2)
                         if prev_rev > 0:
                             res_dict["revenue_growth"] = round(((latest_rev - prev_rev) / prev_rev) * 100, 2)
                     except: pass
@@ -307,8 +319,19 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
                     try:
                         latest_op = float(str(op_row[years[-1]]).replace(',', ''))
                         prev_op = float(str(op_row[years[-2]]).replace(',', ''))
+                        res_dict["operating_income"] = round(latest_op, 2)
+                        if res_dict["revenue"] and res_dict["revenue"] > 0:
+                            res_dict["operating_margin"] = round((latest_op / res_dict["revenue"]) * 100, 2)
                         if prev_op > 0:
                             res_dict["operating_growth"] = round(((latest_op - prev_op) / prev_op) * 100, 2)
+                    except: pass
+
+                if net_row is not None and len(years) >= 1:
+                    try:
+                        latest_net = float(str(net_row[years[-1]]).replace(',', ''))
+                        res_dict["net_income"] = round(latest_net, 2)
+                        if res_dict["revenue"] and res_dict["revenue"] > 0:
+                            res_dict["net_margin"] = round((latest_net / res_dict["revenue"]) * 100, 2)
                     except: pass
 
             # 2. 외국인 지분 정보 테이블 (Table 5)
@@ -358,7 +381,17 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         "revenue_growth": np.nan,
         "operating_growth": np.nan,
         "eps_cagr": np.nan,
-        "eps3y": "-"
+        "eps3y": "-",
+        "revenue": np.nan,
+        "operating_income": np.nan,
+        "net_income": np.nan,
+        "operating_margin": np.nan,
+        "net_margin": np.nan,
+        "operating_cashflow": np.nan,
+        "free_cashflow": np.nan,
+        "cash": np.nan,
+        "total_debt": np.nan,
+        "net_cash": np.nan
     }
 
     try:
@@ -438,6 +471,7 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
             if len(op_series) >= 2:
                 latest_op = op_series.iloc[0]
                 prev_op = op_series.iloc[1]
+                res_dict["operating_income"] = round(float(latest_op), 2)
                 if prev_op > 0:
                     res_dict["operating_growth"] = round(((latest_op - prev_op) / prev_op) * 100, 2)
 
@@ -447,8 +481,54 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
             if len(rev_series) >= 2:
                 latest_rev = rev_series.iloc[0]
                 prev_rev = rev_series.iloc[1]
+                res_dict["revenue"] = round(float(latest_rev), 2)
                 if prev_rev > 0:
                     res_dict["revenue_growth"] = round(((latest_rev - prev_rev) / prev_rev) * 100, 2)
+        elif "Total Revenue" in fin.index:
+            rev_series = fin.loc["Total Revenue"].dropna()
+            if len(rev_series) >= 1:
+                res_dict["revenue"] = round(float(rev_series.iloc[0]), 2)
+
+        if "Net Income" in fin.index:
+            net_series = fin.loc["Net Income"].dropna()
+            if len(net_series) >= 1:
+                res_dict["net_income"] = round(float(net_series.iloc[0]), 2)
+
+        if res_dict["revenue"] and res_dict["revenue"] > 0:
+            if pd.notna(res_dict["operating_income"]):
+                res_dict["operating_margin"] = round((res_dict["operating_income"] / res_dict["revenue"]) * 100, 2)
+            if pd.notna(res_dict["net_income"]):
+                res_dict["net_margin"] = round((res_dict["net_income"] / res_dict["revenue"]) * 100, 2)
+
+        cashflow = t.cashflow
+        if cashflow is not None and not cashflow.empty:
+            if "Operating Cash Flow" in cashflow.index:
+                ocf_series = cashflow.loc["Operating Cash Flow"].dropna()
+                if len(ocf_series) >= 1:
+                    res_dict["operating_cashflow"] = round(float(ocf_series.iloc[0]), 2)
+            if "Free Cash Flow" in cashflow.index:
+                fcf_series = cashflow.loc["Free Cash Flow"].dropna()
+                if len(fcf_series) >= 1:
+                    res_dict["free_cashflow"] = round(float(fcf_series.iloc[0]), 2)
+            elif "Capital Expenditure" in cashflow.index and pd.notna(res_dict["operating_cashflow"]):
+                capex_series = cashflow.loc["Capital Expenditure"].dropna()
+                if len(capex_series) >= 1:
+                    res_dict["free_cashflow"] = round(float(res_dict["operating_cashflow"]) + float(capex_series.iloc[0]), 2)
+
+        balance = t.balance_sheet
+        if balance is not None and not balance.empty:
+            for cash_key in ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"]:
+                if cash_key in balance.index:
+                    cash_series = balance.loc[cash_key].dropna()
+                    if len(cash_series) >= 1:
+                        res_dict["cash"] = round(float(cash_series.iloc[0]), 2)
+                        break
+            if "Total Debt" in balance.index:
+                debt_series = balance.loc["Total Debt"].dropna()
+                if len(debt_series) >= 1:
+                    res_dict["total_debt"] = round(float(debt_series.iloc[0]), 2)
+            if pd.notna(res_dict["cash"]) and pd.notna(res_dict["total_debt"]):
+                res_dict["net_cash"] = round(float(res_dict["cash"]) - float(res_dict["total_debt"]), 2)
                         
     except Exception as e:
         print(f"Error fetching yfinance for {symbol}: {e}")
@@ -606,7 +686,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
                 for _, row in prev_df.iterrows():
                     sym = row[key_col]
-                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr"]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash"]
                     data_dict = {}
                     for f in fund_fields:
                         val = row.get(f)
@@ -631,7 +711,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "eps_growth": np.nan, "hist_per_avg": np.nan, "foreign_supply": np.nan,
                     "per": np.nan, "pbr": np.nan, "roe": np.nan, "debt_ratio": np.nan,
                     "revenue_growth": np.nan, "operating_growth": np.nan, "eps_cagr": np.nan,
-                    "eps3y": "-"
+                    "eps3y": "-", "revenue": np.nan, "operating_income": np.nan, "net_income": np.nan,
+                    "operating_margin": np.nan, "net_margin": np.nan, "operating_cashflow": np.nan,
+                    "free_cashflow": np.nan, "cash": np.nan, "total_debt": np.nan, "net_cash": np.nan
                 }
                 data.update(prev_fund_map[sym])
                 if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
@@ -680,22 +762,25 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         
         app_queue.put({"type": "progress", "value": 85, "text": "가치 및 성장성 스코어링 모형 구동..."})
 
-        # 스코어링 연산
-        df['score_per'] = np.select([df['per']<=0, df['per']<=8, df['per']<=12, df['per']<=18, df['per']<=25], [0, 15, 12, 8, 4], default=0)
-        df['score_pbr'] = np.select([df['pbr']<=0, df['pbr']<=0.8, df['pbr']<=1.2, df['pbr']<=1.8, df['pbr']<=3.0], [0, 10, 8, 6, 3], default=0)
-        df['score_roe'] = np.select([df['roe']>=20, df['roe']>=15, df['roe']>=10, df['roe']>=5], [20, 16, 12, 6], default=0)
-        df['score_rsi'] = np.select([df['rsi']>=65, df['rsi']>=55, df['rsi']>=35, df['rsi']>=25], [1, 3, 5, 3], default=1)
-        df['score_peak_diff'] = np.select([df['peak_diff']< -60, df['peak_diff']<= -45, df['peak_diff']<= -10], [1, 3, 5], default=0)
-        
-        # 합산 및 등급 맵핑
-        df['score'] = df['score_per'] + df['score_pbr'] + df['score_roe'] + df['score_rsi'] + df['score_peak_diff']
-        df['grade'] = np.select([df['score']>=85, df['score']>=70, df['score']>=55, df['score']>=40], ['S', 'A', 'B', 'C'], default='D')
-        
         # 지표 추가 바인딩
         df['data_date'] = datetime.strptime(target_date_str, "%Y%m%d").strftime("%Y-%m-%d")
         df['us_10y_bond'] = us_10y
         df['peg'] = np.where((df['per'] > 0) & (df['eps_growth'] > 0), round(df['per'] / df['eps_growth'], 2), np.nan)
         df['cagr'] = df['eps_cagr']
+
+        # 스코어링 연산
+        df['score_per'] = np.select([df['per']<=0, df['per']<=8, df['per']<=12, df['per']<=18, df['per']<=25], [0, 15, 12, 8, 4], default=0)
+        df['score_pbr'] = np.select([df['pbr']<=0, df['pbr']<=0.8, df['pbr']<=1.2, df['pbr']<=1.8, df['pbr']<=3.0], [0, 10, 8, 6, 3], default=0)
+        df['score_roe'] = np.select([df['roe']>=20, df['roe']>=15, df['roe']>=10, df['roe']>=5], [20, 16, 12, 6], default=0)
+        df['score_peg'] = np.select([df['peg']<=0, df['peg']<=0.7, df['peg']<=1.0, df['peg']<=1.5, df['peg']<=2.0], [0, 20, 16, 10, 5], default=0)
+        df['score_cagr'] = np.select([df['cagr']>=25, df['cagr']>=15, df['cagr']>=8, df['cagr']>=3], [15, 12, 8, 4], default=0)
+        df['score_eps3y'] = np.select([df['eps_growth']>=30, df['eps_growth']>=15, df['eps_growth']>=5, df['eps_growth']>0], [10, 8, 5, 2], default=0)
+        df['score_rsi'] = np.select([df['rsi']>=65, df['rsi']>=55, df['rsi']>=35, df['rsi']>=25], [1, 3, 5, 3], default=1)
+        df['score_peak_diff'] = np.select([df['peak_diff']< -60, df['peak_diff']<= -45, df['peak_diff']<= -10], [1, 3, 5], default=0)
+        
+        # 합산 및 등급 맵핑
+        df['score'] = df['score_per'] + df['score_pbr'] + df['score_roe'] + df['score_peg'] + df['score_cagr'] + df['score_eps3y'] + df['score_rsi'] + df['score_peak_diff']
+        df['grade'] = np.select([df['score']>=85, df['score']>=70, df['score']>=55, df['score']>=40], ['S', 'A', 'B', 'C'], default='D')
         
         # 시가총액 기준 내림차순 정렬 및 순위 부여
         df = df.sort_values(by="market_cap", ascending=False)

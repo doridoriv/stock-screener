@@ -1,7 +1,7 @@
 import os
 
 APP_TITLE = "저렴한주식쇼핑 by 유경빈+유채화뿅뿅"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))\
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 캐시 시스템 저장 디렉터리 경로 설정
 CACHE_DIR = os.path.join(BASE_DIR, "cache")

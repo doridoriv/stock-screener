@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 import analyzer
+import diagnostics
 import market_analyzer
 from config import APP_TITLE, TABLE_COLUMNS
 
@@ -196,12 +197,18 @@ st.divider()
 
 if st.session_state.data:
     df = pd.DataFrame(st.session_state.data)
+    if "selected_symbol" not in st.session_state and not df.empty:
+        st.session_state.selected_symbol = df.iloc[0]["symbol"]
     
     # config.py의 TABLE_COLUMNS 기반 한글 컬럼명 매핑
     col_map = {col["id"]: col["text"] for col in TABLE_COLUMNS}
     df_renamed = df.rename(columns=col_map)
     
-    display_cols = [col["text"] for col in TABLE_COLUMNS if col["text"] in df_renamed.columns]
+    compact_ids = [
+        "rank", "symbol", "name", "score", "grade", "market_cap", "price",
+        "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff", "data_date"
+    ]
+    display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
     df_display = df_renamed[display_cols]
     
     # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
@@ -315,6 +322,30 @@ if st.session_state.data:
     formatted_styled_df = styled_df.format(na_rep="N/A", precision=2)
     # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
     st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
+
+    st.divider()
+    st.subheader("🔎 2단계: 좋은 회사인데 왜 안 오르지?")
+
+    symbol_options = {
+        f"{row.get('rank', '')}. {row.get('name', row.get('symbol'))} ({row.get('symbol')})": row.get("symbol")
+        for _, row in df.iterrows()
+    }
+    option_values = list(symbol_options.values())
+    selected_index = option_values.index(st.session_state.selected_symbol) if st.session_state.selected_symbol in option_values else 0
+    selected_label = st.selectbox("상세 진단 종목", list(symbol_options.keys()), index=selected_index)
+    st.session_state.selected_symbol = symbol_options[selected_label]
+    selected_row = df[df["symbol"] == st.session_state.selected_symbol].iloc[0].to_dict()
+
+    headline, reason_rows = diagnostics.diagnose_why_not_rising(selected_row)
+    st.info(f"**진단 요약:** {headline}")
+
+    tab_review, tab_missing, tab_reasons = st.tabs(["확인한 항목", "부족한 데이터", "안 오르는 이유"])
+    with tab_review:
+        st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
+    with tab_missing:
+        st.dataframe(pd.DataFrame(diagnostics.missing_data_review(selected_row)), width="stretch", hide_index=True)
+    with tab_reasons:
+        st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
 
 else:
     st.info("💡 위 컨트롤 패널에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
