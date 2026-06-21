@@ -271,14 +271,14 @@ if st.session_state.data:
             
         if col_id in ["price", "peak", "ma200"]:
             if is_kr:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d", suffix="원")
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d원")
             else:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.2f")
         elif col_id == "market_cap":
             if is_kr:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d", suffix="억")
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d억")
             else:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,.1f", prefix="$", suffix="B")
+                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,.1fB")
         elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
