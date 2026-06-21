@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import pandas as pd
 import streamlit as st
 
@@ -208,6 +209,10 @@ if st.session_state.data:
                    "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
                    "revenue_growth", "operating_growth", "debt_ratio"]
     numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
+    
+    # None 문자열이나 실제 None 객체를 numpy NaN으로 통일하여 결측치 처리기(na_rep)가 작동하게 함
+    import numpy as np
+    df_display = df_display.replace(["None", "none", "-", ""], np.nan)
     
     for col in numeric_cols:
         if col in df_display.columns:
