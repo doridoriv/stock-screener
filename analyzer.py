@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import FinanceDataReader as fdr
+import supplemental_data
 
 from config import (
     DEFAULT_US_TICKERS,
@@ -26,6 +27,7 @@ from config import (
     MAX_SLEEP,
     USER_AGENTS,
     CACHE_DIR,
+    FIXED_TOP_N,
     US_MAX_WORKERS,
 )
 
@@ -63,6 +65,27 @@ def download_prices_robust(yf_symbols, start_date):
     closes = closes.ffill().bfill()
     print(f"[OK] FinanceDataReader fetched {len(closes.columns)} symbols.")
     return closes
+
+def fetch_extended_last_price(symbol: str, fallback=np.nan) -> tuple:
+    """Return the latest available price, preferring after-hours/post-market fields when provided."""
+    try:
+        ticker = yf.Ticker(symbol, session=_get_safe_yfinance_session())
+        info = ticker.info
+        for key in ["postMarketPrice", "preMarketPrice", "regularMarketPrice", "currentPrice"]:
+            val = info.get(key)
+            if val is not None and pd.notna(val) and float(val) > 0:
+                return float(val), key
+
+        try:
+            fast_info = ticker.fast_info
+            val = fast_info.get("last_price") if hasattr(fast_info, "get") else getattr(fast_info, "last_price", None)
+            if val is not None and pd.notna(val) and float(val) > 0:
+                return float(val), "fast_info.last_price"
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return fallback, "daily_close"
 
 def _get_us_10y_yield():
     try:
@@ -605,6 +628,7 @@ def fetch_us_top100_tickers(top_n=100) -> list:
 # ==========================================
 def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data, force_scrape=False):
     try:
+        top_n = FIXED_TOP_N
         market_text = "코스닥" if market == "한국(코스닥)" else "코스피" if market in ["한국(코스피)", "한국"] else "미국"
         
         # 1. 최근 마감된 날짜 캐시 확인
@@ -646,7 +670,14 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         
         closes = download_prices_robust(yf_symbols, start_date)
 
-        current_prices = closes.iloc[-1]
+        current_prices = closes.iloc[-1].copy()
+        price_sources = pd.Series("daily_close", index=current_prices.index)
+        for sym in yf_symbols:
+            latest_price, price_source = fetch_extended_last_price(sym, fallback=current_prices.get(sym, np.nan))
+            if pd.notna(latest_price):
+                current_prices.loc[sym] = latest_price
+                price_sources.loc[sym] = price_source
+
         ma200 = closes.rolling(window=200).mean().iloc[-1]
         diff_val = ((current_prices - ma200) / ma200) * 100
         peak = closes.max()
@@ -664,7 +695,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             'diff': diff_val, 
             'peak': peak, 
             'peak_diff': peak_diff, 
-            'rsi': rsi
+            'rsi': rsi,
+            'price_source': price_sources
         }).reset_index()
         
         if 'Ticker' in tech_df.columns:
@@ -759,6 +791,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         # 5. 데이터 병합 (Merge)
         df = pd.merge(base_df, tech_df, on='yf_symbol', how='left')
         df = pd.merge(df, fund_df, on='yf_symbol', how='left')
+        df = supplemental_data.merge_supplemental_metrics(df, market_text)
         
         app_queue.put({"type": "progress", "value": 85, "text": "가치 및 성장성 스코어링 모형 구동..."})
 

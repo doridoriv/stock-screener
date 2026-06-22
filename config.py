@@ -17,6 +17,7 @@ BACKOFF_FACTOR = 1.0  # 지수 백오프 계수
 MIN_SLEEP = 0.5
 MAX_SLEEP = 1.5
 US_MAX_WORKERS = 1  # Number of parallel workers for US market (configurable)
+FIXED_TOP_N = 100
 
 # User-Agent 풀 (데이터 제공처의 차단을 피하기 위해 사용)
 USER_AGENTS = [

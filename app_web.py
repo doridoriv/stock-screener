@@ -6,7 +6,8 @@ import streamlit as st
 import analyzer
 import diagnostics
 import market_analyzer
-from config import APP_TITLE, TABLE_COLUMNS
+import supplemental_data
+from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel():
@@ -19,7 +20,9 @@ if "selected_market" not in st.session_state:
     st.session_state.selected_market = "한국(코스피)"
     
 if "top_n" not in st.session_state:
-    st.session_state.top_n = 50
+    st.session_state.top_n = FIXED_TOP_N
+else:
+    st.session_state.top_n = FIXED_TOP_N
 
 # 사이드바 초기 상태를 세션에 저장 (기본값: 닫힘)
 if "sidebar_state" not in st.session_state:
@@ -34,8 +37,8 @@ def handle_market_change():
     if cache_file and os.path.exists(cache_file):
         try:
             df_cached = pd.read_csv(cache_file)
-            if len(df_cached) >= st.session_state.top_n:
-                df_cached = df_cached.head(st.session_state.top_n)
+            if len(df_cached) >= FIXED_TOP_N:
+                df_cached = df_cached.head(FIXED_TOP_N)
                 st.session_state.data = df_cached.to_dict(orient='records')
                 st.session_state.sidebar_state = "collapsed"
             else:
@@ -148,12 +151,7 @@ with col1:
     )
 
 with col2:
-    st.slider(
-        "🔍 탐색 종목 수", 
-        10, 100, 50, step=10,
-        key="top_n",
-        on_change=handle_market_change
-    )
+    st.metric("🔍 탐색 종목 수", f"{FIXED_TOP_N}개 고정")
 
 with col3:
     market_text = "코스피" if st.session_state.selected_market in ["한국(코스피)", "한국"] else "코스닥" if st.session_state.selected_market == "한국(코스닥)" else "미국"
@@ -171,7 +169,7 @@ with col3:
             # 안전제일 수집 엔진 기동 (force_scrape=True로 강제 분석 실행)
             analyzer.screening_worker(
                 market=st.session_state.selected_market,
-                top_n=st.session_state.top_n,
+                top_n=FIXED_TOP_N,
                 app_queue=st_queue,
                 stop_requested_func=lambda: False,
                 opt_fundamental=True,
@@ -344,6 +342,8 @@ if st.session_state.data:
         st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
     with tab_missing:
         st.dataframe(pd.DataFrame(diagnostics.missing_data_review(selected_row)), width="stretch", hide_index=True)
+        supplemental_data.ensure_template()
+        st.caption(f"차단 위험 없이 보강하려면 공식/유료 데이터 또는 직접 받은 CSV를 `{supplemental_data.SUPPLEMENTAL_FILE}`에 채우면 다음 수집 때 자동 병합됩니다.")
     with tab_reasons:
         st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
 

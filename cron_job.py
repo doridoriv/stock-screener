@@ -5,9 +5,9 @@ from datetime import datetime
 import pandas as pd
 
 import analyzer
-from config import CACHE_DIR
+from config import CACHE_DIR, FIXED_TOP_N
 
-def run_auto_screening(market, top_n=100):
+def run_auto_screening(market, top_n=FIXED_TOP_N):
     """
     웹 UI 없이 백그라운드에서 지정된 시장의 데이터를 수집하고
     기존 웹앱과 100% 호환되는 경로에 CSV 파일(일일 스냅샷)로 자동 저장합니다.
@@ -25,7 +25,7 @@ def run_auto_screening(market, top_n=100):
     try:
         analyzer.screening_worker(
             market=market,
-            top_n=top_n,
+            top_n=FIXED_TOP_N,
             app_queue=app_queue,
             stop_requested_func=stop_check_func,
             opt_fundamental=True,
@@ -63,7 +63,7 @@ def run_auto_screening(market, top_n=100):
     
     if os.path.exists(file_path):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] {market} 자동 저장 완료! 저장경로: {file_path}")
-        print(f"   (목표 수: {top_n}개)\n")
+        print(f"   (목표 수: {FIXED_TOP_N}개)\n")
     else:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 결과 저장을 실패했거나 파일이 없습니다.\n")
 
@@ -73,9 +73,9 @@ if __name__ == "__main__":
     print("=========================================================")
     
     # 각 시장별로 상위 100개 종목을 자동으로 수집하여 백업합니다.
-    run_auto_screening("한국(코스피)", top_n=100)
-    run_auto_screening("한국(코스닥)", top_n=100)
-    run_auto_screening("미국", top_n=100)
+    run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N)
+    run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N)
+    run_auto_screening("미국", top_n=FIXED_TOP_N)
     
     print("=========================================================")
     print(f"> 모든 시장의 배치가 안전하게 완료되었습니다.")
