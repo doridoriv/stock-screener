@@ -185,6 +185,16 @@ def load_us_market_cap_cache():
     return {ticker: {"rank": i, "name": US_NAME_MAP.get(ticker, ticker), "market_cap": 0} 
             for i, ticker in enumerate(DEFAULT_US_TICKERS, 1)}
 
+def sort_by_market_cap(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or "market_cap" not in df.columns:
+        return df
+    out = df.copy()
+    out["_market_cap_sort"] = pd.to_numeric(out["market_cap"], errors="coerce").fillna(-1)
+    out = out.sort_values(by="_market_cap_sort", ascending=False).drop(columns=["_market_cap_sort"])
+    out = out.reset_index(drop=True)
+    out["rank"] = range(1, len(out) + 1)
+    return out
+
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
 # ==========================================
@@ -638,7 +648,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         if not force_scrape and os.path.exists(cache_file):
             df_cached = pd.read_csv(cache_file)
             if len(df_cached) >= top_n:
-                df_cached = df_cached.head(top_n)
+                df_cached = sort_by_market_cap(df_cached).head(top_n)
                 app_queue.put({"type": "data", "data": df_cached.to_dict(orient='records')})
                 app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 캐시 데이터 로드 완료!"})
                 return
@@ -816,8 +826,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         df['grade'] = np.select([df['score']>=85, df['score']>=70, df['score']>=55, df['score']>=40], ['S', 'A', 'B', 'C'], default='D')
         
         # 시가총액 기준 내림차순 정렬 및 순위 부여
-        df = df.sort_values(by="market_cap", ascending=False)
-        df['rank'] = range(1, len(df) + 1)
+        df = sort_by_market_cap(df)
 
         # 6. 저장 및 UI 전송
         final_data = df.to_dict(orient='records')

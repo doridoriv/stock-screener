@@ -38,7 +38,7 @@ def handle_market_change():
         try:
             df_cached = pd.read_csv(cache_file)
             if not df_cached.empty:
-                df_cached = df_cached.head(FIXED_TOP_N)
+                df_cached = analyzer.sort_by_market_cap(df_cached).head(FIXED_TOP_N)
                 st.session_state.data = df_cached.to_dict(orient='records')
                 st.session_state.sidebar_state = "collapsed"
             else:
@@ -193,7 +193,8 @@ with col3:
 st.divider()
 
 if st.session_state.data:
-    df = pd.DataFrame(st.session_state.data)
+    df = analyzer.sort_by_market_cap(pd.DataFrame(st.session_state.data))
+    st.session_state.data = df.to_dict(orient="records")
     if "selected_symbol" not in st.session_state and not df.empty:
         st.session_state.selected_symbol = df.iloc[0]["symbol"]
     
