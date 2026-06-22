@@ -36,7 +36,13 @@ DEFAULT_US_TICKERS = [
     "INTC", "QCOM", "CMCSA", "MCD", "IBM", "TMO", "ACN", "WFC", "AXP", "GE",
     "NKE", "LIN", "PM", "ABT", "TMUS", "CAT", "TXN", "NOW", "MS", "DIS",
     "AMAT", "HON", "AMGN", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI",
-    "INTU", "COP", "ABV", "LMT", "NFLX", "AXP", "MDT", "SYK", "HD", "EL"
+    "INTU", "COP", "ABBV", "LMT", "MDT", "SYK", "EL",
+    "BKNG", "ISRG", "BLK", "TJX", "VRTX", "C", "SCHW", "DE", "ADP", "PLTR",
+    "MDLZ", "ADI", "LRCX", "CB", "MMC", "GILD", "PANW", "AMT", "KLAC", "SO",
+    "MO", "DUK", "BSX", "CI", "ZTS", "ICE", "CME", "EQIX", "SHW", "MCO",
+    "PH", "REGN", "WM", "CDNS", "SNPS", "ORLY", "NOC", "USB", "PNC", "APD",
+    "EOG", "AON", "ITW", "CL", "TGT", "FDX", "EMR", "MAR", "ROP", "HCA",
+    "PSX", "GM", "NXPI", "MPC", "FCX", "SLB", "NSC", "CSX", "AFL", "TRV"
 ]
 
 # 미국 티커 한글 맵핑 규격 정의
