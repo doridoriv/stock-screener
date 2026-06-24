@@ -17,7 +17,7 @@
 
 ## 2. 차단 위험 0%가 필요한 보강 데이터
 
-아래 항목은 `cache/supplemental_metrics.csv`에 넣으면 세 시장 모두 자동 병합됩니다.
+아래 항목은 공식 API 또는 `cache/supplemental_metrics.csv`에 넣으면 세 시장 모두 자동 병합됩니다.
 
 - FCF
 - 영업현금흐름
@@ -31,8 +31,15 @@
 - 컨센서스 변화
 - 경쟁사 대비 PER
 
-이 파일은 공식 API, 유료 데이터, 증권사/거래소 다운로드 CSV, 사용자가 직접 확인한 데이터로 채우는 것을 전제로 합니다.
-이 방식은 추가 웹 요청을 만들지 않으므로 차단 위험이 없습니다.
+현재 자동 연동된 공식 API:
+
+- OpenDART: 한국 FCF, 영업현금흐름, 현금보유액, 총부채, 순현금, 영업이익률, 순이익률 보강
+
+키는 코드에 저장하지 않습니다.
+로컬은 `.env`, Streamlit Cloud는 Secrets, GitHub Actions는 Repository Secrets에 저장합니다.
+
+`cache/supplemental_metrics.csv`는 유료 데이터, 증권사/거래소 다운로드 CSV, 사용자가 직접 확인한 데이터로 채우는 것을 전제로 합니다.
+이 방식은 비공식 웹 크롤링을 만들지 않으므로 차단 위험이 없습니다.
 
 ## 3. PC가 꺼져도 실행
 

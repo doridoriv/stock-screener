@@ -30,7 +30,8 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
             stop_requested_func=stop_check_func,
             opt_fundamental=True,
             opt_peak=True,
-            us_market_cap_data=us_market_cap_data
+            us_market_cap_data=us_market_cap_data,
+            force_scrape=True
         )
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 엔진 가동 중 치명적 오류 발생: {e}")

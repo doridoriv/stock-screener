@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import FinanceDataReader as fdr
+import opendart_client
 import supplemental_data
 
 from config import (
@@ -194,6 +195,18 @@ def sort_by_market_cap(df: pd.DataFrame) -> pd.DataFrame:
     out = out.reset_index(drop=True)
     out["rank"] = range(1, len(out) + 1)
     return out
+
+def merge_missing_fields(base: dict, supplement: dict) -> dict:
+    for key, value in supplement.items():
+        current = base.get(key)
+        missing = (
+            current is None
+            or pd.isna(current)
+            or str(current).strip() in ["", "-", "None", "nan", "NaN", "N/A"]
+        )
+        if missing:
+            base[key] = value
+    return base
 
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
@@ -766,6 +779,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             # 수집 시도
             if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
                 data = fetch_kr_fundamental_naver(sym)
+                data = merge_missing_fields(data, opendart_client.fetch_dart_metrics(sym))
             else:
                 data = fetch_us_fundamental_yfinance(sym)
                 

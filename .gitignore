@@ -5,5 +5,10 @@ __pycache__/
 
 # Streamlit/IDE config
 .streamlit/config.toml
+.streamlit/secrets.toml
+.env
 .vscode/
 .idea/
+
+# Generated API caches
+cache/dart_corp_codes.csv
