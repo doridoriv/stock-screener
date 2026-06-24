@@ -203,7 +203,7 @@ if st.session_state.data:
     df_renamed = df.rename(columns=col_map)
     
     compact_ids = [
-        "rank", "symbol", "name", "score", "grade", "market_cap", "price",
+        "rank", "symbol", "name", "score", "grade", "market_cap", "price", "price_basis", "price_time",
         "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff", "data_date"
     ]
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]

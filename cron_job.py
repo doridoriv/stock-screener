@@ -72,11 +72,13 @@ if __name__ == "__main__":
     print("=========================================================")
     print(f"> 장마감 후 주식 대시보드 자동 스크리닝 배치 스케줄러 가동")
     print("=========================================================")
-    
-    # 각 시장별로 상위 100개 종목을 자동으로 수집하여 백업합니다.
-    run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N)
-    run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N)
-    run_auto_screening("미국", top_n=FIXED_TOP_N)
+
+    scope = os.getenv("SCREENING_MARKETS", "ALL").upper()
+    if scope in ["ALL", "KR", "KOREA"]:
+        run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N)
+        run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N)
+    if scope in ["ALL", "US", "USA"]:
+        run_auto_screening("미국", top_n=FIXED_TOP_N)
     
     print("=========================================================")
     print(f"> 모든 시장의 배치가 안전하게 완료되었습니다.")

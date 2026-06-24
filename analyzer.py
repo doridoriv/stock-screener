@@ -67,26 +67,43 @@ def download_prices_robust(yf_symbols, start_date):
     print(f"[OK] FinanceDataReader fetched {len(closes.columns)} symbols.")
     return closes
 
-def fetch_extended_last_price(symbol: str, fallback=np.nan) -> tuple:
-    """Return the latest available price, preferring after-hours/post-market fields when provided."""
+def fetch_extended_last_price(symbol: str, fallback=np.nan, allow_extended=True) -> tuple:
+    """Return the latest available price with a source label."""
+    collected_at = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST")
+    if not allow_extended:
+        return fallback, "daily_close", collected_at
+
     try:
         ticker = yf.Ticker(symbol, session=_get_safe_yfinance_session())
         info = ticker.info
         for key in ["postMarketPrice", "preMarketPrice", "regularMarketPrice", "currentPrice"]:
             val = info.get(key)
             if val is not None and pd.notna(val) and float(val) > 0:
-                return float(val), key
+                return float(val), key, collected_at
 
         try:
             fast_info = ticker.fast_info
             val = fast_info.get("last_price") if hasattr(fast_info, "get") else getattr(fast_info, "last_price", None)
             if val is not None and pd.notna(val) and float(val) > 0:
-                return float(val), "fast_info.last_price"
+                return float(val), "fast_info.last_price", collected_at
         except Exception:
             pass
     except Exception:
         pass
-    return fallback, "daily_close"
+    return fallback, "daily_close", collected_at
+
+
+def normalize_price_source(source: str, is_kr: bool) -> str:
+    source = str(source or "")
+    if source == "postMarketPrice":
+        return "애프터마켓"
+    if source == "preMarketPrice":
+        return "프리마켓"
+    if source in ["regularMarketPrice", "currentPrice", "fast_info.last_price"]:
+        return "정규장/실시간"
+    if source == "daily_close":
+        return "정규장 종가" if is_kr else "일봉 종가"
+    return source or "확인 필요"
 
 def _get_us_10y_yield():
     try:
@@ -694,12 +711,21 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         closes = download_prices_robust(yf_symbols, start_date)
 
         current_prices = closes.iloc[-1].copy()
+        is_kr_market = market in ["한국(코스피)", "한국(코스닥)", "한국"]
         price_sources = pd.Series("daily_close", index=current_prices.index)
+        price_times = pd.Series(datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"), index=current_prices.index)
         for sym in yf_symbols:
-            latest_price, price_source = fetch_extended_last_price(sym, fallback=current_prices.get(sym, np.nan))
+            latest_price, price_source, price_time = fetch_extended_last_price(
+                sym,
+                fallback=current_prices.get(sym, np.nan),
+                allow_extended=not is_kr_market,
+            )
             if pd.notna(latest_price):
                 current_prices.loc[sym] = latest_price
                 price_sources.loc[sym] = price_source
+                price_times.loc[sym] = price_time
+
+        price_basis = price_sources.apply(lambda source: normalize_price_source(source, is_kr_market))
 
         ma200 = closes.rolling(window=200).mean().iloc[-1]
         diff_val = ((current_prices - ma200) / ma200) * 100
@@ -719,7 +745,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             'peak': peak, 
             'peak_diff': peak_diff, 
             'rsi': rsi,
-            'price_source': price_sources
+            'price_source': price_sources,
+            'price_basis': price_basis,
+            'price_time': price_times
         }).reset_index()
         
         if 'Ticker' in tech_df.columns:

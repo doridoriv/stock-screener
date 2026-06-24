@@ -105,26 +105,135 @@ def _fetch_statement_rows(api_key: str, corp_code: str, year: int, fs_div: str):
     return payload.get("list") or []
 
 
-def _pick(rows, statement_name, account_keywords):
-    candidates = [
-        row for row in rows
-        if statement_name in str(row.get("sj_nm", ""))
-        and any(keyword in str(row.get("account_nm", "")) for keyword in account_keywords)
-    ]
+def _row_text(row, *keys):
+    return " ".join(str(row.get(key, "") or "") for key in keys)
+
+
+def _matches_any(text, candidates):
+    return any(candidate and candidate in text for candidate in candidates)
+
+
+def _pick(rows, statement_names=None, account_keywords=None, account_ids=None):
+    statement_names = statement_names or []
+    account_keywords = account_keywords or []
+    account_ids = account_ids or []
+
+    candidates = []
+    for row in rows:
+        statement_text = _row_text(row, "sj_nm")
+        account_text = _row_text(row, "account_nm")
+        account_id = str(row.get("account_id", "") or "")
+
+        if account_ids and account_id in account_ids:
+            candidates.append((0, row))
+            continue
+        if statement_names and not _matches_any(statement_text, statement_names):
+            continue
+        if account_keywords and _matches_any(account_text, account_keywords):
+            candidates.append((1, row))
+
     if not candidates:
         return np.nan
-    candidates.sort(key=lambda row: len(str(row.get("account_nm", ""))))
-    return _won_to_eok(candidates[0].get("thstrm_amount"))
+    candidates.sort(key=lambda item: (item[0], len(str(item[1].get("account_nm", "")))))
+    return _won_to_eok(candidates[0][1].get("thstrm_amount"))
+
+
+def _sum_picks(rows, statement_names=None, account_keywords=None, account_ids=None):
+    statement_names = statement_names or []
+    account_keywords = account_keywords or []
+    account_ids = account_ids or []
+    seen = set()
+    values = []
+    for row in rows:
+        statement_text = _row_text(row, "sj_nm")
+        account_text = _row_text(row, "account_nm")
+        account_id = str(row.get("account_id", "") or "")
+        matched = (
+            (account_ids and account_id in account_ids)
+            or (
+                (not statement_names or _matches_any(statement_text, statement_names))
+                and account_keywords
+                and _matches_any(account_text, account_keywords)
+            )
+        )
+        if not matched:
+            continue
+        key = (account_id, account_text)
+        if key in seen:
+            continue
+        seen.add(key)
+        value = _won_to_eok(row.get("thstrm_amount"))
+        if pd.notna(value):
+            values.append(value)
+    if not values:
+        return np.nan
+    return round(sum(values), 2)
 
 
 def _statement_metrics(rows):
-    revenue = _pick(rows, "손익계산서", ["매출액", "수익(매출액)", "영업수익"])
-    operating_income = _pick(rows, "손익계산서", ["영업이익"])
-    net_income = _pick(rows, "손익계산서", ["당기순이익"])
-    cash = _pick(rows, "재무상태표", ["현금및현금성자산", "현금 및 현금성자산"])
-    total_debt = _pick(rows, "재무상태표", ["부채총계"])
-    operating_cashflow = _pick(rows, "현금흐름표", ["영업활동현금흐름", "영업활동 현금흐름", "영업활동으로 인한 현금흐름"])
-    capex = _pick(rows, "현금흐름표", ["유형자산의 취득", "유형자산 취득"])
+    income_statements = ["손익계산서", "포괄손익계산서"]
+    balance_sheets = ["재무상태표"]
+    cashflow_statements = ["현금흐름표"]
+
+    revenue = _pick(
+        rows,
+        income_statements,
+        ["매출액", "수익(매출액)", "영업수익"],
+        ["ifrs-full_Revenue", "dart_OperatingRevenue"],
+    )
+    operating_income = _pick(
+        rows,
+        income_statements,
+        ["영업이익"],
+        ["dart_OperatingIncomeLoss"],
+    )
+    net_income = _pick(
+        rows,
+        income_statements,
+        ["당기순이익", "분기순이익", "반기순이익"],
+        ["ifrs-full_ProfitLoss"],
+    )
+    cash = _pick(
+        rows,
+        balance_sheets,
+        ["현금및현금성자산", "현금 및 현금성자산", "현금및예치금", "현금 및 예치금"],
+        ["ifrs-full_CashAndCashEquivalents", "dart_CashAndCashEquivalents"],
+    )
+    total_debt = _pick(
+        rows,
+        balance_sheets,
+        ["부채총계", "부채 총계"],
+        ["ifrs-full_Liabilities"],
+    )
+    operating_cashflow = _pick(
+        rows,
+        cashflow_statements,
+        [
+            "영업활동현금흐름",
+            "영업활동 현금흐름",
+            "영업활동으로 인한 현금흐름",
+            "영업활동으로부터의 현금흐름",
+            "영업활동에서 창출된 현금흐름",
+        ],
+        ["ifrs-full_CashFlowsFromUsedInOperatingActivities"],
+    )
+    capex = _sum_picks(
+        rows,
+        cashflow_statements,
+        [
+            "유형자산의 취득",
+            "유형자산 취득",
+            "유형자산의 증가",
+            "무형자산의 취득",
+            "무형자산 취득",
+            "투자부동산의 취득",
+        ],
+        [
+            "ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+            "ifrs-full_PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities",
+            "ifrs-full_PurchaseOfInvestmentPropertyClassifiedAsInvestingActivities",
+        ],
+    )
 
     metrics = {
         "revenue": revenue,
