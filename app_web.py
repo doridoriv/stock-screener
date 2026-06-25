@@ -153,7 +153,7 @@ try:
             "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담"
         )
 
-    evidence_rows = market_data.get("evidence_rows") or []
+    evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
     if evidence_rows:
         evidence_df = pd.DataFrame([
             {
@@ -162,19 +162,19 @@ try:
                 "20일": row.get("ret20_text"),
                 "60일": row.get("ret60_text"),
                 "평가": row.get("effect"),
-                "점수영향": row.get("score_impact"),
+                "점수영향": f"{row.get('score_impact'):+.1f}" if row.get("score_impact") is not None else None,
                 "의미": row.get("meaning"),
             }
             for row in evidence_rows
         ])
+        st.caption("시장환경 근거표")
         st.dataframe(
             evidence_df,
             width="stretch",
             hide_index=True,
-            column_config={
-                "점수영향": st.column_config.NumberColumn("점수영향", format="%+.1f"),
-            },
         )
+    else:
+        st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
          
     # 데이터 신선도 및 가격 기준 표시
     cache_status = get_cache_status()
