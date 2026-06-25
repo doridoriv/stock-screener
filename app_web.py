@@ -362,6 +362,12 @@ if st.session_state.data:
 
     if market_cap_col and market_cap_col in df_display.columns:
         df_display[market_cap_col] = df_display[market_cap_col].apply(format_market_cap)
+
+    for center_col in ["순위", "종합점수", "등급"]:
+        if center_col in df_display.columns:
+            df_display[center_col] = df_display[center_col].apply(
+                lambda v: "" if pd.isna(v) else f"{int(v)}" if isinstance(v, (int, float)) and float(v).is_integer() else str(v)
+            )
             
     # --- [데이터 프레임 컬러 & 스타일링 로직] ---
     def highlight_grade(val):
@@ -432,7 +438,7 @@ if st.session_state.data:
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f")
         elif col_id in ["rank", "score"]:
-            col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%d")
+            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
         else:
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
 
