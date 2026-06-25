@@ -10,6 +10,12 @@ import supplemental_data
 from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
 MARKET_PANEL_CACHE_VERSION = 2
+MARKET_LABEL_TO_VALUE = {
+    "코스피": "한국(코스피)",
+    "코스닥": "한국(코스닥)",
+    "미국": "미국",
+}
+MARKET_VALUE_TO_LABEL = {value: label for label, value in MARKET_LABEL_TO_VALUE.items()}
 
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
@@ -23,6 +29,12 @@ def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
 # ==========================================
 if "selected_market" not in st.session_state:
     st.session_state.selected_market = "한국(코스피)"
+
+if "market_choice" not in st.session_state:
+    st.session_state.market_choice = MARKET_VALUE_TO_LABEL.get(st.session_state.selected_market, "코스피")
+
+if "table_view_mode" not in st.session_state:
+    st.session_state.table_view_mode = "핵심만"
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -92,6 +104,12 @@ def handle_market_change():
     load_cached_market_data()
 
 
+def handle_market_choice_change():
+    st.session_state.selected_market = MARKET_LABEL_TO_VALUE[st.session_state.market_choice]
+    st.session_state.show_large_table = False
+    load_cached_market_data()
+
+
 # 스타트업 시 기본 캐시 자동 로딩
 if "data" not in st.session_state:
     handle_market_change()
@@ -135,6 +153,24 @@ with st.sidebar:
 # ==========================================
 st.header(f"🎯 {get_market_text()} 시장 분석 대시보드")
 st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 안 오르는 이유 진단")
+
+st.subheader("분석 기준")
+criteria_col1, criteria_col2, criteria_col3 = st.columns([4, 2, 2], vertical_alignment="bottom")
+with criteria_col1:
+    st.radio(
+        "시장",
+        list(MARKET_LABEL_TO_VALUE.keys()),
+        key="market_choice",
+        horizontal=True,
+        on_change=handle_market_choice_change,
+    )
+with criteria_col2:
+    st.metric("탐색 종목 수", f"{FIXED_TOP_N}개 고정")
+with criteria_col3:
+    if st.button("🔄 캐시 새로고침", width="stretch", type="secondary"):
+        get_cached_market_panel.clear()
+        load_cached_market_data()
+        st.rerun()
 
 # 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
 st.subheader("1단계: 시장환경")
@@ -253,29 +289,7 @@ except Exception as e:
     st.error(f"시장 분석 패널 로드 오류: {e}")
 
 st.divider()
-
-# 메인 화면 상단에 3개 컬럼으로 구성된 컨트롤 패널 배치 (사이드바가 닫혀있어도 항상 검색 가능)
 st.subheader("2단계: 좋은 회사 후보 찾기")
-col1, col2, col3 = st.columns([3, 3, 2], vertical_alignment="bottom")
-
-with col1:
-    st.selectbox(
-        "🌍 시장 선택", 
-        ["한국(코스피)", "한국(코스닥)", "미국"],
-        key="selected_market",
-        on_change=handle_market_change
-    )
-
-with col2:
-    st.metric("🔍 탐색 종목 수", f"{FIXED_TOP_N}개 고정")
-
-with col3:
-    if st.button("🔄 캐시 새로고침", width="stretch", type="secondary"):
-        get_cached_market_panel.clear()
-        load_cached_market_data()
-        st.rerun()
-
-st.divider()
 
 if st.session_state.data:
     df = analyzer.sort_by_market_cap(pd.DataFrame(st.session_state.data))
@@ -288,13 +302,19 @@ if st.session_state.data:
     col_map = {col["id"]: col["text"] for col in TABLE_COLUMNS}
     df_renamed = df.rename(columns=col_map)
     
-    compact_ids = [
+    full_ids = [
         "rank", "symbol", "name", "score", "grade", "market_cap", "price",
         "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff",
         "data_date", "price_basis", "price_time"
     ]
     if not is_kr:
-        compact_ids[7:7] = ["after_market_price", "after_market_change_pct"]
+        full_ids[7:7] = ["after_market_price", "after_market_change_pct"]
+
+    core_ids = ["rank", "symbol", "name", "score", "grade", "market_cap", "price", "per", "roe", "peak_diff"]
+    if not is_kr:
+        core_ids.insert(7, "after_market_change_pct")
+
+    compact_ids = core_ids if st.session_state.table_view_mode == "핵심만" else full_ids
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
     df_display = df_renamed[display_cols]
     
@@ -419,8 +439,14 @@ if st.session_state.data:
     # --- [최종 화면 렌더링] ---
     # NaN/None 값을 "N/A" 혹은 "-"로 정렬 및 보기 편하도록 포맷팅 지정
     formatted_styled_df = styled_df.format(na_rep="N/A", precision=2)
-    table_title_col, table_action_col = st.columns([6, 1], vertical_alignment="center")
-    with table_title_col:
+    view_col, table_action_col = st.columns([6, 1], vertical_alignment="bottom")
+    with view_col:
+        st.radio(
+            "보기 방식",
+            ["핵심만", "전체표"],
+            key="table_view_mode",
+            horizontal=True,
+        )
         st.caption("종목 스크리닝 결과표")
     with table_action_col:
         if st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
