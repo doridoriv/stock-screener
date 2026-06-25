@@ -279,3 +279,59 @@ def fetch_dart_metrics(stock_code: str, year: int | None = None) -> dict:
             metrics["dart_fs_div"] = fs_div
             return {k: v for k, v in metrics.items() if not (isinstance(v, float) and pd.isna(v))}
     return {}
+
+
+def debug_dart_accounts(stock_code: str, year: int | None = None, limit: int = 80) -> dict:
+    api_key = get_secret("DART_API_KEY")
+    if not api_key:
+        return {"ok": False, "reason": "DART_API_KEY missing"}
+
+    corp_code = get_corp_code(stock_code, api_key)
+    if not corp_code:
+        return {"ok": False, "reason": "corp_code not found", "stock_code": stock_code}
+
+    start_year = year or _latest_business_year()
+    for target_year in range(start_year, start_year - 3, -1):
+        for fs_div in ["CFS", "OFS"]:
+            try:
+                rows = _fetch_statement_rows(api_key, corp_code, target_year, fs_div)
+            except Exception as exc:
+                return {"ok": False, "reason": f"request failed: {exc}", "stock_code": stock_code}
+            if not rows:
+                continue
+            metrics = _statement_metrics(rows)
+            account_rows = []
+            for row in rows:
+                sj_nm = str(row.get("sj_nm", "") or "")
+                account_nm = str(row.get("account_nm", "") or "")
+                account_id = str(row.get("account_id", "") or "")
+                if any(keyword in sj_nm + account_nm + account_id for keyword in [
+                    "현금",
+                    "Cash",
+                    "부채",
+                    "Liabilities",
+                    "영업활동",
+                    "OperatingActivities",
+                    "유형자산",
+                    "PropertyPlant",
+                    "무형자산",
+                    "Intangible",
+                ]):
+                    account_rows.append({
+                        "sj_nm": sj_nm,
+                        "account_id": account_id,
+                        "account_nm": account_nm,
+                        "amount_eok": _won_to_eok(row.get("thstrm_amount")),
+                    })
+                if len(account_rows) >= limit:
+                    break
+            return {
+                "ok": True,
+                "stock_code": str(stock_code).split(".")[0].zfill(6),
+                "corp_code": corp_code,
+                "year": target_year,
+                "fs_div": fs_div,
+                "metrics": {k: v for k, v in metrics.items() if not (isinstance(v, float) and pd.isna(v))},
+                "accounts": account_rows,
+            }
+    return {"ok": False, "reason": "no statement rows", "stock_code": stock_code}

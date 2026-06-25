@@ -105,7 +105,7 @@ def normalize_price_source(source: str, is_kr: bool) -> str:
     if source in ["regularMarketPrice", "currentPrice", "fast_info.last_price"]:
         return "정규장/실시간"
     if source == "daily_close":
-        return "정규장 종가" if is_kr else "일봉 종가"
+        return "NXT 미확인" if is_kr else "일봉 종가"
     return source or "확인 필요"
 
 def _get_us_10y_yield():
