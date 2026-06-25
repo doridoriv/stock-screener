@@ -383,6 +383,10 @@ if st.session_state.data:
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
+    center_cols = [c for c in ["순위", "종합점수", "등급"] if c in df_display.columns]
+    if center_cols:
+        styled_df = styled_df.set_properties(subset=center_cols, **{"text-align": "center"})
+
     # --- [Streamlit Native Column Config] ---
     # 문자/숫자에 따라 컬럼 정렬(오른쪽/왼쪽) 및 포맷 단위(원, $, %, 억 등)를
     # 데이터 타입을 보존하면서 브라우저가 자동 너비 조절하도록 설정
