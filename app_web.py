@@ -9,8 +9,10 @@ import market_analyzer
 import supplemental_data
 from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
+MARKET_PANEL_CACHE_VERSION = 2
+
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
-def get_cached_market_panel():
+def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
     return market_analyzer.build_market_panel()
 
 # ==========================================
@@ -153,20 +155,64 @@ try:
             "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담"
         )
 
+    def format_market_value(label, value):
+        if value is None or pd.isna(value):
+            return "-"
+        if label == "미국10년물":
+            return f"{float(value):.2f}%"
+        if label == "달러인덱스":
+            return f"{float(value):.1f}"
+        if float(value) >= 100:
+            return f"{float(value):,.1f}"
+        return f"{float(value):.2f}"
+
+    def format_market_pct(value):
+        if value is None or pd.isna(value):
+            return "-"
+        return f"{float(value):+.2f}%"
+
+    def market_meaning(label, score):
+        if score is None or pd.isna(score):
+            return "판단 보류"
+        favorable = float(score) >= 65
+        neutral = 50 <= float(score) < 65
+        if label == "나스닥":
+            return "성장주 위험선호 양호" if favorable else "성장주 방향성 제한" if neutral else "성장주 투자심리 부담"
+        if label == "반도체":
+            return "반도체 종목에 우호적" if favorable else "반도체 모멘텀 중립" if neutral else "반도체 종목에 부담"
+        if label == "S&P500":
+            return "미국 대형주 흐름 양호" if favorable else "대형주 흐름 중립" if neutral else "대형주 시장 체력 약함"
+        if label == "금융":
+            return "금융주 수급 우호" if favorable else "금융주 방향성 중립" if neutral else "금융주 수급 부담"
+        if label == "장기채":
+            return "금리 부담 완화 신호" if favorable else "금리 부담 중립" if neutral else "금리 상승 부담"
+        if label == "달러인덱스":
+            return "달러 약세로 수급 부담 완화" if favorable else "달러 영향 중립" if neutral else "달러 강세로 외국인 수급 부담"
+        if label == "미국10년물":
+            return "고PER 할인 부담 완화" if favorable else "밸류에이션 부담 중립" if neutral else "고PER 종목 할인 요인"
+        return "시장환경 참고 지표"
+
+    def evidence_display_row(row):
+        label = row.get("label")
+        score = row.get("risk_score")
+        weight = row.get("weight") or 0
+        total_weight = market_data.get("total_weight") or 100
+        score_impact = row.get("score_impact")
+        if score_impact is None and score is not None:
+            score_impact = round((float(score) - 50) * float(weight) / float(total_weight), 1)
+        return {
+            "항목": label,
+            "현재값": row.get("latest_text") or format_market_value(label, row.get("latest")),
+            "20일": row.get("ret20_text") or format_market_pct(row.get("ret20")),
+            "60일": row.get("ret60_text") or format_market_pct(row.get("ret60")),
+            "평가": row.get("effect") or "-",
+            "점수영향": f"{score_impact:+.1f}" if score_impact is not None else "-",
+            "의미": row.get("meaning") or market_meaning(label, score),
+        }
+
     evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
     if evidence_rows:
-        evidence_df = pd.DataFrame([
-            {
-                "항목": row.get("label"),
-                "현재값": row.get("latest_text"),
-                "20일": row.get("ret20_text"),
-                "60일": row.get("ret60_text"),
-                "평가": row.get("effect"),
-                "점수영향": f"{row.get('score_impact'):+.1f}" if row.get("score_impact") is not None else None,
-                "의미": row.get("meaning"),
-            }
-            for row in evidence_rows
-        ])
+        evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
         st.caption("시장환경 근거표")
         st.dataframe(
             evidence_df,
