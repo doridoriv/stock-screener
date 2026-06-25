@@ -690,9 +690,22 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         # 2. 명단 추출
         app_queue.put({"type": "progress", "value": 10, "text": "시총 명단 로드 중..."})
         tickers_info = []
+        kr_nxt_prices = {}
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             market_type = "KOSDAQ" if market == "한국(코스닥)" else "KOSPI"
-            df_kr = fdr.StockListing(market_type).dropna(subset=["Marcap"]).sort_values(by="Marcap", ascending=False).head(top_n)
+            try:
+                kr_nxt_prices = nxt_client.fetch_nxt_latest_prices()
+            except Exception as e:
+                raise RuntimeError(f"NXT latest price fetch failed for Korean market: {e}")
+            if not kr_nxt_prices:
+                raise RuntimeError("NXT latest price data is empty; Korean screening requires NXT prices.")
+
+            df_kr = fdr.StockListing(market_type).dropna(subset=["Marcap"]).copy()
+            df_kr["Code"] = df_kr["Code"].astype(str).str.zfill(6)
+            df_kr = df_kr[df_kr["Code"].isin(kr_nxt_prices.keys())]
+            df_kr = df_kr.sort_values(by="Marcap", ascending=False).head(top_n)
+            if len(df_kr) < top_n:
+                raise RuntimeError(f"NXT-covered {market_type} universe has only {len(df_kr)} rows; expected {top_n}.")
             for idx, r in df_kr.iterrows():
                 code = str(r["Code"]).zfill(6)
                 tickers_info.append({
@@ -718,17 +731,13 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         price_sources = pd.Series("daily_close", index=current_prices.index)
         price_times = pd.Series(datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"), index=current_prices.index)
         if is_kr_market:
-            try:
-                nxt_prices = nxt_client.fetch_nxt_latest_prices()
-            except Exception as e:
-                print(f"[WARN] NXT latest price fetch failed: {e}")
-                nxt_prices = {}
+            nxt_prices = kr_nxt_prices or nxt_client.fetch_nxt_latest_prices()
 
             for sym in yf_symbols:
                 clean_sym = str(sym).split(".")[0].zfill(6)
                 nxt_price = nxt_prices.get(clean_sym)
                 if not nxt_price:
-                    continue
+                    raise RuntimeError(f"NXT latest price missing for selected Korean symbol: {clean_sym}")
                 latest_price = nxt_price.get("price")
                 if pd.notna(latest_price):
                     current_prices.loc[sym] = latest_price
