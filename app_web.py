@@ -29,11 +29,16 @@ if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "collapsed"
 
 # 시장 교체 시 캐시 데이터를 자동 로드하여 사용자 편의성 제공
-def handle_market_change():
-    market = st.session_state.selected_market
+def get_market_text(market=None):
+    market = market or st.session_state.selected_market
     market_text = "코스피" if market in ["한국(코스피)", "한국"] else "코스닥" if market == "한국(코스닥)" else "미국"
+    return market_text
+
+
+def load_cached_market_data():
+    market_text = get_market_text()
     cache_file = analyzer.find_latest_valid_cache(market_text)
-    
+
     if cache_file and os.path.exists(cache_file):
         try:
             df_cached = pd.read_csv(cache_file)
@@ -47,6 +52,40 @@ def handle_market_change():
             st.session_state.data = []
     else:
         st.session_state.data = []
+
+
+def get_cache_status():
+    market_text = get_market_text()
+    cache_file = analyzer.find_latest_valid_cache(market_text)
+    if not cache_file or not os.path.exists(cache_file):
+        return None
+    try:
+        df = pd.read_csv(cache_file)
+    except Exception:
+        return None
+    if df.empty:
+        return None
+
+    data_date = df["data_date"].dropna().iloc[0] if "data_date" in df.columns and df["data_date"].notna().any() else "미지정"
+    price_basis = "미지정"
+    if "price_basis" in df.columns:
+        counts = df["price_basis"].dropna().astype(str).value_counts()
+        if not counts.empty:
+            price_basis = " / ".join([f"{idx} {val}" for idx, val in counts.items()])
+    price_time = df["price_time"].dropna().iloc[0] if "price_time" in df.columns and df["price_time"].notna().any() else "미지정"
+    file_time = datetime.fromtimestamp(os.path.getmtime(cache_file)).strftime("%Y-%m-%d %H:%M")
+    return {
+        "data_date": data_date,
+        "price_basis": price_basis,
+        "price_time": price_time,
+        "file_time": file_time,
+        "cache_file": cache_file,
+    }
+
+
+def handle_market_change():
+    load_cached_market_data()
+
 
 # 스타트업 시 기본 캐시 자동 로딩
 if "data" not in st.session_state:
@@ -78,28 +117,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 브릿지 클래스 (진행률 상태 표시용)
-# ==========================================
-class StreamlitQueue:
-    def __init__(self, progress_bar):
-        self.progress_bar = progress_bar
-        self.data = []
-        
-    def put(self, item):
-        if item["type"] == "progress":
-            val = max(0, min(100, item["value"]))
-            self.progress_bar.progress(val, text=item.get("text", "데이터 고속 수집 중..."))
-        elif item["type"] == "data":
-            self.data = item["data"]
-
-# ==========================================
 # 4. 좌측 사이드바 컨트롤 패널
 # ==========================================
 with st.sidebar:
     st.title("📊 장기 투자 스크리너")
     st.caption("2046년 은퇴를 향한 우상향 마라톤")
     st.divider()
-    st.info("💡 모든 시장 분석 및 데이터 갱신 기능은 메인 화면 상단의 컨트롤 패널을 이용해 주세요. 사이드바는 더 넓은 화면을 위해 자동으로 닫힙니다.")
+    st.info("💡 데이터 수집은 GitHub Actions 스케줄 또는 Run workflow에서만 실행됩니다. 앱에서는 저장된 캐시를 읽고 새로고침합니다.")
 
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
@@ -122,17 +146,15 @@ try:
     with col_m2:
         st.info(f"**상태:** {state_color}  |  **요약:** {market_data['summary']}")
         
-    # 데이터 신선도 및 갱신 상태 힌트 표시
-    market_text = "코스피" if st.session_state.selected_market in ["한국(코스피)", "한국"] else "코스닥" if st.session_state.selected_market == "한국(코스닥)" else "미국"
-    cache_file = analyzer.find_latest_valid_cache(market_text)
-    if cache_file and os.path.exists(cache_file):
-        mtime = datetime.fromtimestamp(os.path.getmtime(cache_file)).strftime("%Y-%m-%d %H:%M")
-        try:
-            temp_df = pd.read_csv(cache_file, nrows=1)
-            data_date = temp_df['data_date'].iloc[0] if 'data_date' in temp_df.columns else "미지정"
-        except:
-            data_date = "미지정"
-        st.caption(f"ℹ️ **데이터 기준 영업일**: `{data_date}` | **로컬 파일 최종 동기화 시각**: `{mtime}` | **상태**: 🟢 안정적인 로컬 데이터베이스 캐시 사용 중")
+    # 데이터 신선도 및 가격 기준 표시
+    cache_status = get_cache_status()
+    if cache_status:
+        st.caption(
+            f"ℹ️ **최근 데이터 기준일**: `{cache_status['data_date']}` | "
+            f"**가격 기준**: `{cache_status['price_basis']}` | "
+            f"**수집 시각**: `{cache_status['price_time']}` | "
+            f"**캐시 동기화**: `{cache_status['file_time']}`"
+        )
 except Exception as e:
     st.error(f"시장 분석 패널 로드 오류: {e}")
 
@@ -153,42 +175,10 @@ with col2:
     st.metric("🔍 탐색 종목 수", f"{FIXED_TOP_N}개 고정")
 
 with col3:
-    market_text = "코스피" if st.session_state.selected_market in ["한국(코스피)", "한국"] else "코스닥" if st.session_state.selected_market == "한국(코스닥)" else "미국"
-    cache_file = analyzer.find_latest_valid_cache(market_text)
-    
-    button_label = "🚀 종목 분석 시작"
-    if cache_file and os.path.exists(cache_file):
-        button_label = "🔄 데이터 강제 갱신"
-        
-    if st.button(button_label, width="stretch", type="primary"):
-        progress_bar = st.progress(0, text="엔진 예열 중...")
-        st_queue = StreamlitQueue(progress_bar)
-        
-        try:
-            # 안전제일 수집 엔진 기동 (force_scrape=True로 강제 분석 실행)
-            analyzer.screening_worker(
-                market=st.session_state.selected_market,
-                top_n=FIXED_TOP_N,
-                app_queue=st_queue,
-                stop_requested_func=lambda: False,
-                opt_fundamental=True,
-                opt_peak=True,
-                us_market_cap_data=analyzer.load_us_market_cap_cache(),
-                force_scrape=True
-            )
-            
-            # 수집 완료 후 데이터를 세션에 저장
-            if st_queue.data:
-                st.session_state.data = st_queue.data
-                st.session_state.sidebar_state = "collapsed"
-                st.rerun()
-            else:
-                progress_bar.empty()
-                st.warning("⚠️ 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.")
-            
-        except Exception as e:
-            progress_bar.empty()
-            st.error(f"🚨 엔진 오류 발생: {e}")
+    if st.button("🔄 캐시 새로고침", width="stretch", type="secondary"):
+        get_cached_market_panel.clear()
+        load_cached_market_data()
+        st.rerun()
 
 st.divider()
 
@@ -349,4 +339,4 @@ if st.session_state.data:
         st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
 
 else:
-    st.info("💡 위 컨트롤 패널에서 시장 및 분석 개수를 선택하고 [🚀 종목 분석 시작] 버튼을 눌러주세요.")
+    st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")
