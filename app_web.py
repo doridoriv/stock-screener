@@ -491,9 +491,15 @@ if st.session_state.data:
     selected_row = df[df["symbol"] == st.session_state.selected_symbol].iloc[0].to_dict()
 
     headline, reason_rows = diagnostics.diagnose_why_not_rising(selected_row)
+    completeness = diagnostics.data_completeness(selected_row)
     st.info(f"**진단 요약:** {headline}")
+    st.caption(
+        f"데이터 완성도: `{completeness['score']}%` "
+        f"({completeness['available_count']}/{completeness['total_count']})"
+        f" | 부족: `{completeness['summary']}`"
+    )
 
-    tab_review, tab_missing, tab_reasons = st.tabs(["확인한 항목", "부족한 데이터", "안 오르는 이유"])
+    tab_review, tab_missing, tab_reasons, tab_market = st.tabs(["확인한 항목", "부족한 데이터", "안 오르는 이유", "시장환경 연결"])
     with tab_review:
         st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
     with tab_missing:
@@ -502,6 +508,8 @@ if st.session_state.data:
         st.caption(f"차단 위험 없이 보강하려면 공식/유료 데이터 또는 직접 받은 CSV를 `{supplemental_data.SUPPLEMENTAL_FILE}`에 채우면 다음 수집 때 자동 병합됩니다.")
     with tab_reasons:
         st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
+    with tab_market:
+        st.dataframe(pd.DataFrame(diagnostics.market_context_review(market_data)), width="stretch", hide_index=True)
 
 else:
     st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")

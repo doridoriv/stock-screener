@@ -202,6 +202,65 @@ def missing_data_review(row: Dict[str, object]) -> List[Dict[str, str]]:
     return rows
 
 
+def data_completeness(row: Dict[str, object]) -> Dict[str, object]:
+    required = [
+        ("PER", "per"),
+        ("PBR", "pbr"),
+        ("ROE", "roe"),
+        ("EPS성장률", "eps_growth"),
+        ("CAGR", "cagr"),
+        ("PEG", "peg"),
+        ("200일괴리율", "diff"),
+        ("최고점대비", "peak_diff"),
+        ("FCF", "free_cashflow"),
+        ("영업현금흐름", "operating_cashflow"),
+        ("현금", "cash"),
+        ("부채비율", "debt_ratio"),
+    ]
+    available = [label for label, key in required if _has_value(row, key)]
+    missing = [label for label, key in required if not _has_value(row, key)]
+    score = round(len(available) / len(required) * 100, 1) if required else 0.0
+    return {
+        "score": score,
+        "available_count": len(available),
+        "total_count": len(required),
+        "missing": missing,
+        "summary": " / ".join(missing[:4]) if missing else "핵심 데이터 충분",
+    }
+
+
+def market_context_review(market_data: Dict[str, object]) -> List[Dict[str, str]]:
+    if not market_data:
+        return [{"구분": "시장환경", "항목": "미확인", "해석": "시장환경 캐시가 없어 종목 진단과 연결하지 못했습니다."}]
+
+    score = _num(market_data.get("market_score"))
+    state = market_data.get("score_state") or market_data.get("market_state") or "미확인"
+    summary = market_data.get("summary") or "요약 없음"
+    if score is None:
+        effect = "시장환경 점수 미확인"
+    elif score >= 65:
+        effect = "시장 바람이 종목 상승을 도와주는 구간"
+    elif score >= 50:
+        effect = "시장 도움은 제한적이며 종목별 차별화 구간"
+    elif score >= 35:
+        effect = "좋은 회사도 시장 부담으로 주가가 눌릴 수 있음"
+    else:
+        effect = "시장 리스크가 커서 방어 우선 구간"
+
+    return [
+        {
+            "구분": "시장환경",
+            "항목": f"{score:.1f}점 / {state}" if score is not None else state,
+            "해석": effect,
+        },
+        {
+            "구분": "시장환경",
+            "항목": "요약",
+            "해석": summary,
+        },
+    ]
+
+
 def diagnose_why_not_rising(row: Dict[str, object]) -> Tuple[str, List[Dict[str, str]]]:
     reasons = []
     positives = []
