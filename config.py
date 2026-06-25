@@ -93,8 +93,10 @@ TABLE_COLUMNS = [
     
     # 기존 지표 컬럼 배치
     {"id": "market_cap", "text": "시가총액(억)", "anchor": "e"},
-    {"id": "price", "text": "최종가격", "anchor": "e"},
+    {"id": "price", "text": "기준가격", "anchor": "e"},
     {"id": "price_basis", "text": "가격기준", "anchor": "center"},
+    {"id": "after_market_price", "text": "애프터가격", "anchor": "e"},
+    {"id": "after_market_change_pct", "text": "애프터등락률(%)", "anchor": "center"},
     {"id": "price_time", "text": "가격수집시각", "anchor": "center"},
     {"id": "peak", "text": "최고점", "anchor": "e"},
     {"id": "peak_diff", "text": "최고점대비(%)", "anchor": "center"},

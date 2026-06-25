@@ -203,7 +203,8 @@ if st.session_state.data:
     df_renamed = df.rename(columns=col_map)
     
     compact_ids = [
-        "rank", "symbol", "name", "score", "grade", "market_cap", "price", "price_basis", "price_time",
+        "rank", "symbol", "name", "score", "grade", "market_cap", "price", "price_basis",
+        "after_market_price", "after_market_change_pct", "price_time",
         "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff", "data_date"
     ]
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
@@ -211,7 +212,7 @@ if st.session_state.data:
     
     # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
     numeric_ids = ["rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply", 
-                   "market_cap", "price", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
+                   "market_cap", "price", "after_market_price", "after_market_change_pct", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
                    "revenue_growth", "operating_growth", "debt_ratio"]
     numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
     
@@ -276,7 +277,7 @@ if st.session_state.data:
         styled_df = style_method(highlight_score, subset=["종합점수"])
         
     # 색상을 입힐 핵심 지표 컬럼
-    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "최고점대비(%)", "ROE(%)", "매출성장률(%)", "영업이익성장률(%)"] if c in df_display.columns]
+    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "최고점대비(%)", "ROE(%)", "매출성장률(%)", "영업이익성장률(%)", "애프터등락률(%)"] if c in df_display.columns]
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
@@ -296,7 +297,7 @@ if st.session_state.data:
         if actual_col_text not in df_display.columns:
             continue
             
-        if col_id in ["price", "peak", "ma200"]:
+        if col_id in ["price", "peak", "ma200", "after_market_price"]:
             if is_kr:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d원")
             else:
@@ -306,7 +307,7 @@ if st.session_state.data:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d억")
             else:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.1fB")
-        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio"]:
+        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio", "after_market_change_pct"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f")

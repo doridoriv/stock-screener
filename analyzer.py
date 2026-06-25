@@ -730,6 +730,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         is_kr_market = market in ["한국(코스피)", "한국(코스닥)", "한국"]
         price_sources = pd.Series("daily_close", index=current_prices.index)
         price_times = pd.Series(datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"), index=current_prices.index)
+        after_market_prices = pd.Series(np.nan, index=current_prices.index)
+        after_market_change_pct = pd.Series(np.nan, index=current_prices.index)
         if is_kr_market:
             nxt_prices = kr_nxt_prices or nxt_client.fetch_nxt_latest_prices()
 
@@ -745,14 +747,17 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     price_times.loc[sym] = nxt_price.get("time", price_times.loc[sym])
         else:
             for sym in yf_symbols:
-                latest_price, price_source, price_time = fetch_extended_last_price(
+                extended_price, price_source, price_time = fetch_extended_last_price(
                     sym,
                     fallback=current_prices.get(sym, np.nan),
                     allow_extended=True,
                 )
-                if pd.notna(latest_price):
-                    current_prices.loc[sym] = latest_price
-                    price_sources.loc[sym] = price_source
+                if price_source in ["postMarketPrice", "preMarketPrice"] and pd.notna(extended_price):
+                    after_market_prices.loc[sym] = extended_price
+                    regular_close = current_prices.get(sym, np.nan)
+                    if pd.notna(regular_close) and regular_close:
+                        after_market_change_pct.loc[sym] = ((extended_price - regular_close) / regular_close) * 100
+                    price_sources.loc[sym] = "daily_close"
                     price_times.loc[sym] = price_time
 
         price_basis = price_sources.apply(lambda source: normalize_price_source(source, is_kr_market))
@@ -777,7 +782,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             'rsi': rsi,
             'price_source': price_sources,
             'price_basis': price_basis,
-            'price_time': price_times
+            'price_time': price_times,
+            'after_market_price': after_market_prices,
+            'after_market_change_pct': after_market_change_pct
         }).reset_index()
         
         if 'Ticker' in tech_df.columns:
