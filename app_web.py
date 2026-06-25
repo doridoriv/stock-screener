@@ -491,7 +491,10 @@ if st.session_state.data:
     selected_row = df[df["symbol"] == st.session_state.selected_symbol].iloc[0].to_dict()
 
     headline, reason_rows = diagnostics.diagnose_why_not_rising(selected_row)
-    completeness = diagnostics.data_completeness(selected_row)
+    if hasattr(diagnostics, "data_completeness"):
+        completeness = diagnostics.data_completeness(selected_row)
+    else:
+        completeness = {"score": 0, "available_count": 0, "total_count": 0, "summary": "진단 모듈 업데이트 대기"}
     st.info(f"**진단 요약:** {headline}")
     st.caption(
         f"데이터 완성도: `{completeness['score']}%` "
@@ -509,7 +512,15 @@ if st.session_state.data:
     with tab_reasons:
         st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
     with tab_market:
-        st.dataframe(pd.DataFrame(diagnostics.market_context_review(market_data)), width="stretch", hide_index=True)
+        if hasattr(diagnostics, "market_context_review"):
+            market_rows = diagnostics.market_context_review(market_data)
+        else:
+            market_rows = [{
+                "구분": "시장환경",
+                "항목": market_data.get("score_state", market_data.get("market_state", "미확인")),
+                "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
+            }]
+        st.dataframe(pd.DataFrame(market_rows), width="stretch", hide_index=True)
 
 else:
     st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")
