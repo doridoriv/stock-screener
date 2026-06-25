@@ -409,9 +409,21 @@ if st.session_state.data:
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
-    center_cols = [c for c in ["순위", "종합점수", "등급"] if c in df_display.columns]
+    center_cols = [c for c in ["종합점수", "등급", "순위", "티커"] if c in df_display.columns]
     if center_cols:
         styled_df = styled_df.set_properties(subset=center_cols, **{"text-align": "center"})
+
+    header_center_cols = ["기준가격", "현재PER", "ROE(%)", "최고점대비(%)"]
+    header_styles = [
+        {
+            "selector": f"th.col_heading.level0.col{idx}",
+            "props": [("text-align", "center")],
+        }
+        for idx, col_name in enumerate(df_display.columns)
+        if col_name in header_center_cols
+    ]
+    if header_styles:
+        styled_df = styled_df.set_table_styles(header_styles, overwrite=False)
 
     # --- [Streamlit Native Column Config] ---
     # 문자/숫자에 따라 컬럼 정렬(오른쪽/왼쪽) 및 포맷 단위(원, $, %, 억 등)를
