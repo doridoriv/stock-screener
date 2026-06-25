@@ -92,7 +92,7 @@ TABLE_COLUMNS = [
     {"id": "foreign_supply", "text": "외인/기관지분(%)", "anchor": "center"},
     
     # 기존 지표 컬럼 배치
-    {"id": "market_cap", "text": "시가총액(억)", "anchor": "e"},
+    {"id": "market_cap", "text": "시가총액", "anchor": "e"},
     {"id": "price", "text": "기준가격", "anchor": "e"},
     {"id": "price_basis", "text": "가격기준", "anchor": "center"},
     {"id": "after_market_price", "text": "애프터가격", "anchor": "e"},

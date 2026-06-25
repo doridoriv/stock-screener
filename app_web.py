@@ -193,9 +193,10 @@ if st.session_state.data:
     df_renamed = df.rename(columns=col_map)
     
     compact_ids = [
-        "rank", "symbol", "name", "score", "grade", "market_cap", "price", "price_basis",
-        "after_market_price", "after_market_change_pct", "price_time",
-        "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff", "data_date"
+        "rank", "symbol", "name", "score", "grade", "market_cap", "price",
+        "after_market_price", "after_market_change_pct",
+        "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff",
+        "data_date", "price_basis", "price_time"
     ]
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
     df_display = df_renamed[display_cols]
@@ -222,14 +223,25 @@ if st.session_state.data:
         df_display[cagr_col] = pd.to_numeric(df_display[cagr_col], errors='coerce')
     market_cap_col = col_map.get("market_cap")
     
+    def format_market_cap(value):
+        if pd.isna(value):
+            return np.nan
+        try:
+            cap = float(value)
+        except (TypeError, ValueError):
+            return value
+        if is_kr:
+            if cap >= 10000:
+                return f"{cap / 10000:.1f}조"
+            return f"{cap:,.0f}억"
+        if cap >= 1_000_000_000_000:
+            return f"${cap / 1_000_000_000_000:.2f}T"
+        if cap >= 1_000_000_000:
+            return f"${cap / 1_000_000_000:.0f}B"
+        return f"${cap / 1_000_000:.0f}M"
+
     if market_cap_col and market_cap_col in df_display.columns:
-        if not is_kr:
-            # Scale down large USD values to Billions
-            df_display[market_cap_col] = df_display[market_cap_col].apply(
-                lambda x: x / 1000000000 if pd.notna(x) and x > 1000000 else x
-            )
-            # Rename column header for US
-            df_display = df_display.rename(columns={market_cap_col: "시가총액"})
+        df_display[market_cap_col] = df_display[market_cap_col].apply(format_market_cap)
             
     # --- [데이터 프레임 컬러 & 스타일링 로직] ---
     def highlight_grade(val):
@@ -281,9 +293,6 @@ if st.session_state.data:
         col_text = col["text"]
         
         actual_col_text = col_text
-        if col_id == "market_cap" and not is_kr:
-            actual_col_text = "시가총액"
-            
         if actual_col_text not in df_display.columns:
             continue
             
@@ -293,10 +302,7 @@ if st.session_state.data:
             else:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.2f")
         elif col_id == "market_cap":
-            if is_kr:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%,d억")
-            else:
-                col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.1fB")
+            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
         elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio", "after_market_change_pct"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
