@@ -130,9 +130,11 @@ with st.sidebar:
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
-st.header(f"🎯 {st.session_state.selected_market} 핵심 종목 분석 결과")
+st.header(f"🎯 {get_market_text()} 시장 분석 대시보드")
+st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 안 오르는 이유 진단")
 
 # 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
+st.subheader("1단계: 시장환경")
 try:
     market_data = get_cached_market_panel()
     
@@ -237,6 +239,7 @@ except Exception as e:
 st.divider()
 
 # 메인 화면 상단에 3개 컬럼으로 구성된 컨트롤 패널 배치 (사이드바가 닫혀있어도 항상 검색 가능)
+st.subheader("2단계: 좋은 회사 후보 찾기")
 col1, col2, col3 = st.columns([3, 3, 2], vertical_alignment="bottom")
 
 with col1:
@@ -400,7 +403,7 @@ if st.session_state.data:
     st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
 
     st.divider()
-    st.subheader("🔎 2단계: 좋은 회사인데 왜 안 오르지?")
+    st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
 
     symbol_options = {
         f"{row.get('rank', '')}. {row.get('name', row.get('symbol'))} ({row.get('symbol')})": row.get("symbol")
