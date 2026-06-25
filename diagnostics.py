@@ -52,6 +52,81 @@ def _grade_metric(value, good=None, bad=None, lower_is_better=False):
     return "중립"
 
 
+def _metric_result_text(kind: str, row: Dict[str, object]) -> str:
+    if kind == "business":
+        roe = _num(row.get("roe"))
+        revenue = _num(row.get("revenue_growth"))
+        operating = _num(row.get("operating_growth"))
+        parts = []
+        if roe is not None:
+            parts.append("ROE가 높아 자본 효율이 좋음" if roe >= 15 else "ROE가 낮아 높은 밸류를 받기 어려움" if roe < 8 else "ROE는 중립권")
+        if revenue is not None:
+            parts.append("매출 성장으로 외형 확대 확인" if revenue > 0 else "매출 성장 둔화")
+        if operating is not None:
+            parts.append("영업이익 성장으로 이익 레버리지 확인" if operating > 0 else "영업이익 성장 둔화")
+        return " / ".join(parts) if parts else "기업 체력 판단에 필요한 성장성과 자본 효율을 확인"
+
+    if kind == "valuation":
+        per = _num(row.get("per"))
+        hist_per = _num(row.get("hist_per_avg"))
+        pbr = _num(row.get("pbr"))
+        peg = _num(row.get("peg"))
+        parts = []
+        if per is not None and hist_per:
+            gap = (per / hist_per - 1) * 100
+            parts.append(f"PER이 과거평균 대비 {gap:+.1f}%라 기대치 반영 정도를 보여줌")
+        elif per is not None:
+            parts.append("PER이 높을수록 이익 대비 주가 부담이 큼" if per >= 25 else "PER 부담은 상대적으로 제한적")
+        if pbr is not None:
+            parts.append("PBR이 높아 자산 대비 프리미엄이 큼" if pbr >= 5 else "PBR은 자산 대비 부담이 낮은 편")
+        if peg is not None:
+            parts.append("PEG가 1 이하라 성장 대비 가격 부담이 낮음" if 0 < peg <= 1 else "PEG가 높아 성장 대비 가격 부담 확인")
+        return " / ".join(parts) if parts else "현재 주가가 실적 대비 비싼지 판단"
+
+    if kind == "cashflow":
+        fcf = _num(row.get("free_cashflow"))
+        ocf = _num(row.get("operating_cashflow"))
+        if fcf is None and ocf is None:
+            return "현금흐름이 비어 있어 이익의 질을 아직 확정할 수 없음"
+        parts = []
+        if ocf is not None:
+            parts.append("영업현금흐름이 플러스라 본업 현금 창출 확인" if ocf > 0 else "영업현금흐름이 마이너스라 이익의 현금 전환 부담")
+        if fcf is not None:
+            parts.append("FCF가 플러스라 투자 후 남는 현금 확인" if fcf > 0 else "FCF가 마이너스라 성장에도 현금 유출 부담")
+        return " / ".join(parts)
+
+    if kind == "balance":
+        debt = _num(row.get("debt_ratio"))
+        cash = _num(row.get("cash"))
+        net_cash = _num(row.get("net_cash"))
+        parts = []
+        if debt is not None:
+            parts.append("부채비율이 낮아 금리 부담에 비교적 강함" if debt <= 80 else "부채비율이 높아 금리/업황 둔화에 민감" if debt >= 200 else "부채비율은 중립권")
+        if cash is not None:
+            parts.append("현금 보유로 위기 대응 여력 확인" if cash > 0 else "현금 여력 확인 필요")
+        if net_cash is not None:
+            parts.append("순현금 상태라 재무 부담 낮음" if net_cash > 0 else "순차입 상태라 재무 부담 확인 필요")
+        return " / ".join(parts) if parts else "재무 안정성 데이터가 부족해 위기 대응력을 확정하기 어려움"
+
+    if kind == "supply":
+        supply = _num(row.get("foreign_supply"))
+        if supply is None:
+            return "수급 데이터가 부족해 주가 방향성 확인이 어려움"
+        return "외국인/기관 관심이 높은 편이나 순매수 방향 확인이 추가로 필요" if supply >= 10 else "보유율이 낮아 수급 주도 여부는 추가 확인 필요"
+
+    if kind == "technical":
+        diff = _num(row.get("diff"))
+        peak_diff = _num(row.get("peak_diff"))
+        parts = []
+        if diff is not None:
+            parts.append("200일선 위라 중장기 추세가 살아 있음" if diff >= 0 else "200일선 아래라 시장의 추세 확인이 부족")
+        if peak_diff is not None:
+            parts.append("고점과 가까워 모멘텀은 살아 있음" if peak_diff > -10 else "고점 대비 낙폭이 커서 수급 회복 확인 필요")
+        return " / ".join(parts) if parts else "가격 위치로 시장이 해당 종목을 인정하는지 확인"
+
+    return "수치 결과가 주가 판단에 어떤 영향을 주는지 확인"
+
+
 def build_metric_review(row: Dict[str, object]) -> List[Dict[str, str]]:
     per = _num(row.get("per"))
     hist_per = _num(row.get("hist_per_avg"))
@@ -68,37 +143,37 @@ def build_metric_review(row: Dict[str, object]) -> List[Dict[str, str]]:
             "구분": "기업 체력",
             "내가 본 항목": f"ROE {_txt(row.get('roe'), '%')} / 매출성장 {_txt(row.get('revenue_growth'), '%')} / 영업이익성장 {_txt(row.get('operating_growth'), '%')}",
             "현재 평가": _grade_metric(row.get("roe"), good=15, bad=5),
-            "왜 중요함": "자본 효율과 외형/이익 성장의 방향을 같이 확인",
+            "왜 중요함": _metric_result_text("business", row),
         },
         {
             "구분": "밸류에이션",
             "내가 본 항목": f"PER {per_view} / PBR {_txt(row.get('pbr'))} / PEG {_txt(row.get('peg'))}",
             "현재 평가": per_eval,
-            "왜 중요함": "좋은 회사라도 이미 비싸게 평가되면 주가가 쉬어갈 수 있음",
+            "왜 중요함": _metric_result_text("valuation", row),
         },
         {
             "구분": "현금흐름",
             "내가 본 항목": f"FCF {_txt(row.get('free_cashflow'))} / 영업현금흐름 {_txt(row.get('operating_cashflow'))}",
             "현재 평가": _grade_metric(row.get("free_cashflow"), good=0, bad=0),
-            "왜 중요함": "회계상 이익이 실제 현금 창출로 이어지는지 확인",
+            "왜 중요함": _metric_result_text("cashflow", row),
         },
         {
             "구분": "재무 안정성",
             "내가 본 항목": f"부채비율 {_txt(row.get('debt_ratio'), '%')} / 현금 {_txt(row.get('cash'))} / 순현금 {_txt(row.get('net_cash'))}",
             "현재 평가": _grade_metric(row.get("debt_ratio"), good=80, bad=200, lower_is_better=True),
-            "왜 중요함": "금리 상승기와 실적 둔화기에 버틸 체력 확인",
+            "왜 중요함": _metric_result_text("balance", row),
         },
         {
             "구분": "수급",
             "내가 본 항목": f"외인/기관 보유율 {_txt(row.get('foreign_supply'), '%')}",
             "현재 평가": "참고용",
-            "왜 중요함": "현재 값은 보유율 중심이라 순매수/순매도 방향 데이터가 추가로 필요",
+            "왜 중요함": _metric_result_text("supply", row),
         },
         {
             "구분": "기술적 위치",
             "내가 본 항목": f"200일선 괴리 {_txt(row.get('diff'), '%')} / 고점대비 {_txt(row.get('peak_diff'), '%')} / RSI {_txt(row.get('rsi'))}",
             "현재 평가": _grade_metric(row.get("diff"), good=0, bad=-20),
-            "왜 중요함": "좋은 회사라도 시장이 아직 추세 회복을 인정하지 않을 수 있음",
+            "왜 중요함": _metric_result_text("technical", row),
         },
     ]
 

@@ -220,9 +220,20 @@ try:
     evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
     if evidence_rows:
         evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
+        def color_market_evidence(val):
+            text = str(val)
+            if text in ["우호", "매우 우호"] or text.startswith("+"):
+                return "color: #FF4B4B; font-weight: bold;"
+            if text in ["부담", "매우 부담", "비우호"] or text.startswith("-"):
+                return "color: #00BFFF; font-weight: bold;"
+            return ""
+
         st.caption("시장환경 근거표")
+        evidence_style = evidence_df.style
+        evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
+        evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
         st.dataframe(
-            evidence_df,
+            evidence_style,
             width="stretch",
             hide_index=True,
         )
@@ -271,6 +282,7 @@ if st.session_state.data:
     st.session_state.data = df.to_dict(orient="records")
     if "selected_symbol" not in st.session_state and not df.empty:
         st.session_state.selected_symbol = df.iloc[0]["symbol"]
+    is_kr = st.session_state.selected_market.startswith("한국")
     
     # config.py의 TABLE_COLUMNS 기반 한글 컬럼명 매핑
     col_map = {col["id"]: col["text"] for col in TABLE_COLUMNS}
@@ -278,10 +290,11 @@ if st.session_state.data:
     
     compact_ids = [
         "rank", "symbol", "name", "score", "grade", "market_cap", "price",
-        "after_market_price", "after_market_change_pct",
         "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff",
         "data_date", "price_basis", "price_time"
     ]
+    if not is_kr:
+        compact_ids[7:7] = ["after_market_price", "after_market_change_pct"]
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
     df_display = df_renamed[display_cols]
     
@@ -299,8 +312,6 @@ if st.session_state.data:
         if col in df_display.columns:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
             
-    is_kr = st.session_state.selected_market.startswith("한국")
-    
     # CAGR 결측값을 적절히 채우고 수치 타입 명확화
     cagr_col = col_map.get("cagr")
     if cagr_col and cagr_col in df_display.columns:
@@ -404,8 +415,17 @@ if st.session_state.data:
     # --- [최종 화면 렌더링] ---
     # NaN/None 값을 "N/A" 혹은 "-"로 정렬 및 보기 편하도록 포맷팅 지정
     formatted_styled_df = styled_df.format(na_rep="N/A", precision=2)
+    table_title_col, table_action_col = st.columns([6, 1], vertical_alignment="center")
+    with table_title_col:
+        st.caption("종목 스크리닝 결과표")
+    with table_action_col:
+        if st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
+            st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
     # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
     st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
+    if st.session_state.get("show_large_table", False):
+        st.caption("확대 보기")
+        st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
     st.divider()
     st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
