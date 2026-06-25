@@ -438,7 +438,9 @@ if st.session_state.data:
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f")
         elif col_id in ["rank", "score"]:
-            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
+            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text, alignment="center")
+        elif col_id in ["grade", "symbol"]:
+            col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text, alignment="center")
         else:
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
 
