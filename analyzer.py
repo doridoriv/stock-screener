@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import FinanceDataReader as fdr
+import nxt_client
 import opendart_client
 import supplemental_data
 
@@ -95,6 +96,8 @@ def fetch_extended_last_price(symbol: str, fallback=np.nan, allow_extended=True)
 
 def normalize_price_source(source: str, is_kr: bool) -> str:
     source = str(source or "")
+    if source == "nxt_web_latest":
+        return "NXT 체결가"
     if source == "postMarketPrice":
         return "애프터마켓"
     if source == "preMarketPrice":
@@ -714,16 +717,34 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         is_kr_market = market in ["한국(코스피)", "한국(코스닥)", "한국"]
         price_sources = pd.Series("daily_close", index=current_prices.index)
         price_times = pd.Series(datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"), index=current_prices.index)
-        for sym in yf_symbols:
-            latest_price, price_source, price_time = fetch_extended_last_price(
-                sym,
-                fallback=current_prices.get(sym, np.nan),
-                allow_extended=not is_kr_market,
-            )
-            if pd.notna(latest_price):
-                current_prices.loc[sym] = latest_price
-                price_sources.loc[sym] = price_source
-                price_times.loc[sym] = price_time
+        if is_kr_market:
+            try:
+                nxt_prices = nxt_client.fetch_nxt_latest_prices()
+            except Exception as e:
+                print(f"[WARN] NXT latest price fetch failed: {e}")
+                nxt_prices = {}
+
+            for sym in yf_symbols:
+                clean_sym = str(sym).split(".")[0].zfill(6)
+                nxt_price = nxt_prices.get(clean_sym)
+                if not nxt_price:
+                    continue
+                latest_price = nxt_price.get("price")
+                if pd.notna(latest_price):
+                    current_prices.loc[sym] = latest_price
+                    price_sources.loc[sym] = nxt_price.get("source", "nxt_web_latest")
+                    price_times.loc[sym] = nxt_price.get("time", price_times.loc[sym])
+        else:
+            for sym in yf_symbols:
+                latest_price, price_source, price_time = fetch_extended_last_price(
+                    sym,
+                    fallback=current_prices.get(sym, np.nan),
+                    allow_extended=True,
+                )
+                if pd.notna(latest_price):
+                    current_prices.loc[sym] = latest_price
+                    price_sources.loc[sym] = price_source
+                    price_times.loc[sym] = price_time
 
         price_basis = price_sources.apply(lambda source: normalize_price_source(source, is_kr_market))
 
