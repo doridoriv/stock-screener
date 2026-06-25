@@ -238,6 +238,11 @@ if st.session_state.data:
             return f"${cap / 1_000_000_000_000:.2f}T"
         if cap >= 1_000_000_000:
             return f"${cap / 1_000_000_000:.0f}B"
+        # Current US cache stores market cap in billions of dollars.
+        if cap >= 1000:
+            return f"${cap / 1000:.2f}T"
+        if cap >= 1:
+            return f"${cap:.0f}B"
         return f"${cap / 1_000_000:.0f}M"
 
     if market_cap_col and market_cap_col in df_display.columns:
