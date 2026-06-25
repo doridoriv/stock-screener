@@ -139,13 +139,43 @@ try:
         state_color = "🟢 위험선호 (Risk-On)"
     elif market_data["market_state"] == "중립":
         state_color = "🟡 중립 (Neutral)"
-        
+         
     col_m1, col_m2 = st.columns([1, 4])
     with col_m1:
-        st.metric(label="시장 위험 선호도", value=f"{market_data['market_score']}점", delta=market_data["market_state"])
+        st.metric(
+            label="시장환경 점수",
+            value=f"{market_data['market_score']}점",
+            delta=market_data.get("score_state", market_data["market_state"])
+        )
     with col_m2:
-        st.info(f"**상태:** {state_color}  |  **요약:** {market_data['summary']}")
-        
+        st.info(
+            f"**상태:** {state_color}  |  **요약:** {market_data['summary']}  \n"
+            "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담"
+        )
+
+    evidence_rows = market_data.get("evidence_rows") or []
+    if evidence_rows:
+        evidence_df = pd.DataFrame([
+            {
+                "항목": row.get("label"),
+                "현재값": row.get("latest_text"),
+                "20일": row.get("ret20_text"),
+                "60일": row.get("ret60_text"),
+                "평가": row.get("effect"),
+                "점수영향": row.get("score_impact"),
+                "의미": row.get("meaning"),
+            }
+            for row in evidence_rows
+        ])
+        st.dataframe(
+            evidence_df,
+            width="stretch",
+            hide_index=True,
+            column_config={
+                "점수영향": st.column_config.NumberColumn("점수영향", format="%+.1f"),
+            },
+        )
+         
     # 데이터 신선도 및 가격 기준 표시
     cache_status = get_cache_status()
     if cache_status:

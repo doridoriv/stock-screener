@@ -77,6 +77,83 @@ def _risk_score_from_metrics(metrics: Dict[str, float], bullish: bool) -> int:
 
     return int(max(0, min(100, score)))
 
+def _state_from_score(score: float) -> str:
+    if score >= 80:
+        return "매우 우호"
+    if score >= 65:
+        return "우호"
+    if score >= 50:
+        return "중립"
+    if score >= 35:
+        return "부담"
+    return "매우 부담"
+
+def _impact_text(label: str, risk_score: Optional[float]) -> str:
+    if risk_score is None:
+        return "판단 보류"
+    favorable = risk_score >= 65
+    neutral = 50 <= risk_score < 65
+
+    if label == "나스닥":
+        if favorable:
+            return "성장주 위험선호 양호"
+        if neutral:
+            return "성장주 방향성 제한"
+        return "성장주 투자심리 부담"
+    if label == "반도체":
+        if favorable:
+            return "반도체 종목에 우호적"
+        if neutral:
+            return "반도체 모멘텀 중립"
+        return "반도체 종목에 부담"
+    if label == "S&P500":
+        if favorable:
+            return "미국 대형주 흐름 양호"
+        if neutral:
+            return "대형주 흐름 중립"
+        return "대형주 시장 체력 약함"
+    if label == "금융":
+        if favorable:
+            return "금융주 수급 우호"
+        if neutral:
+            return "금융주 방향성 중립"
+        return "금융주 수급 부담"
+    if label == "장기채":
+        if favorable:
+            return "금리 부담 완화 신호"
+        if neutral:
+            return "금리 부담 중립"
+        return "금리 상승 부담"
+    if label == "달러인덱스":
+        if favorable:
+            return "달러 약세로 수급 부담 완화"
+        if neutral:
+            return "달러 영향 중립"
+        return "달러 강세로 외국인 수급 부담"
+    if label == "미국10년물":
+        if favorable:
+            return "고PER 할인 부담 완화"
+        if neutral:
+            return "밸류에이션 부담 중립"
+        return "고PER 종목 할인 요인"
+    return "시장환경 참고 지표"
+
+def _format_latest(label: str, latest: Optional[float]) -> Optional[str]:
+    if latest is None or pd.isna(latest):
+        return None
+    if label == "미국10년물":
+        return f"{latest:.2f}%"
+    if label == "달러인덱스":
+        return f"{latest:.1f}"
+    if latest >= 100:
+        return f"{latest:,.1f}"
+    return f"{latest:.2f}"
+
+def _format_pct(value: Optional[float]) -> Optional[str]:
+    if value is None or pd.isna(value):
+        return None
+    return f"{value:+.2f}%"
+
 def _raw_trend(metrics: Dict[str, float]) -> str:
     latest = metrics["latest"]
     ma20 = metrics["ma20"]
@@ -136,14 +213,16 @@ def build_market_panel() -> Dict[str, object]:
         risk_score = _risk_score_from_metrics(metrics, bullish=item["bullish"])
         raw_trend = _raw_trend(metrics)
 
-        if risk_score >= 70:
-            effect = "우호적"
+        if risk_score >= 65:
+            effect = "우호"
             positive_labels.append(item["label"])
-        elif risk_score <= 30:
-            effect = "비우호적"
+        elif risk_score < 50:
+            effect = "부담"
             negative_labels.append(item["label"])
         else:
             effect = "중립"
+
+        score_impact = round((risk_score - 50) * item["weight"] / total_weight, 1)
 
         if pd.notna(metrics["ret20"]) or pd.notna(metrics["ret60"]):
             used_weight += item["weight"]
@@ -158,6 +237,11 @@ def build_market_panel() -> Dict[str, object]:
             "latest": metrics["latest"],
             "ret20": metrics["ret20"],
             "ret60": metrics["ret60"],
+            "latest_text": _format_latest(item["label"], metrics["latest"]),
+            "ret20_text": _format_pct(metrics["ret20"]),
+            "ret60_text": _format_pct(metrics["ret60"]),
+            "score_impact": score_impact,
+            "meaning": _impact_text(item["label"], risk_score),
             "available": True,
             "weight": item["weight"],
         })
@@ -167,9 +251,9 @@ def build_market_panel() -> Dict[str, object]:
     else:
         market_score = 50.0
 
-    if market_score >= 70:
+    if market_score >= 65:
         market_state = "위험선호"
-    elif market_score >= 55:
+    elif market_score >= 50:
         market_state = "중립"
     else:
         market_state = "위험회피"
@@ -184,21 +268,28 @@ def build_market_panel() -> Dict[str, object]:
     else:
         neg_text = "특정 비우호 신호 미약"
 
+    score_state = _state_from_score(market_score)
     if market_state == "위험선호":
-        summary = f"현재는 위험자산 선호 구간입니다. {pos_text}가 우호적입니다."
+        summary = f"{score_state} 구간입니다. 우호 요인: {pos_text}."
     elif market_state == "중립":
-        summary = f"시장 방향성이 혼재되어 있습니다. {pos_text} / {neg_text}를 함께 봐야 합니다."
+        summary = f"{score_state} 구간입니다. 우호 요인: {pos_text}. 부담 요인: {neg_text}."
     else:
-        summary = f"현재는 방어 성향이 우세합니다. {neg_text}가 부담 요인입니다."
+        summary = f"{score_state} 구간입니다. 부담 요인: {neg_text}."
 
     confidence = round((sum(1 for r in rows if r["available"]) / len(rows)) * 100, 1) if rows else 0.0
+    evidence_rows = sorted(
+        [r for r in rows if r.get("available")],
+        key=lambda r: (r.get("score_impact", 0) < 0, -abs(r.get("score_impact", 0)))
+    )
 
     return {
         "market_score": market_score,
         "market_state": market_state,
+        "score_state": score_state,
         "summary": summary,
         "confidence": confidence,
         "rows": rows,
+        "evidence_rows": evidence_rows,
         "total_weight": total_weight,
         "used_weight": used_weight,
     }
