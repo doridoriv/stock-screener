@@ -13,6 +13,9 @@ MARKET_PANEL_CACHE_VERSION = 2
 
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
+    cached_panel = market_analyzer.load_market_panel_cache()
+    if cached_panel:
+        return cached_panel
     return market_analyzer.build_market_panel()
 
 # ==========================================
@@ -152,9 +155,11 @@ try:
             delta=market_data.get("score_state", market_data["market_state"])
         )
     with col_m2:
+        source_text = market_data.get("collected_at", "미지정")
         st.info(
             f"**상태:** {state_color}  |  **요약:** {market_data['summary']}  \n"
-            "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담"
+            "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담  \n"
+            f"**시장환경 수집시각:** `{source_text}`"
         )
 
     def format_market_value(label, value):

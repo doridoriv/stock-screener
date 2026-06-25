@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
+
+from config import CACHE_DIR
 
 # 시장판은 "가져온 데이터가 있으면 최대한 표시"를 목표로 한다.
 # 핵심은 강세/약세를 절대값이 아니라 위험선호(risk-on) 방향으로 해석하는 것.
@@ -17,6 +23,8 @@ INDICATORS = [
     {"label": "달러인덱스", "symbol": "DX-Y.NYB", "bullish": False, "weight": 10, "group": "macro"},
     {"label": "미국10년물", "symbol": "^TNX", "bullish": False, "weight": 5, "group": "macro"},
 ]
+
+MARKET_CONTEXT_CACHE_FILE = os.path.join(CACHE_DIR, "market_context_latest.json")
 
 def _download_close(symbol: str, period: str = "9mo") -> Optional[pd.Series]:
     try:
@@ -292,4 +300,22 @@ def build_market_panel() -> Dict[str, object]:
         "evidence_rows": evidence_rows,
         "total_weight": total_weight,
         "used_weight": used_weight,
+        "collected_at": datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"),
+        "source": "yfinance",
     }
+
+def save_market_panel_cache(path: str = MARKET_CONTEXT_CACHE_FILE) -> Dict[str, object]:
+    panel = build_market_panel()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(panel, f, ensure_ascii=False, indent=2, allow_nan=False)
+    return panel
+
+def load_market_panel_cache(path: str = MARKET_CONTEXT_CACHE_FILE) -> Optional[Dict[str, object]]:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None

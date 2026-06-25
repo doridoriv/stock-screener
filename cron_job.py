@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 
 import analyzer
+import market_analyzer
 from config import CACHE_DIR, FIXED_TOP_N
 
 def run_auto_screening(market, top_n=FIXED_TOP_N):
@@ -79,7 +80,17 @@ if __name__ == "__main__":
         run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N)
     if scope in ["ALL", "US", "USA"]:
         run_auto_screening("미국", top_n=FIXED_TOP_N)
-    
+
+    try:
+        panel = market_analyzer.save_market_panel_cache()
+        print(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[OK] 시장환경 캐시 저장 완료: {market_analyzer.MARKET_CONTEXT_CACHE_FILE} "
+            f"({panel.get('market_score')}점 / {panel.get('score_state')})"
+        )
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [WARN] 시장환경 캐시 저장 실패: {e}")
+     
     print("=========================================================")
     print(f"> 모든 시장의 배치가 안전하게 완료되었습니다.")
     print("=========================================================")
