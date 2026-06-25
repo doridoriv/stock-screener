@@ -301,18 +301,18 @@ if st.session_state.data:
     # config.py의 TABLE_COLUMNS 기반 한글 컬럼명 매핑
     col_map = {col["id"]: col["text"] for col in TABLE_COLUMNS}
     df_renamed = df.rename(columns=col_map)
-    
+     
     full_ids = [
-        "rank", "symbol", "name", "score", "grade", "market_cap", "price",
+        "name", "market_cap", "price",
         "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff",
-        "data_date", "price_basis", "price_time"
+        "data_date", "price_basis", "price_time", "grade", "rank", "symbol"
     ]
     if not is_kr:
-        full_ids[7:7] = ["after_market_price", "after_market_change_pct"]
+        full_ids[3:3] = ["after_market_price", "after_market_change_pct"]
 
-    core_ids = ["rank", "symbol", "name", "score", "grade", "market_cap", "price", "per", "roe", "peak_diff"]
+    core_ids = ["name", "market_cap", "price", "per", "roe", "peak_diff", "score", "grade", "rank", "symbol"]
     if not is_kr:
-        core_ids.insert(7, "after_market_change_pct")
+        core_ids.insert(3, "after_market_change_pct")
 
     compact_ids = core_ids if st.session_state.table_view_mode == "핵심만" else full_ids
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
