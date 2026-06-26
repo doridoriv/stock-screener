@@ -188,30 +188,119 @@ def metric_explanation(label, row, value):
         hist_per = clean_number(row.get("hist_per_avg"))
         if number is not None and hist_per is not None and hist_per > 0:
             gap = (number / hist_per - 1) * 100
-            direction = "낮습니다" if gap < 0 else "높습니다"
-            return f"과거 평균 PER {hist_per:.2f}보다 {abs(gap):.1f}% {direction}. 이익 대비 현재 가격 부담을 보는 지표입니다."
-        return "PER은 이익 대비 주가가 비싼지 보는 지표입니다. 낮을수록 가격 부담이 작을 가능성이 있습니다."
+            if gap <= -20:
+                return f"현재 PER {number:.2f}는 과거 평균 {hist_per:.2f}보다 {abs(gap):.1f}% 낮습니다. 같은 이익을 내는 회사가 예전보다 싸게 거래되는 상태라 가격 매력이 있습니다."
+            if gap >= 20:
+                return f"현재 PER {number:.2f}는 과거 평균 {hist_per:.2f}보다 {gap:.1f}% 높습니다. 이미 기대가 많이 반영됐을 수 있어 실적 성장 확인이 필요합니다."
+            return f"현재 PER {number:.2f}는 과거 평균 {hist_per:.2f}와 큰 차이가 없습니다. 싸다/비싸다보다 다른 지표와 함께 봐야 합니다."
+        if number is not None:
+            if number <= 12:
+                return f"PER {number:.2f}는 이익 대비 가격 부담이 낮은 편입니다. 다만 실적이 일시적으로 좋아진 착시인지 확인해야 합니다."
+            if number >= 25:
+                return f"PER {number:.2f}는 이익 대비 비싼 편입니다. 앞으로 이익이 빠르게 늘어야 현재 가격이 정당화됩니다."
+            return f"PER {number:.2f}는 중간 구간입니다. 가격 하나만으로 결론내리기보다 ROE와 성장률을 같이 보세요."
+        return "PER 데이터가 없습니다. 가격이 싼지 비싼지 판단하려면 최근 이익 데이터 보강이 필요합니다."
     if label == "ROE":
         if number is not None:
-            return "자기자본 대비 수익성이 우수한 편입니다." if number >= 15 else "자기자본 대비 수익성이 낮아 품질 확인이 필요합니다." if number < 8 else "자기자본 대비 수익성은 중간 수준입니다."
-        return "ROE는 회사가 자기자본으로 얼마나 효율적으로 이익을 내는지 보여줍니다."
+            if number >= 15:
+                return f"ROE {number:.2f}%는 자기자본으로 돈을 잘 버는 편입니다. 좋은 기업 후보로 볼 수 있지만, 이 수익성이 계속 유지되는지가 중요합니다."
+            if number < 8:
+                return f"ROE {number:.2f}%는 수익성이 약한 편입니다. 주가가 싸 보여도 기업 품질 때문에 할인받는 것일 수 있습니다."
+            return f"ROE {number:.2f}%는 보통 수준입니다. 가격 매력이나 성장성이 같이 좋아야 후보로 보기 쉽습니다."
+        return "ROE 데이터가 없습니다. 기업이 자본을 얼마나 효율적으로 쓰는지 판단하려면 이 값이 필요합니다."
     if label == "PBR":
-        return "PBR은 자산가치 대비 주가 수준입니다. 낮을수록 자산 대비 가격 부담이 작을 수 있습니다."
+        if number is not None:
+            if number <= 1:
+                return f"PBR {number:.2f}는 장부가치보다 낮거나 비슷한 가격입니다. 자산 대비 싸 보이지만, 시장이 성장성을 낮게 보는 이유도 확인해야 합니다."
+            if number >= 3:
+                return f"PBR {number:.2f}는 자산가치 대비 프리미엄이 큽니다. 높은 ROE나 강한 성장성이 뒷받침되어야 부담이 줄어듭니다."
+            return f"PBR {number:.2f}는 과도하게 싸거나 비싸다고 단정하기 어려운 구간입니다. ROE와 함께 봐야 합니다."
+        return "PBR 데이터가 없습니다. 자산가치 대비 주가 부담을 판단하려면 보강이 필요합니다."
     if label == "PEG":
-        return "PEG는 성장률을 감안한 PER입니다. 1 이하이면 성장 대비 가격 부담이 낮게 해석될 수 있습니다."
+        if number is not None:
+            if 0 < number <= 1:
+                return f"PEG {number:.2f}는 성장률을 감안하면 가격 부담이 낮은 편입니다. 성장 전망이 실제로 유지되는지가 핵심입니다."
+            if number > 2:
+                return f"PEG {number:.2f}는 성장 대비 가격이 비싼 편입니다. 실적 기대가 꺾이면 주가 부담이 커질 수 있습니다."
+            return f"PEG {number:.2f}는 중립 구간입니다. PER만 볼 때보다 성장성을 어느 정도 반영한 상태입니다."
+        return "PEG 데이터가 없습니다. 성장률을 감안한 가격 매력을 판단하기 어렵습니다."
     if label == "EPS성장률":
-        return "EPS성장률은 주당순이익이 얼마나 빠르게 늘고 있는지 보여줍니다."
+        if number is not None:
+            if number >= 20:
+                return f"EPS성장률 {number:.2f}%는 이익 증가 속도가 빠른 편입니다. 높은 가격도 일부 정당화될 수 있습니다."
+            if number < 0:
+                return f"EPS성장률 {number:.2f}%는 이익이 줄고 있다는 뜻입니다. 싼 주식처럼 보여도 실적 둔화 리스크가 있습니다."
+            return f"EPS성장률 {number:.2f}%는 완만한 성장 구간입니다. 가격이 비싸지 않은지 같이 확인하세요."
+        return "EPS성장률 데이터가 없습니다. 이익이 늘고 있는지 줄고 있는지 확인이 필요합니다."
     if label == "CAGR":
-        return "CAGR은 일정 기간 동안의 연평균 성장률입니다."
+        if number is not None:
+            if number >= 15:
+                return f"CAGR {number:.2f}%는 장기 성장 흐름이 좋은 편입니다. 단기 반짝 성장보다 신뢰도가 높습니다."
+            if number <= 0:
+                return f"CAGR {number:.2f}%는 장기 성장 흐름이 약합니다. 저평가보다 성장 정체 가능성을 먼저 확인하세요."
+            return f"CAGR {number:.2f}%는 완만한 성장입니다. 안정성은 있지만 강한 재평가 동력은 제한적일 수 있습니다."
+        return "CAGR 데이터가 없습니다. 장기 성장 흐름을 판단하려면 보강이 필요합니다."
+    if label == "매출성장률":
+        if number is not None:
+            if number > 10:
+                return f"매출성장률 {number:.2f}%는 외형이 잘 커지고 있다는 뜻입니다. 이 성장이 이익 증가로 이어지는지 확인하면 좋습니다."
+            if number < 0:
+                return f"매출성장률 {number:.2f}%는 매출이 줄고 있다는 뜻입니다. 업황 둔화나 경쟁력 약화 가능성을 봐야 합니다."
+            return f"매출성장률 {number:.2f}%는 크지 않은 편입니다. 안정적이지만 강한 성장주는 아닐 수 있습니다."
+        return "매출성장률 데이터가 없습니다. 회사 규모가 실제로 커지고 있는지 확인하기 어렵습니다."
+    if label == "영업이익성장률":
+        if number is not None:
+            if number > 15:
+                return f"영업이익성장률 {number:.2f}%는 본업 이익이 빠르게 늘고 있다는 뜻입니다. 매출보다 이익이 더 잘 늘면 품질이 좋아집니다."
+            if number < 0:
+                return f"영업이익성장률 {number:.2f}%는 본업 이익이 줄고 있다는 뜻입니다. 비용 증가나 업황 악화를 확인해야 합니다."
+            return f"영업이익성장률 {number:.2f}%는 보통 수준입니다. 이익률이 유지되는지 같이 보면 좋습니다."
+        return "영업이익성장률 데이터가 없습니다. 본업 수익성이 좋아지는지 판단하기 어렵습니다."
     if label == "부채비율":
-        return "부채비율은 재무 부담을 보는 지표입니다. 너무 높으면 금리나 업황 둔화에 민감할 수 있습니다."
+        if number is not None:
+            if number <= 80:
+                return f"부채비율 {number:.2f}%는 재무 부담이 낮은 편입니다. 금리 상승이나 경기 둔화에도 버틸 여지가 비교적 있습니다."
+            if number >= 200:
+                return f"부채비율 {number:.2f}%는 높은 편입니다. 이자비용과 차환 부담 때문에 업황이 나빠질 때 리스크가 커질 수 있습니다."
+            return f"부채비율 {number:.2f}%는 중간 구간입니다. 현금 보유와 영업현금흐름을 함께 확인하세요."
+        return "부채비율 데이터가 없습니다. 재무 안전성을 판단하려면 보강이 필요합니다."
     if label == "외인/기관지분":
-        return "외국인과 기관의 관심도를 참고하는 수급 지표입니다. 방향성은 순매수 데이터와 함께 봐야 합니다."
+        if number is not None:
+            if number >= 15:
+                return f"외인/기관지분 {number:.2f}%는 전문 투자자 관심이 있는 편입니다. 다만 최근에 사고 있는지, 팔고 있는지가 더 중요합니다."
+            if number < 5:
+                return f"외인/기관지분 {number:.2f}%는 관심이 낮은 편입니다. 주가를 밀어 올릴 수급 동력이 약할 수 있습니다."
+            return f"외인/기관지분 {number:.2f}%는 보통 수준입니다. 최근 순매수 방향을 추가로 확인하세요."
+        return "수급 데이터가 없습니다. 외국인과 기관의 관심도를 판단하기 어렵습니다."
     if label == "200일괴리율":
-        return "200일선 대비 현재 가격 위치입니다. 중장기 추세가 살아 있는지 확인하는 데 씁니다."
+        if number is not None:
+            if number >= 0:
+                return f"200일괴리율 {number:.2f}%는 주가가 장기 평균선 위에 있다는 뜻입니다. 시장이 아직 추세를 인정하고 있습니다."
+            if number <= -20:
+                return f"200일괴리율 {number:.2f}%는 장기 평균선보다 많이 낮습니다. 싸 보일 수 있지만 추세 회복 확인이 필요합니다."
+            return f"200일괴리율 {number:.2f}%는 장기 평균선 아래지만 낙폭은 제한적입니다. 반등 여부를 관찰할 구간입니다."
+        return "200일괴리율 데이터가 없습니다. 중장기 추세를 판단하기 어렵습니다."
     if label == "최고점대비":
-        return "최근 최고점에서 얼마나 내려왔는지 보여줍니다. 낙폭과 회복 여지를 함께 봅니다."
-    return "이 지표가 투자 판단에 어떤 의미인지 확인하는 설명입니다."
+        if number is not None:
+            if number <= -30:
+                return f"최고점대비 {number:.2f}%는 고점에서 많이 내려온 상태입니다. 반등 여지는 있지만 하락 이유가 해소됐는지 확인해야 합니다."
+            if number > -10:
+                return f"최고점대비 {number:.2f}%는 고점과 가깝습니다. 모멘텀은 살아 있지만 추격 매수 부담도 있습니다."
+            return f"최고점대비 {number:.2f}%는 적당히 조정받은 상태입니다. 가격 매력과 추세를 함께 볼 구간입니다."
+        return "최고점대비 데이터가 없습니다. 현재 가격 위치를 판단하기 어렵습니다."
+    if label == "RSI":
+        if number is not None:
+            if number >= 70:
+                return f"RSI {number:.2f}는 단기 과열 구간입니다. 좋은 종목이어도 진입 타이밍은 신중할 필요가 있습니다."
+            if number <= 30:
+                return f"RSI {number:.2f}는 단기 침체 구간입니다. 반등 후보가 될 수 있지만 하락 원인을 먼저 확인하세요."
+            return f"RSI {number:.2f}는 과열도 침체도 아닌 중립 구간입니다. 단기 타이밍보다 기업 지표를 더 봐야 합니다."
+        return "RSI 데이터가 없습니다. 단기 과열/침체 판단은 어렵습니다."
+    if label == "데이터기준일":
+        return f"이 종목 판단에 사용한 데이터 기준일은 {value}입니다. 오래된 데이터라면 최신 실적과 가격으로 다시 확인해야 합니다."
+    if label == "가격기준":
+        return f"현재 가격 기준은 {value}입니다. 장중, 종가, 애프터 가격 중 무엇을 기준으로 봤는지에 따라 해석이 달라질 수 있습니다."
+    return "현재 수치만으로 결론내리기 어렵습니다. 같은 섹션의 다른 지표와 함께 확인하세요."
 
 
 def render_mobile_metric(label, value_text, explanation):
@@ -258,8 +347,8 @@ def render_mobile_stock_card(row, is_kr):
     with st.expander("상세보기 ▼", expanded=False):
         render_mobile_section("기업 품질", [
             ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
-            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), "매출이 늘고 있는지 확인하는 성장성 지표입니다."),
-            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), "이익이 매출보다 더 건강하게 늘고 있는지 확인합니다."),
+            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
+            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
         ])
         render_mobile_section("가격", [
             ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
@@ -280,11 +369,11 @@ def render_mobile_stock_card(row, is_kr):
         render_mobile_section("시장환경", [
             ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
             ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
-            ("RSI", format_metric(row.get("rsi")), "단기 과열 또는 침체 정도를 보는 보조 지표입니다."),
+            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
         ])
         render_mobile_section("리스크", [
-            ("데이터기준일", str(row.get("data_date", "N/A")), "판단에 사용된 데이터의 기준일입니다."),
-            ("가격기준", str(row.get("price_basis", "N/A")), "기준가격이 장중, 종가, 애프터 등 어떤 값인지 확인합니다."),
+            ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
+            ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
         ])
 
 
