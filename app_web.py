@@ -34,7 +34,12 @@ if "market_choice" not in st.session_state:
     st.session_state.market_choice = MARKET_VALUE_TO_LABEL.get(st.session_state.selected_market, "코스피")
 
 if "table_view_mode" not in st.session_state:
-    st.session_state.table_view_mode = "핵심만"
+    st.session_state.table_view_mode = "모바일 보기"
+elif st.session_state.table_view_mode == "핵심만":
+    st.session_state.table_view_mode = "모바일 보기"
+
+if "mobile_visible_count" not in st.session_state:
+    st.session_state.mobile_visible_count = 5
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -100,6 +105,189 @@ def get_cache_status():
     }
 
 
+def clean_number(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def format_metric(value, suffix="", decimals=2, na_text="N/A"):
+    number = clean_number(value)
+    if number is None:
+        return na_text
+    if decimals == 0:
+        return f"{number:,.0f}{suffix}"
+    return f"{number:,.{decimals}f}{suffix}"
+
+
+def format_price(value, is_kr):
+    number = clean_number(value)
+    if number is None:
+        return "N/A"
+    if is_kr:
+        return f"{number:,.0f}원"
+    return f"${number:,.2f}"
+
+
+def format_cap(value, is_kr):
+    number = clean_number(value)
+    if number is None:
+        return "N/A"
+    if is_kr:
+        if number >= 10000:
+            return f"{number / 10000:.1f}조"
+        return f"{number:,.0f}억"
+    if number >= 1_000_000_000_000:
+        return f"${number / 1_000_000_000_000:.2f}T"
+    if number >= 1_000_000_000:
+        return f"${number / 1_000_000_000:.0f}B"
+    if number >= 1000:
+        return f"${number / 1000:.2f}T"
+    if number >= 1:
+        return f"${number:.0f}B"
+    return f"${number / 1_000_000:.0f}M"
+
+
+def mobile_grade_label(row):
+    grade = str(row.get("grade", "") or "").strip()
+    score = clean_number(row.get("score"))
+    if grade in ["S", "A"] or (score is not None and score >= 70):
+        return "🟢 우수 후보"
+    if grade == "B" or (score is not None and score >= 55):
+        return "🟡 관찰 후보"
+    if grade:
+        return "🔴 신중 검토"
+    return "⚪ 평가 대기"
+
+
+def mobile_summary(row):
+    parts = []
+    per = clean_number(row.get("per"))
+    roe = clean_number(row.get("roe"))
+    peak_diff = clean_number(row.get("peak_diff"))
+    if per is not None:
+        parts.append("가격 부담 낮음" if per <= 12 else "가격 부담 확인" if per >= 25 else "가격 중립")
+    if roe is not None:
+        parts.append("품질 우수" if roe >= 15 else "품질 확인 필요" if roe < 8 else "품질 보통")
+    if peak_diff is not None:
+        parts.append("고점 대비 여유" if peak_diff <= -20 else "모멘텀 유지" if peak_diff > -10 else "가격 위치 중립")
+    return " · ".join(parts[:3]) if parts else "핵심 지표를 상세보기에서 확인하세요."
+
+
+def metric_explanation(label, row, value):
+    number = clean_number(value)
+    if label == "PER":
+        hist_per = clean_number(row.get("hist_per_avg"))
+        if number is not None and hist_per is not None and hist_per > 0:
+            gap = (number / hist_per - 1) * 100
+            direction = "낮습니다" if gap < 0 else "높습니다"
+            return f"과거 평균 PER {hist_per:.2f}보다 {abs(gap):.1f}% {direction}. 이익 대비 현재 가격 부담을 보는 지표입니다."
+        return "PER은 이익 대비 주가가 비싼지 보는 지표입니다. 낮을수록 가격 부담이 작을 가능성이 있습니다."
+    if label == "ROE":
+        if number is not None:
+            return "자기자본 대비 수익성이 우수한 편입니다." if number >= 15 else "자기자본 대비 수익성이 낮아 품질 확인이 필요합니다." if number < 8 else "자기자본 대비 수익성은 중간 수준입니다."
+        return "ROE는 회사가 자기자본으로 얼마나 효율적으로 이익을 내는지 보여줍니다."
+    if label == "PBR":
+        return "PBR은 자산가치 대비 주가 수준입니다. 낮을수록 자산 대비 가격 부담이 작을 수 있습니다."
+    if label == "PEG":
+        return "PEG는 성장률을 감안한 PER입니다. 1 이하이면 성장 대비 가격 부담이 낮게 해석될 수 있습니다."
+    if label == "EPS성장률":
+        return "EPS성장률은 주당순이익이 얼마나 빠르게 늘고 있는지 보여줍니다."
+    if label == "CAGR":
+        return "CAGR은 일정 기간 동안의 연평균 성장률입니다."
+    if label == "부채비율":
+        return "부채비율은 재무 부담을 보는 지표입니다. 너무 높으면 금리나 업황 둔화에 민감할 수 있습니다."
+    if label == "외인/기관지분":
+        return "외국인과 기관의 관심도를 참고하는 수급 지표입니다. 방향성은 순매수 데이터와 함께 봐야 합니다."
+    if label == "200일괴리율":
+        return "200일선 대비 현재 가격 위치입니다. 중장기 추세가 살아 있는지 확인하는 데 씁니다."
+    if label == "최고점대비":
+        return "최근 최고점에서 얼마나 내려왔는지 보여줍니다. 낙폭과 회복 여지를 함께 봅니다."
+    return "이 지표가 투자 판단에 어떤 의미인지 확인하는 설명입니다."
+
+
+def render_mobile_metric(label, value_text, explanation):
+    st.markdown(f"**{label}**  `{value_text}`")
+    with st.expander("설명 보기", expanded=False):
+        st.caption(explanation)
+
+
+def render_mobile_section(title, metrics):
+    with st.expander(title, expanded=False):
+        if not metrics:
+            st.caption("확인 가능한 데이터가 아직 부족합니다.")
+        for label, value_text, explanation in metrics:
+            render_mobile_metric(label, value_text, explanation)
+
+
+def render_mobile_stock_card(row, is_kr):
+    rank = row.get("rank", "")
+    name = row.get("name", row.get("symbol", "이름 없음"))
+    symbol = row.get("symbol", "")
+    score = format_metric(row.get("score"), decimals=0)
+    grade = row.get("grade", "N/A")
+    price = format_price(row.get("price"), is_kr)
+    cap = format_cap(row.get("market_cap"), is_kr)
+
+    st.markdown(
+        f"""
+        <div class="mobile-stock-card">
+            <div class="mobile-stock-rank">#{rank} · {symbol}</div>
+            <div class="mobile-stock-title">{name}</div>
+            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 등급 {grade} · {score}점</div>
+            <div class="mobile-stock-summary">{mobile_summary(row)}</div>
+            <div class="mobile-stock-metrics">
+                <span>가격 {price}</span>
+                <span>시총 {cap}</span>
+                <span>PER {format_metric(row.get("per"))}</span>
+                <span>ROE {format_metric(row.get("roe"), "%")}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("상세보기 ▼", expanded=False):
+        render_mobile_section("기업 품질", [
+            ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
+            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), "매출이 늘고 있는지 확인하는 성장성 지표입니다."),
+            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), "이익이 매출보다 더 건강하게 늘고 있는지 확인합니다."),
+        ])
+        render_mobile_section("가격", [
+            ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
+            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
+            ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
+        ])
+        render_mobile_section("성장성", [
+            ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
+            ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
+        ])
+        render_mobile_section("재무", [
+            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
+            ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
+        ])
+        render_mobile_section("수급", [
+            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
+        ])
+        render_mobile_section("시장환경", [
+            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
+            ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
+            ("RSI", format_metric(row.get("rsi")), "단기 과열 또는 침체 정도를 보는 보조 지표입니다."),
+        ])
+        render_mobile_section("리스크", [
+            ("데이터기준일", str(row.get("data_date", "N/A")), "판단에 사용된 데이터의 기준일입니다."),
+            ("가격기준", str(row.get("price_basis", "N/A")), "기준가격이 장중, 종가, 애프터 등 어떤 값인지 확인합니다."),
+        ])
+
+
 def handle_market_change():
     load_cached_market_data()
 
@@ -135,6 +323,49 @@ st.markdown("""
             border-left: 5px solid #FFD700;
             margin-bottom: 20px;
             border-radius: 4px;
+        }
+        .mobile-stock-card {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 8px;
+            padding: 14px 14px 12px 14px;
+            margin: 12px 0 6px 0;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .mobile-stock-rank {
+            color: #94a3b8;
+            font-size: 0.82rem;
+            margin-bottom: 4px;
+        }
+        .mobile-stock-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-bottom: 6px;
+        }
+        .mobile-stock-grade {
+            font-size: 0.92rem;
+            font-weight: 650;
+            margin-bottom: 6px;
+        }
+        .mobile-stock-summary {
+            color: #cbd5e1;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            margin-bottom: 10px;
+        }
+        .mobile-stock-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+            gap: 6px;
+            font-size: 0.84rem;
+        }
+        .mobile-stock-metrics span {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 6px;
+            padding: 6px 8px;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -314,7 +545,7 @@ if st.session_state.data:
     if not is_kr:
         core_ids.insert(3, "after_market_change_pct")
 
-    compact_ids = core_ids if st.session_state.table_view_mode == "핵심만" else full_ids
+    compact_ids = core_ids if st.session_state.table_view_mode == "모바일 보기" else full_ids
     display_cols = [col_map[col_id] for col_id in compact_ids if col_id in col_map and col_map[col_id] in df_renamed.columns]
     df_display = df_renamed[display_cols]
     
@@ -463,19 +694,48 @@ if st.session_state.data:
     with view_col:
         st.radio(
             "보기 방식",
-            ["핵심만", "전체표"],
+            ["모바일 보기", "PC 보기"],
             key="table_view_mode",
             horizontal=True,
         )
-        st.caption("종목 스크리닝 결과표")
+        st.caption("모바일은 카드형 후보, PC는 전체표")
     with table_action_col:
-        if st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
+        if st.session_state.table_view_mode == "PC 보기" and st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
             st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
-    # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
-    st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
-    if st.session_state.get("show_large_table", False):
-        st.caption("확대 보기")
-        st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
+
+    if st.session_state.table_view_mode == "모바일 보기":
+        total_candidates = len(df)
+        visible_count = min(st.session_state.mobile_visible_count, total_candidates)
+        if visible_count <= 0:
+            visible_count = min(5, total_candidates)
+            st.session_state.mobile_visible_count = visible_count
+
+        title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
+        st.subheader(title_text)
+
+        count_cols = st.columns(5)
+        quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
+        for idx, (label, count) in enumerate(quick_options):
+            with count_cols[idx]:
+                if st.button(label, key=f"mobile_count_{label}", width="stretch"):
+                    st.session_state.mobile_visible_count = min(count, total_candidates)
+                    st.rerun()
+
+        with count_cols[4]:
+            next_count = min(visible_count + 5, total_candidates)
+            if st.button("다음 5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
+                st.session_state.mobile_visible_count = next_count
+                st.rerun()
+
+        st.caption("카드는 결론만 먼저 보여주고, 상세보기에서 섹션별 데이터를 펼쳐 확인합니다.")
+        for _, row in df.head(visible_count).iterrows():
+            render_mobile_stock_card(row.to_dict(), is_kr)
+    else:
+        # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
+        st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
+        if st.session_state.get("show_large_table", False):
+            st.caption("확대 보기")
+            st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
     st.divider()
     st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
