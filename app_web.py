@@ -1395,13 +1395,11 @@ if st.session_state.data:
                 st.session_state.mobile_selected_symbol = None if st.session_state.mobile_selected_symbol == symbol else symbol
                 st.rerun()
 
-        if st.session_state.mobile_selected_symbol:
-            selected_mobile = visible_mobile_df[visible_mobile_df["symbol"].astype(str) == st.session_state.mobile_selected_symbol]
-            if not selected_mobile.empty:
-                if st.button("상세 닫기", key="mobile_close_detail", width="stretch"):
+            if st.session_state.mobile_selected_symbol == symbol:
+                if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
                     st.rerun()
-                render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
+                render_mobile_stock_card(row_dict, is_kr)
 
         if not excluded_mobile_df.empty:
             with st.expander(f"관찰 후보 보기: 좋은 회사지만 아직 비쌈 {len(excluded_mobile_df)}개", expanded=False):
