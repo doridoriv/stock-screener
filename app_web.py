@@ -607,6 +607,53 @@ def mobile_momentum_reasons(row):
     return reasons
 
 
+def mobile_reason_facts(row, reason_type):
+    facts = []
+    if reason_type == "cheap":
+        per = clean_number(row.get("per"))
+        hist_per = clean_number(row.get("hist_per_avg"))
+        pbr = clean_number(row.get("pbr"))
+        peak_diff = clean_number(row.get("peak_diff"))
+        if per is not None and hist_per is not None:
+            facts.append(f"PER: 현재 {per:.2f} / 과거 평균 PER {hist_per:.2f}")
+        elif per is not None:
+            facts.append(f"PER: 현재 {per:.2f}")
+        if pbr is not None:
+            facts.append(f"PBR: 현재 {pbr:.2f}")
+        if peak_diff is not None:
+            facts.append(f"최고점 대비: {peak_diff:.2f}%")
+    elif reason_type == "good":
+        roe = clean_number(row.get("roe"))
+        revenue = clean_number(row.get("revenue_growth"))
+        operating = clean_number(row.get("operating_growth"))
+        debt = clean_number(row.get("debt_ratio"))
+        if roe is not None:
+            facts.append(f"ROE: 현재 {roe:.2f}%")
+        if revenue is not None:
+            facts.append(f"매출성장률: {revenue:.2f}%")
+        if operating is not None:
+            facts.append(f"영업이익성장률: {operating:.2f}%")
+        if debt is not None:
+            facts.append(f"부채비율: {debt:.2f}%")
+    elif reason_type == "momentum":
+        tags = mobile_theme_tags(row)
+        diff = clean_number(row.get("diff"))
+        peak_diff = clean_number(row.get("peak_diff"))
+        rsi = clean_number(row.get("rsi"))
+        foreign_supply = clean_number(row.get("foreign_supply"))
+        if tags:
+            facts.append(f"테마: {'/'.join(tags[:2])}")
+        if diff is not None:
+            facts.append(f"200일선 대비: {diff:.2f}%")
+        if peak_diff is not None:
+            facts.append(f"최고점 대비: {peak_diff:.2f}%")
+        if rsi is not None:
+            facts.append(f"RSI: {rsi:.2f}")
+        if foreign_supply is not None:
+            facts.append(f"외인/기관지분: {foreign_supply:.2f}%")
+    return " · ".join(facts[:3]) if facts else "수치 근거 확인 필요"
+
+
 def mobile_warning_reasons(row):
     warnings = []
     risk_profile = mobile_structural_risk(row)
@@ -807,6 +854,9 @@ def render_mobile_stock_card(row, is_kr):
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
     momentum_reasons = mobile_momentum_reasons(row)
+    cheap_facts = mobile_reason_facts(row, "cheap")
+    good_facts = mobile_reason_facts(row, "good")
+    momentum_facts = mobile_reason_facts(row, "momentum")
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
 
     st.markdown(
@@ -819,8 +869,11 @@ def render_mobile_stock_card(row, is_kr):
             <div class="mobile-stock-warning"><b>부족</b> {confidence_missing}</div>
             <div class="mobile-stock-summary">{mobile_summary(row)}</div>
             <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
+            <div class="mobile-stock-facts"><b>수치 근거</b> {cheap_facts}</div>
             <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
+            <div class="mobile-stock-facts"><b>수치 근거</b> {good_facts}</div>
             <div class="mobile-stock-reason"><b>주도 이유</b> {' · '.join(momentum_reasons[:3]) if momentum_reasons else '업종/수급 모멘텀 추가 확인'}</div>
+            <div class="mobile-stock-facts"><b>수치 근거</b> {momentum_facts}</div>
             <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
             <div class="mobile-stock-metrics">
                 <span>가격 {price}</span>
@@ -960,6 +1013,18 @@ st.markdown("""
         }
         .mobile-stock-reason b {
             color: #ff4b4b;
+            margin-right: 4px;
+        }
+        .mobile-stock-facts {
+            color: #0f172a;
+            font-size: 0.84rem;
+            line-height: 1.35;
+            margin: -1px 0 7px 0;
+            padding-left: 6px;
+            border-left: 3px solid rgba(255, 75, 75, 0.45);
+        }
+        .mobile-stock-facts b {
+            color: #475569;
             margin-right: 4px;
         }
         .mobile-stock-warning {
