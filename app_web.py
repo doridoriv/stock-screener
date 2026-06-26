@@ -157,29 +157,303 @@ def format_cap(value, is_kr):
 
 
 def mobile_grade_label(row):
-    grade = str(row.get("grade", "") or "").strip()
-    score = clean_number(row.get("score"))
-    if grade in ["S", "A"] or (score is not None and score >= 70):
-        return "🟢 우수 후보"
-    if grade == "B" or (score is not None and score >= 55):
-        return "🟡 관찰 후보"
-    if grade:
-        return "🔴 신중 검토"
-    return "⚪ 평가 대기"
+    cheapness = mobile_cheapness_score(row)
+    quality = mobile_quality_score(row)
+    risk = mobile_risk_penalty(row)
+    if cheapness >= 28 and quality >= 22 and risk <= 10:
+        return "🔴 저렴한 우량 후보"
+    if cheapness >= 24 and risk <= 18:
+        return "🟠 싸지만 확인 필요"
+    if quality >= 26 and cheapness < 18:
+        return "⚪ 좋은 회사지만 아직 비쌈"
+    return "🔵 싼 이유가 위험함"
 
 
 def mobile_summary(row):
-    parts = []
+    cheap_reasons = mobile_cheap_reasons(row)
+    good_reasons = mobile_good_reasons(row)
+    if cheap_reasons and good_reasons:
+        return f"싼 이유: {' · '.join(cheap_reasons[:2])} / 좋은 이유: {' · '.join(good_reasons[:2])}"
+    if cheap_reasons:
+        return f"싼 이유: {' · '.join(cheap_reasons[:3])}"
+    if good_reasons:
+        return f"좋은 이유: {' · '.join(good_reasons[:3])}"
+    return "핵심 지표를 상세보기에서 확인하세요."
+
+
+def sort_mobile_candidates(df):
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    out["_mobile_score_sort"] = out.apply(lambda row: mobile_candidate_score(row.to_dict()), axis=1)
+    out["_rank_sort"] = pd.to_numeric(out.get("rank"), errors="coerce").fillna(999999)
+    out = out.sort_values(
+        by=["_mobile_score_sort", "_rank_sort"],
+        ascending=[False, True],
+    )
+    return out.drop(columns=["_mobile_score_sort", "_rank_sort"]).reset_index(drop=True)
+
+
+def bounded(value, low=0, high=100):
+    return max(low, min(high, value))
+
+
+def mobile_cheapness_score(row):
+    score = 0
     per = clean_number(row.get("per"))
-    roe = clean_number(row.get("roe"))
+    hist_per = clean_number(row.get("hist_per_avg"))
+    pbr = clean_number(row.get("pbr"))
     peak_diff = clean_number(row.get("peak_diff"))
+    diff = clean_number(row.get("diff"))
+
     if per is not None:
-        parts.append("가격 부담 낮음" if per <= 12 else "가격 부담 확인" if per >= 25 else "가격 중립")
-    if roe is not None:
-        parts.append("품질 우수" if roe >= 15 else "품질 확인 필요" if roe < 8 else "품질 보통")
+        if per <= 8:
+            score += 14
+        elif per <= 12:
+            score += 11
+        elif per <= 18:
+            score += 6
+        elif per >= 25:
+            score -= 4
+    if per is not None and hist_per is not None and hist_per > 0:
+        discount = (hist_per - per) / hist_per
+        if discount >= 0.35:
+            score += 14
+        elif discount >= 0.2:
+            score += 10
+        elif discount >= 0.05:
+            score += 5
+        elif discount <= -0.2:
+            score -= 5
+    if pbr is not None:
+        if pbr <= 0.8:
+            score += 10
+        elif pbr <= 1.2:
+            score += 7
+        elif pbr <= 2:
+            score += 3
+        elif pbr >= 4:
+            score -= 4
     if peak_diff is not None:
-        parts.append("고점 대비 여유" if peak_diff <= -20 else "모멘텀 유지" if peak_diff > -10 else "가격 위치 중립")
-    return " · ".join(parts[:3]) if parts else "핵심 지표를 상세보기에서 확인하세요."
+        if peak_diff <= -35:
+            score += 10
+        elif peak_diff <= -20:
+            score += 7
+        elif peak_diff <= -10:
+            score += 4
+        elif peak_diff > -5:
+            score -= 3
+    if diff is not None:
+        if -25 <= diff <= -5:
+            score += 5
+        elif diff < -35:
+            score -= 4
+        elif diff > 20:
+            score -= 3
+    return bounded(score, 0, 45)
+
+
+def mobile_quality_score(row):
+    score = 0
+    roe = clean_number(row.get("roe"))
+    revenue = clean_number(row.get("revenue_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    debt = clean_number(row.get("debt_ratio"))
+
+    if roe is not None:
+        if roe >= 20:
+            score += 14
+        elif roe >= 15:
+            score += 11
+        elif roe >= 10:
+            score += 7
+        elif roe < 5:
+            score -= 5
+    if revenue is not None:
+        if revenue >= 15:
+            score += 7
+        elif revenue > 0:
+            score += 4
+        else:
+            score -= 3
+    if operating is not None:
+        if operating >= 20:
+            score += 8
+        elif operating > 0:
+            score += 5
+        else:
+            score -= 4
+    if debt is not None:
+        if debt <= 80:
+            score += 6
+        elif debt >= 200:
+            score -= 8
+    return bounded(score, 0, 35)
+
+
+def mobile_timing_score(row):
+    score = 0
+    rsi = clean_number(row.get("rsi"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    cagr = clean_number(row.get("cagr"))
+    foreign_supply = clean_number(row.get("foreign_supply"))
+
+    if rsi is not None:
+        if 35 <= rsi <= 60:
+            score += 5
+        elif rsi >= 70:
+            score -= 5
+        elif rsi <= 25:
+            score -= 2
+    if eps_growth is not None:
+        if eps_growth >= 15:
+            score += 5
+        elif eps_growth < 0:
+            score -= 5
+    if cagr is not None:
+        if cagr >= 10:
+            score += 4
+        elif cagr <= 0:
+            score -= 3
+    if foreign_supply is not None:
+        if foreign_supply >= 15:
+            score += 3
+        elif foreign_supply < 5:
+            score -= 1
+    return bounded(score, 0, 20)
+
+
+def mobile_risk_penalty(row):
+    penalty = 0
+    debt = clean_number(row.get("debt_ratio"))
+    roe = clean_number(row.get("roe"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    rsi = clean_number(row.get("rsi"))
+
+    if debt is not None and debt >= 200:
+        penalty += 10
+    if roe is not None and roe < 5:
+        penalty += 8
+    if eps_growth is not None and eps_growth < 0:
+        penalty += 7
+    if operating is not None and operating < 0:
+        penalty += 6
+    if rsi is not None and rsi >= 75:
+        penalty += 5
+    return bounded(penalty, 0, 25)
+
+
+def mobile_confidence(row):
+    try:
+        completeness = diagnostics.data_completeness(row)
+        score = int(completeness.get("score", 0))
+        missing = completeness.get("summary", "확인 필요")
+    except Exception:
+        score = 0
+        missing = "확인 필요"
+    if score >= 80:
+        label = "근거 충분"
+    elif score >= 60:
+        label = "일부 확인 필요"
+    elif score >= 40:
+        label = "참고만"
+    else:
+        label = "신뢰 낮음"
+    return score, label, missing
+
+
+def mobile_candidate_score(row):
+    confidence, _, _ = mobile_confidence(row)
+    data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
+    return bounded(
+        mobile_cheapness_score(row)
+        + mobile_quality_score(row)
+        + mobile_timing_score(row)
+        - mobile_risk_penalty(row)
+        - data_penalty,
+        0,
+        100,
+    )
+
+
+def mobile_cheap_reasons(row):
+    reasons = []
+    per = clean_number(row.get("per"))
+    hist_per = clean_number(row.get("hist_per_avg"))
+    pbr = clean_number(row.get("pbr"))
+    peak_diff = clean_number(row.get("peak_diff"))
+    diff = clean_number(row.get("diff"))
+    if per is not None and per <= 12:
+        reasons.append("PER 낮음")
+    if per is not None and hist_per is not None and hist_per > 0 and per <= hist_per * 0.8:
+        reasons.append("과거 PER 대비 할인")
+    if pbr is not None and pbr <= 1.2:
+        reasons.append("PBR 낮음")
+    if peak_diff is not None and peak_diff <= -20:
+        reasons.append("고점 대비 조정")
+    if diff is not None and -25 <= diff <= -5:
+        reasons.append("장기선 아래 눌림")
+    return reasons
+
+
+def mobile_good_reasons(row):
+    reasons = []
+    roe = clean_number(row.get("roe"))
+    revenue = clean_number(row.get("revenue_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    debt = clean_number(row.get("debt_ratio"))
+    if roe is not None and roe >= 15:
+        reasons.append("ROE 우수")
+    if revenue is not None and revenue > 0:
+        reasons.append("매출 성장")
+    if operating is not None and operating > 0:
+        reasons.append("영업이익 성장")
+    if debt is not None and debt <= 80:
+        reasons.append("부채 부담 낮음")
+    return reasons
+
+
+def mobile_warning_reasons(row):
+    warnings = []
+    debt = clean_number(row.get("debt_ratio"))
+    roe = clean_number(row.get("roe"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    rsi = clean_number(row.get("rsi"))
+    confidence, _, missing = mobile_confidence(row)
+    if debt is not None and debt >= 200:
+        warnings.append("부채비율 높음")
+    if roe is not None and roe < 8:
+        warnings.append("수익성 약함")
+    if eps_growth is not None and eps_growth < 0:
+        warnings.append("EPS 역성장")
+    if operating is not None and operating < 0:
+        warnings.append("영업이익 둔화")
+    if rsi is not None and rsi >= 70:
+        warnings.append("단기 과열")
+    if confidence < 60:
+        warnings.append(f"데이터 부족: {missing}")
+    return warnings
+
+
+def render_mobile_market_notes(market_data):
+    with st.expander("⚠️ 오늘의 시장 메시지", expanded=False):
+        st.write(market_data.get("summary", "시장환경 요약을 확인 중입니다."))
+        st.caption(
+            "금리, 환율, 업종 강도처럼 숫자로 볼 수 있는 시장 변수는 참고하되, "
+            "정책·규제·전쟁 같은 정성 변수는 별도 확인이 필요합니다."
+        )
+    with st.expander("스크리너가 모르는 것", expanded=False):
+        st.caption("숫자로 보이는 저렴함만으로 모든 현실을 설명할 수는 없습니다.")
+        st.markdown(
+            "- 지정학적 리스크\n"
+            "- 정치·규제 변화\n"
+            "- 예기치 못한 대형 사건\n"
+            "- 경영진의 돌발 이슈\n"
+            "- 소송·회계·공시 리스크\n"
+            "- 실적 발표 직전 변동성"
+        )
 
 
 def metric_explanation(label, row, value):
@@ -325,19 +599,30 @@ def render_mobile_stock_card(row, is_kr):
     grade = row.get("grade", "N/A")
     price = format_price(row.get("price"), is_kr)
     cap = format_cap(row.get("market_cap"), is_kr)
+    candidate_score = mobile_candidate_score(row)
+    confidence_score, confidence_label, confidence_missing = mobile_confidence(row)
+    cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
+    good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
+    warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
 
     st.markdown(
         f"""
         <div class="mobile-stock-card">
-            <div class="mobile-stock-rank">#{rank} · {symbol}</div>
+            <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
             <div class="mobile-stock-title">{name}</div>
-            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 등급 {grade} · {score}점</div>
+            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
+            <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {confidence_label}</div>
             <div class="mobile-stock-summary">{mobile_summary(row)}</div>
+            <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
+            <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
+            <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
             <div class="mobile-stock-metrics">
                 <span>가격 {price}</span>
                 <span>시총 {cap}</span>
                 <span>PER {format_metric(row.get("per"))}</span>
                 <span>ROE {format_metric(row.get("roe"), "%")}</span>
+                <span>등급 {grade}</span>
+                <span>종합점수 {score}점</span>
             </div>
         </div>
         """,
@@ -374,6 +659,8 @@ def render_mobile_stock_card(row, is_kr):
         render_mobile_section("리스크", [
             ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
             ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
+            ("분석 신뢰도", f"{confidence_score}% · {confidence_label}", f"이 값은 수익 확률이 아니라 분석에 필요한 데이터가 얼마나 채워졌는지입니다. 부족한 부분: {confidence_missing}"),
+            ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈, 소송·회계 리스크는 점수에 충분히 반영되지 않을 수 있습니다."),
         ])
 
 
@@ -432,8 +719,14 @@ st.markdown("""
             margin-bottom: 6px;
         }
         .mobile-stock-grade {
+            color: #ff4b4b;
             font-size: 0.92rem;
             font-weight: 650;
+            margin-bottom: 6px;
+        }
+        .mobile-stock-trust {
+            color: #e5e7eb;
+            font-size: 0.86rem;
             margin-bottom: 6px;
         }
         .mobile-stock-summary {
@@ -441,6 +734,26 @@ st.markdown("""
             font-size: 0.9rem;
             line-height: 1.35;
             margin-bottom: 10px;
+        }
+        .mobile-stock-reason {
+            color: #f8fafc;
+            font-size: 0.86rem;
+            line-height: 1.35;
+            margin-bottom: 4px;
+        }
+        .mobile-stock-reason b {
+            color: #ff4b4b;
+            margin-right: 4px;
+        }
+        .mobile-stock-warning {
+            color: #bfdbfe;
+            font-size: 0.86rem;
+            line-height: 1.35;
+            margin: 4px 0 10px 0;
+        }
+        .mobile-stock-warning b {
+            color: #60a5fa;
+            margin-right: 4px;
         }
         .mobile-stock-metrics {
             display: grid;
@@ -793,14 +1106,16 @@ if st.session_state.data:
             st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
 
     if st.session_state.table_view_mode == "모바일 보기":
-        total_candidates = len(df)
+        mobile_df = sort_mobile_candidates(df)
+        total_candidates = len(mobile_df)
         visible_count = min(st.session_state.mobile_visible_count, total_candidates)
         if visible_count <= 0:
             visible_count = min(5, total_candidates)
             st.session_state.mobile_visible_count = visible_count
 
-        title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
+        title_text = f"전체 저렴 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 저렴 후보 {visible_count}개"
         st.subheader(title_text)
+        render_mobile_market_notes(market_data)
 
         count_cols = st.columns(5)
         quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
@@ -816,8 +1131,8 @@ if st.session_state.data:
                 st.session_state.mobile_visible_count = next_count
                 st.rerun()
 
-        st.caption("카드는 결론만 먼저 보여주고, 상세보기에서 섹션별 데이터를 펼쳐 확인합니다.")
-        for _, row in df.head(visible_count).iterrows():
+        st.caption("정렬 기준: 현재 저렴함을 먼저 보고, 기업 품질·성장·재무·위험 신호로 보정한 후보 적합도순입니다.")
+        for _, row in mobile_df.head(visible_count).iterrows():
             render_mobile_stock_card(row.to_dict(), is_kr)
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
