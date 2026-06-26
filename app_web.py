@@ -159,7 +159,10 @@ def format_cap(value, is_kr):
 def mobile_grade_label(row):
     cheapness = mobile_cheapness_score(row)
     quality = mobile_quality_score(row)
+    momentum = mobile_momentum_score(row)
     risk = mobile_risk_penalty(row)
+    if momentum >= 24 and risk <= 14:
+        return "🔥 주도업종 모멘텀 후보"
     if cheapness >= 28 and quality >= 22 and risk <= 10:
         return "🔴 저렴한 우량 후보"
     if cheapness >= 24 and risk <= 18:
@@ -196,6 +199,27 @@ def sort_mobile_candidates(df):
 
 def bounded(value, low=0, high=100):
     return max(low, min(high, value))
+
+
+def mobile_theme_tags(row):
+    text = " ".join([
+        str(row.get("name", "")),
+        str(row.get("symbol", "")),
+        str(row.get("sector", "")),
+        str(row.get("industry", "")),
+    ]).lower()
+    theme_keywords = {
+        "반도체": ["반도체", "semiconductor", "semi", "하이닉스", "sk하이닉스", "삼성전자", "db하이텍", "한미반도체", "리노공업", "테스", "원익", "솔브레인"],
+        "AI": ["ai", "인공지능", "엔비디아", "nvidia", "nvda", "amd", "브로드컴", "avgo"],
+        "전력기기": ["전력", "변압기", "전선", "hd현대일렉트릭", "효성중공업", "ls electric", "ls일렉트릭"],
+        "조선": ["조선", "선박", "해양", "hd한국조선해양", "한화오션", "삼성중공업"],
+        "방산": ["방산", "항공우주", "한화에어로", "lig넥스원", "현대로템"],
+    }
+    tags = []
+    for theme, keywords in theme_keywords.items():
+        if any(keyword.lower() in text for keyword in keywords):
+            tags.append(theme)
+    return tags
 
 
 def mobile_cheapness_score(row):
@@ -241,15 +265,11 @@ def mobile_cheapness_score(row):
             score += 7
         elif peak_diff <= -10:
             score += 4
-        elif peak_diff > -5:
-            score -= 3
     if diff is not None:
         if -25 <= diff <= -5:
             score += 5
         elif diff < -35:
             score -= 4
-        elif diff > 20:
-            score -= 3
     return bounded(score, 0, 45)
 
 
@@ -323,6 +343,45 @@ def mobile_timing_score(row):
     return bounded(score, 0, 20)
 
 
+def mobile_momentum_score(row):
+    score = 0
+    tags = mobile_theme_tags(row)
+    peak_diff = clean_number(row.get("peak_diff"))
+    diff = clean_number(row.get("diff"))
+    rsi = clean_number(row.get("rsi"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    revenue = clean_number(row.get("revenue_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    foreign_supply = clean_number(row.get("foreign_supply"))
+
+    if tags:
+        score += 12
+    if peak_diff is not None:
+        if peak_diff > -10:
+            score += 7
+        elif peak_diff > -20:
+            score += 4
+    if diff is not None:
+        if diff >= 0:
+            score += 7
+        elif diff >= -5:
+            score += 3
+    if rsi is not None:
+        if 50 <= rsi <= 70:
+            score += 5
+        elif rsi > 78:
+            score -= 4
+    if eps_growth is not None and eps_growth >= 15:
+        score += 4
+    if revenue is not None and revenue >= 10:
+        score += 3
+    if operating is not None and operating >= 15:
+        score += 4
+    if foreign_supply is not None and foreign_supply >= 15:
+        score += 3
+    return bounded(score, 0, 35)
+
+
 def mobile_risk_penalty(row):
     penalty = 0
     debt = clean_number(row.get("debt_ratio"))
@@ -370,6 +429,7 @@ def mobile_candidate_score(row):
         mobile_cheapness_score(row)
         + mobile_quality_score(row)
         + mobile_timing_score(row)
+        + mobile_momentum_score(row)
         - mobile_risk_penalty(row)
         - data_penalty,
         0,
@@ -411,6 +471,23 @@ def mobile_good_reasons(row):
         reasons.append("영업이익 성장")
     if debt is not None and debt <= 80:
         reasons.append("부채 부담 낮음")
+    return reasons
+
+
+def mobile_momentum_reasons(row):
+    reasons = []
+    tags = mobile_theme_tags(row)
+    peak_diff = clean_number(row.get("peak_diff"))
+    diff = clean_number(row.get("diff"))
+    rsi = clean_number(row.get("rsi"))
+    if tags:
+        reasons.append("주도테마 " + "/".join(tags[:2]))
+    if peak_diff is not None and peak_diff > -10:
+        reasons.append("고점권 모멘텀")
+    if diff is not None and diff >= 0:
+        reasons.append("200일선 위")
+    if rsi is not None and 50 <= rsi <= 70:
+        reasons.append("수급 온기")
     return reasons
 
 
@@ -603,33 +680,39 @@ def render_mobile_stock_card(row, is_kr):
     confidence_score, confidence_label, confidence_missing = mobile_confidence(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
+    momentum_reasons = mobile_momentum_reasons(row)
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
 
-    st.markdown(
-        f"""
-        <div class="mobile-stock-card">
-            <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
-            <div class="mobile-stock-title">{name}</div>
-            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
-            <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {confidence_label}</div>
-            <div class="mobile-stock-summary">{mobile_summary(row)}</div>
-            <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
-            <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
-            <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
-            <div class="mobile-stock-metrics">
-                <span>가격 {price}</span>
-                <span>시총 {cap}</span>
-                <span>PER {format_metric(row.get("per"))}</span>
-                <span>ROE {format_metric(row.get("roe"), "%")}</span>
-                <span>등급 {grade}</span>
-                <span>종합점수 {score}점</span>
+    with st.expander(
+        f"{name} · {mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점 · 신뢰도 {confidence_score}%",
+        expanded=False,
+    ):
+        st.markdown(
+            f"""
+            <div class="mobile-stock-card">
+                <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
+                <div class="mobile-stock-title">{name}</div>
+                <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
+                <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {confidence_label}</div>
+                <div class="mobile-stock-summary">{mobile_summary(row)}</div>
+                <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
+                <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
+                <div class="mobile-stock-reason"><b>주도 이유</b> {' · '.join(momentum_reasons[:3]) if momentum_reasons else '업종/수급 모멘텀 추가 확인'}</div>
+                <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
+                <div class="mobile-stock-metrics">
+                    <span>가격 {price}</span>
+                    <span>시총 {cap}</span>
+                    <span>PER {format_metric(row.get("per"))}</span>
+                    <span>ROE {format_metric(row.get("roe"), "%")}</span>
+                    <span>등급 {grade}</span>
+                    <span>종합점수 {score}점</span>
+                </div>
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    with st.expander("상세보기 ▼", expanded=False):
+        st.markdown("**상세보기**")
         render_mobile_section("기업 품질", [
             ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
             ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
@@ -708,11 +791,12 @@ st.markdown("""
             background: rgba(255, 255, 255, 0.03);
         }
         .mobile-stock-rank {
-            color: #94a3b8;
+            color: #475569;
             font-size: 0.82rem;
             margin-bottom: 4px;
         }
         .mobile-stock-title {
+            color: #0f172a;
             font-size: 1.1rem;
             font-weight: 700;
             line-height: 1.25;
@@ -725,18 +809,18 @@ st.markdown("""
             margin-bottom: 6px;
         }
         .mobile-stock-trust {
-            color: #e5e7eb;
+            color: #334155;
             font-size: 0.86rem;
             margin-bottom: 6px;
         }
         .mobile-stock-summary {
-            color: #cbd5e1;
+            color: #334155;
             font-size: 0.9rem;
             line-height: 1.35;
             margin-bottom: 10px;
         }
         .mobile-stock-reason {
-            color: #f8fafc;
+            color: #1e293b;
             font-size: 0.86rem;
             line-height: 1.35;
             margin-bottom: 4px;
@@ -746,13 +830,13 @@ st.markdown("""
             margin-right: 4px;
         }
         .mobile-stock-warning {
-            color: #bfdbfe;
+            color: #0369a1;
             font-size: 0.86rem;
             line-height: 1.35;
             margin: 4px 0 10px 0;
         }
         .mobile-stock-warning b {
-            color: #60a5fa;
+            color: #0284c7;
             margin-right: 4px;
         }
         .mobile-stock-metrics {
@@ -1113,7 +1197,7 @@ if st.session_state.data:
             visible_count = min(5, total_candidates)
             st.session_state.mobile_visible_count = visible_count
 
-        title_text = f"전체 저렴 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 저렴 후보 {visible_count}개"
+        title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
         st.subheader(title_text)
         render_mobile_market_notes(market_data)
 
@@ -1131,7 +1215,7 @@ if st.session_state.data:
                 st.session_state.mobile_visible_count = next_count
                 st.rerun()
 
-        st.caption("정렬 기준: 현재 저렴함을 먼저 보고, 기업 품질·성장·재무·위험 신호로 보정한 후보 적합도순입니다.")
+        st.caption("종목명 리스트에서 관심 후보를 누르면 싼 이유, 좋은 이유, 주도 이유, 주의점이 열립니다.")
         for _, row in mobile_df.head(visible_count).iterrows():
             render_mobile_stock_card(row.to_dict(), is_kr)
     else:
