@@ -40,6 +40,9 @@ elif st.session_state.table_view_mode == "핵심만":
 
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
+
+if "mobile_selected_symbol" not in st.session_state:
+    st.session_state.mobile_selected_symbol = None
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -200,6 +203,14 @@ def sort_mobile_candidates(df):
         ascending=[False, True],
     )
     return out.drop(columns=["_mobile_score_sort", "_rank_sort"]).reset_index(drop=True)
+
+
+def filter_mobile_candidates(df):
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    labels = out.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1)
+    return out[labels != "⚪ 좋은 회사지만 아직 비쌈"].reset_index(drop=True)
 
 
 def bounded(value, low=0, high=100):
@@ -480,9 +491,13 @@ def mobile_confidence(row):
         completeness = diagnostics.data_completeness(row)
         score = int(completeness.get("score", 0))
         missing = completeness.get("summary", "확인 필요")
+        available_count = int(completeness.get("available_count", 0))
+        total_count = int(completeness.get("total_count", 0))
     except Exception:
         score = 0
         missing = "확인 필요"
+        available_count = 0
+        total_count = 0
     if score >= 80:
         label = "근거 충분"
     elif score >= 60:
@@ -491,11 +506,11 @@ def mobile_confidence(row):
         label = "참고만"
     else:
         label = "신뢰 낮음"
-    return score, label, missing
+    return score, label, missing, available_count, total_count
 
 
 def mobile_candidate_score(row):
-    confidence, _, _ = mobile_confidence(row)
+    confidence, _, _, _, _ = mobile_confidence(row)
     data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
     raw_score = bounded(
         mobile_cheapness_score(row)
@@ -575,7 +590,7 @@ def mobile_warning_reasons(row):
     eps_growth = clean_number(row.get("eps_growth"))
     operating = clean_number(row.get("operating_growth"))
     rsi = clean_number(row.get("rsi"))
-    confidence, _, missing = mobile_confidence(row)
+    confidence, _, missing, _, _ = mobile_confidence(row)
     if risk_profile["warning"]:
         warnings.append(risk_profile["label"])
     if debt is not None and debt >= 200:
@@ -756,76 +771,73 @@ def render_mobile_stock_card(row, is_kr):
     price = format_price(row.get("price"), is_kr)
     cap = format_cap(row.get("market_cap"), is_kr)
     candidate_score = mobile_candidate_score(row)
-    confidence_score, confidence_label, confidence_missing = mobile_confidence(row)
+    confidence_score, confidence_label, confidence_missing, available_count, total_count = mobile_confidence(row)
     risk_profile = mobile_structural_risk(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
     momentum_reasons = mobile_momentum_reasons(row)
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
 
-    with st.expander(
-        f"{name} · {mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점 · 신뢰도 {confidence_score}%",
-        expanded=False,
-    ):
-        st.markdown(
-            f"""
-            <div class="mobile-stock-card">
-                <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
-                <div class="mobile-stock-title">{name}</div>
-                <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
-                <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {confidence_label}</div>
-                <div class="mobile-stock-summary">{mobile_summary(row)}</div>
-                <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
-                <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
-                <div class="mobile-stock-reason"><b>주도 이유</b> {' · '.join(momentum_reasons[:3]) if momentum_reasons else '업종/수급 모멘텀 추가 확인'}</div>
-                <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
-                <div class="mobile-stock-metrics">
-                    <span>가격 {price}</span>
-                    <span>시총 {cap}</span>
-                    <span>PER {format_metric(row.get("per"))}</span>
-                    <span>ROE {format_metric(row.get("roe"), "%")}</span>
-                    <span>등급 {grade}</span>
-                    <span>종합점수 {score}점</span>
-                </div>
+    st.markdown(
+        f"""
+        <div class="mobile-stock-card">
+            <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
+            <div class="mobile-stock-title">{name}</div>
+            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
+            <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {available_count}/{total_count}개 확인 · {confidence_label}</div>
+            <div class="mobile-stock-warning"><b>부족</b> {confidence_missing}</div>
+            <div class="mobile-stock-summary">{mobile_summary(row)}</div>
+            <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
+            <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
+            <div class="mobile-stock-reason"><b>주도 이유</b> {' · '.join(momentum_reasons[:3]) if momentum_reasons else '업종/수급 모멘텀 추가 확인'}</div>
+            <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
+            <div class="mobile-stock-metrics">
+                <span>가격 {price}</span>
+                <span>시총 {cap}</span>
+                <span>PER {format_metric(row.get("per"))}</span>
+                <span>ROE {format_metric(row.get("roe"), "%")}</span>
+                <span>등급 {grade}</span>
+                <span>종합점수 {score}점</span>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        st.markdown("**상세보기**")
-        render_mobile_section("기업 품질", [
-            ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
-            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
-            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
-        ])
-        render_mobile_section("가격", [
-            ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
-            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
-            ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
-        ])
-        render_mobile_section("성장성", [
-            ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
-            ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
-        ])
-        render_mobile_section("재무", [
-            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
-            ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
-        ])
-        render_mobile_section("수급", [
-            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
-        ])
-        render_mobile_section("시장환경", [
-            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
-            ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
-            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
-        ])
-        render_mobile_section("리스크", [
-            ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
-            ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
-            ("분석 신뢰도", f"{confidence_score}% · {confidence_label}", f"이 값은 수익 확률이 아니라 분석에 필요한 데이터가 얼마나 채워졌는지입니다. 부족한 부분: {confidence_missing}"),
-            ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
-            ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈, 소송·회계 리스크는 점수에 충분히 반영되지 않을 수 있습니다."),
-        ])
+    st.markdown("**상세보기**")
+    render_mobile_section("기업 품질", [
+        ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
+        ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
+        ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
+    ])
+    render_mobile_section("가격", [
+        ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
+        ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
+        ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
+    ])
+    render_mobile_section("성장성", [
+        ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
+        ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
+    ])
+    render_mobile_section("재무", [
+        ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
+        ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
+    ])
+    render_mobile_section("수급", [
+        ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
+    ])
+    render_mobile_section("시장환경", [
+        ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
+        ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
+        ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
+    ])
+    render_mobile_section("리스크", [
+        ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
+        ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
+        ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"이 값은 수익 확률이 아니라 분석에 필요한 데이터가 얼마나 채워졌는지입니다. 부족한 부분: {confidence_missing}"),
+        ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
+        ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈, 소송·회계 리스크는 점수에 충분히 반영되지 않을 수 있습니다."),
+    ])
 
 
 def handle_market_change():
@@ -1271,7 +1283,7 @@ if st.session_state.data:
             st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
 
     if st.session_state.table_view_mode == "모바일 보기":
-        mobile_df = sort_mobile_candidates(df)
+        mobile_df = filter_mobile_candidates(sort_mobile_candidates(df))
         total_candidates = len(mobile_df)
         visible_count = min(st.session_state.mobile_visible_count, total_candidates)
         if visible_count <= 0:
@@ -1296,9 +1308,31 @@ if st.session_state.data:
                 st.session_state.mobile_visible_count = next_count
                 st.rerun()
 
-        st.caption("종목명 리스트에서 관심 후보를 누르면 싼 이유, 좋은 이유, 주도 이유, 주의점이 열립니다.")
-        for _, row in mobile_df.head(visible_count).iterrows():
-            render_mobile_stock_card(row.to_dict(), is_kr)
+        visible_mobile_df = mobile_df.head(visible_count)
+        if st.session_state.mobile_selected_symbol not in set(visible_mobile_df["symbol"].astype(str)):
+            st.session_state.mobile_selected_symbol = None
+
+        st.caption("종목명을 누르면 한 종목만 열립니다. 열린 종목을 다시 누르면 닫힙니다.")
+        for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
+            row_dict = row.to_dict()
+            symbol = str(row_dict.get("symbol", ""))
+            confidence_score, _, _, available_count, total_count = mobile_confidence(row_dict)
+            button_label = (
+                f"{list_index}. {row_dict.get('name', symbol)} · {mobile_grade_label(row_dict)} · "
+                f"후보적합도 {mobile_candidate_score(row_dict):.0f}점 · "
+                f"신뢰도 {confidence_score}%({available_count}/{total_count})"
+            )
+            if st.button(button_label, key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
+                st.session_state.mobile_selected_symbol = None if st.session_state.mobile_selected_symbol == symbol else symbol
+                st.rerun()
+
+        if st.session_state.mobile_selected_symbol:
+            selected_mobile = visible_mobile_df[visible_mobile_df["symbol"].astype(str) == st.session_state.mobile_selected_symbol]
+            if not selected_mobile.empty:
+                if st.button("상세 닫기", key="mobile_close_detail", width="stretch"):
+                    st.session_state.mobile_selected_symbol = None
+                    st.rerun()
+                render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
