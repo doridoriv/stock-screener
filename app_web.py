@@ -157,6 +157,11 @@ def format_cap(value, is_kr):
 
 
 def mobile_grade_label(row):
+    risk_profile = mobile_structural_risk(row)
+    if risk_profile["level"] == "hard":
+        return "🔵 정책·구조 리스크 상한 후보"
+    if risk_profile["level"] == "medium":
+        return "🟠 규제·외부변수 확인 후보"
     cheapness = mobile_cheapness_score(row)
     quality = mobile_quality_score(row)
     momentum = mobile_momentum_score(row)
@@ -208,10 +213,12 @@ def mobile_theme_tags(row):
         str(row.get("sector", "")),
         str(row.get("industry", "")),
     ]).lower()
+    if mobile_structural_risk(row)["level"] == "hard":
+        return []
     theme_keywords = {
         "반도체": ["반도체", "semiconductor", "semi", "하이닉스", "sk하이닉스", "삼성전자", "db하이텍", "한미반도체", "리노공업", "테스", "원익", "솔브레인"],
         "AI": ["ai", "인공지능", "엔비디아", "nvidia", "nvda", "amd", "브로드컴", "avgo"],
-        "전력기기": ["전력", "변압기", "전선", "hd현대일렉트릭", "효성중공업", "ls electric", "ls일렉트릭"],
+        "전력기기": ["변압기", "전선", "hd현대일렉트릭", "효성중공업", "ls electric", "ls일렉트릭", "일진전기", "대한전선"],
         "조선": ["조선", "선박", "해양", "hd한국조선해양", "한화오션", "삼성중공업"],
         "방산": ["방산", "항공우주", "한화에어로", "lig넥스원", "현대로템"],
     }
@@ -220,6 +227,71 @@ def mobile_theme_tags(row):
         if any(keyword.lower() in text for keyword in keywords):
             tags.append(theme)
     return tags
+
+
+def mobile_structural_risk(row):
+    text = " ".join([
+        str(row.get("name", "")),
+        str(row.get("symbol", "")),
+        str(row.get("sector", "")),
+        str(row.get("industry", "")),
+    ]).lower()
+    hard_rules = [
+        (
+            ["한국전력", "kepco", "015760", "한국가스공사", "036460", "지역난방공사", "071320"],
+            60,
+            "정부 요금·공공정책 영향",
+            "전기·가스요금과 정부정책 영향으로 저평가가 오래 지속될 수 있습니다.",
+        ),
+        (
+            ["관리종목", "상장폐지", "감사의견", "거래정지"],
+            60,
+            "상장·회계 리스크",
+            "상장 유지나 회계 신뢰도 문제가 있으면 수치가 좋아도 후보 상단에 두기 어렵습니다.",
+        ),
+    ]
+    medium_rules = [
+        (
+            ["은행", "금융지주", "보험", "증권", "kb금융", "신한지주", "하나금융", "우리금융", "기업은행"],
+            70,
+            "금융 규제산업",
+            "배당·자본규제·정책 압박으로 밸류에이션 상단이 제한될 수 있습니다.",
+        ),
+        (
+            ["통신", "kt", "skt", "sk텔레콤", "lg유플러스"],
+            70,
+            "통신 규제산업",
+            "요금 규제와 정치적 압박으로 싸 보이는 상태가 길어질 수 있습니다.",
+        ),
+        (
+            ["카지노", "면세", "화장품", "중국", "호텔신라", "아모레", "lg생활건강"],
+            70,
+            "중국·지정학 민감",
+            "외교·중국 소비·관광 정책 변화가 숫자보다 크게 작용할 수 있습니다.",
+        ),
+        (
+            ["항공", "해운", "정유", "철강", "화학", "대한항공", "hmm", "팬오션", "s-oil", "posco", "포스코"],
+            70,
+            "원자재·환율 민감",
+            "유가, 운임, 환율, 스프레드에 따라 이익이 빠르게 바뀔 수 있습니다.",
+        ),
+    ]
+    cycle_keywords = ["조선", "해운", "철강", "화학", "메모리", "반도체", "정유"]
+
+    for keywords, cap, label, warning in hard_rules:
+        if any(keyword.lower() in text for keyword in keywords):
+            return {"level": "hard", "cap": cap, "label": label, "warning": warning}
+    for keywords, cap, label, warning in medium_rules:
+        if any(keyword.lower() in text for keyword in keywords):
+            return {"level": "medium", "cap": cap, "label": label, "warning": warning}
+    if any(keyword.lower() in text for keyword in cycle_keywords):
+        return {
+            "level": "cycle",
+            "cap": None,
+            "label": "사이클 확인 필요",
+            "warning": "사이클 업종은 실적 고점과 업황 방향을 함께 확인해야 합니다.",
+        }
+    return {"level": "none", "cap": None, "label": "", "warning": ""}
 
 
 def mobile_cheapness_score(row):
@@ -425,7 +497,7 @@ def mobile_confidence(row):
 def mobile_candidate_score(row):
     confidence, _, _ = mobile_confidence(row)
     data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
-    return bounded(
+    raw_score = bounded(
         mobile_cheapness_score(row)
         + mobile_quality_score(row)
         + mobile_timing_score(row)
@@ -435,6 +507,10 @@ def mobile_candidate_score(row):
         0,
         100,
     )
+    risk_profile = mobile_structural_risk(row)
+    if risk_profile["cap"] is not None:
+        return min(raw_score, risk_profile["cap"])
+    return raw_score
 
 
 def mobile_cheap_reasons(row):
@@ -493,12 +569,15 @@ def mobile_momentum_reasons(row):
 
 def mobile_warning_reasons(row):
     warnings = []
+    risk_profile = mobile_structural_risk(row)
     debt = clean_number(row.get("debt_ratio"))
     roe = clean_number(row.get("roe"))
     eps_growth = clean_number(row.get("eps_growth"))
     operating = clean_number(row.get("operating_growth"))
     rsi = clean_number(row.get("rsi"))
     confidence, _, missing = mobile_confidence(row)
+    if risk_profile["warning"]:
+        warnings.append(risk_profile["label"])
     if debt is not None and debt >= 200:
         warnings.append("부채비율 높음")
     if roe is not None and roe < 8:
@@ -678,6 +757,7 @@ def render_mobile_stock_card(row, is_kr):
     cap = format_cap(row.get("market_cap"), is_kr)
     candidate_score = mobile_candidate_score(row)
     confidence_score, confidence_label, confidence_missing = mobile_confidence(row)
+    risk_profile = mobile_structural_risk(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
     momentum_reasons = mobile_momentum_reasons(row)
@@ -743,6 +823,7 @@ def render_mobile_stock_card(row, is_kr):
             ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
             ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
             ("분석 신뢰도", f"{confidence_score}% · {confidence_label}", f"이 값은 수익 확률이 아니라 분석에 필요한 데이터가 얼마나 채워졌는지입니다. 부족한 부분: {confidence_missing}"),
+            ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
             ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈, 소송·회계 리스크는 점수에 충분히 반영되지 않을 수 있습니다."),
         ])
 
