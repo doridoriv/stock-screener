@@ -228,6 +228,19 @@ def merge_missing_fields(base: dict, supplement: dict) -> dict:
             base[key] = value
     return base
 
+
+def _is_missing_value(value) -> bool:
+    try:
+        if pd.isna(value):
+            return True
+    except Exception:
+        pass
+    return str(value).strip() in ["", "-", "None", "none", "nan", "NaN", "N/A"]
+
+
+def _needs_cashflow_boost(data: dict) -> bool:
+    return any(_is_missing_value(data.get(field)) for field in ["free_cashflow", "operating_cashflow", "cash"])
+
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
 # ==========================================
@@ -838,6 +851,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 data.update(prev_fund_map[sym])
                 if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
                     data['eps_cagr'] = prev_fund_map[sym]['cagr']
+                if market in ["한국(코스피)", "한국(코스닥)", "한국"] and _needs_cashflow_boost(data):
+                    data = merge_missing_fields(data, opendart_client.fetch_dart_metrics(sym))
                 data['yf_symbol'] = sym
                 return data
                 

@@ -528,6 +528,31 @@ def mobile_candidate_score(row):
     return raw_score
 
 
+def mobile_score_breakdown(row):
+    confidence, _, _, _, _ = mobile_confidence(row)
+    data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
+    risk_profile = mobile_structural_risk(row)
+    cheapness = mobile_cheapness_score(row)
+    quality = mobile_quality_score(row)
+    timing = mobile_timing_score(row)
+    momentum = mobile_momentum_score(row)
+    risk = mobile_risk_penalty(row)
+    raw = bounded(cheapness + quality + timing + momentum - risk - data_penalty, 0, 100)
+    final = min(raw, risk_profile["cap"]) if risk_profile["cap"] is not None else raw
+    rows = [
+        ("저렴함", f"+{cheapness:.0f}", "PER, PBR, 과거 평균 대비 할인, 고점 대비 조정"),
+        ("기업 품질", f"+{quality:.0f}", "ROE, 매출 성장, 영업이익 성장, 부채 부담"),
+        ("시장/타이밍", f"+{timing:.0f}", "RSI, EPS 성장, CAGR, 외인/기관 관심"),
+        ("주도 모멘텀", f"+{momentum:.0f}", "주도 테마, 200일선, 고점권, 수급 온기"),
+        ("위험 감점", f"-{risk:.0f}", "부채, 수익성, 역성장, 과열"),
+        ("데이터 부족", f"-{data_penalty:.0f}", "분석 신뢰도 부족 감점"),
+    ]
+    if risk_profile["cap"] is not None:
+        rows.append(("구조 상한", f"≤{risk_profile['cap']}", risk_profile["warning"]))
+    rows.append(("최종", f"{final:.0f}", "후보 목록 정렬에 쓰는 점수"))
+    return rows
+
+
 def mobile_cheap_reasons(row):
     reasons = []
     per = clean_number(row.get("per"))
@@ -749,17 +774,23 @@ def metric_explanation(label, row, value):
 
 
 def render_mobile_metric(label, value_text, explanation):
-    st.markdown(f"**{label}**  `{value_text}`")
-    with st.expander("설명 보기", expanded=False):
-        st.caption(explanation)
+    st.markdown(
+        f"""
+        <div class="mobile-metric-row">
+            <div class="mobile-metric-head"><b>{label}</b><span>{value_text}</span></div>
+            <div class="mobile-metric-explain">{explanation}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_mobile_section(title, metrics):
-    with st.expander(title, expanded=False):
-        if not metrics:
-            st.caption("확인 가능한 데이터가 아직 부족합니다.")
-        for label, value_text, explanation in metrics:
-            render_mobile_metric(label, value_text, explanation)
+    st.markdown(f"**{title}**")
+    if not metrics:
+        st.caption("확인 가능한 데이터가 아직 부족합니다.")
+    for label, value_text, explanation in metrics:
+        render_mobile_metric(label, value_text, explanation)
 
 
 def render_mobile_stock_card(row, is_kr):
@@ -805,6 +836,15 @@ def render_mobile_stock_card(row, is_kr):
     )
 
     st.markdown("**상세보기**")
+    with st.expander("후보적합도 계산", expanded=False):
+        st.dataframe(
+            pd.DataFrame([
+                {"항목": label, "점수": points, "기준": reason}
+                for label, points, reason in mobile_score_breakdown(row)
+            ]),
+            width="stretch",
+            hide_index=True,
+        )
     render_mobile_section("기업 품질", [
         ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
         ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
@@ -945,6 +985,31 @@ st.markdown("""
             min-height: 34px;
             display: flex;
             align-items: center;
+        }
+        .mobile-metric-row {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 8px 0;
+            background: rgba(248, 250, 252, 0.75);
+        }
+        .mobile-metric-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            color: #0f172a;
+            font-size: 0.92rem;
+            margin-bottom: 5px;
+        }
+        .mobile-metric-head span {
+            font-weight: 700;
+            color: #ff4b4b;
+            white-space: nowrap;
+        }
+        .mobile-metric-explain {
+            color: #334155;
+            font-size: 0.85rem;
+            line-height: 1.4;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -1283,7 +1348,11 @@ if st.session_state.data:
             st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
 
     if st.session_state.table_view_mode == "모바일 보기":
-        mobile_df = filter_mobile_candidates(sort_mobile_candidates(df))
+        sorted_mobile_df = sort_mobile_candidates(df)
+        mobile_df = filter_mobile_candidates(sorted_mobile_df)
+        excluded_mobile_df = sorted_mobile_df[
+            sorted_mobile_df.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1) == "⚪ 좋은 회사지만 아직 비쌈"
+        ].reset_index(drop=True)
         total_candidates = len(mobile_df)
         visible_count = min(st.session_state.mobile_visible_count, total_candidates)
         if visible_count <= 0:
@@ -1333,6 +1402,19 @@ if st.session_state.data:
                     st.session_state.mobile_selected_symbol = None
                     st.rerun()
                 render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
+
+        if not excluded_mobile_df.empty:
+            with st.expander(f"관찰 후보 보기: 좋은 회사지만 아직 비쌈 {len(excluded_mobile_df)}개", expanded=False):
+                rows = []
+                for idx, (_, row) in enumerate(excluded_mobile_df.head(20).iterrows(), start=1):
+                    row_dict = row.to_dict()
+                    rows.append({
+                        "순서": idx,
+                        "종목": row_dict.get("name", row_dict.get("symbol")),
+                        "후보적합도": f"{mobile_candidate_score(row_dict):.0f}",
+                        "이유": "품질은 좋지만 현재 저렴함 점수가 낮아 기본 후보에서 제외",
+                    })
+                st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)

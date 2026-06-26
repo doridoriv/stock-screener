@@ -88,13 +88,13 @@ def get_corp_code(stock_code: str, api_key: str) -> str | None:
     return str(matched.iloc[0]["corp_code"]).zfill(8)
 
 
-def _fetch_statement_rows(api_key: str, corp_code: str, year: int, fs_div: str):
+def _fetch_statement_rows(api_key: str, corp_code: str, year: int, fs_div: str, report_code: str = "11011"):
     url = "https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json"
     params = {
         "crtfc_key": api_key,
         "corp_code": corp_code,
         "bsns_year": str(year),
-        "reprt_code": "11011",
+        "reprt_code": report_code,
         "fs_div": fs_div,
     }
     response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
@@ -267,17 +267,25 @@ def fetch_dart_metrics(stock_code: str, year: int | None = None) -> dict:
 
     start_year = year or _latest_business_year()
     for target_year in range(start_year, start_year - 3, -1):
-        for fs_div in ["CFS", "OFS"]:
-            try:
-                rows = _fetch_statement_rows(api_key, corp_code, target_year, fs_div)
-            except Exception:
-                rows = []
-            if not rows:
-                continue
-            metrics = _statement_metrics(rows)
-            metrics["dart_year"] = target_year
-            metrics["dart_fs_div"] = fs_div
-            return {k: v for k, v in metrics.items() if not (isinstance(v, float) and pd.isna(v))}
+        best_metrics = {}
+        for report_code in REPORT_CODES:
+            for fs_div in ["CFS", "OFS"]:
+                try:
+                    rows = _fetch_statement_rows(api_key, corp_code, target_year, fs_div, report_code)
+                except Exception:
+                    rows = []
+                if not rows:
+                    continue
+                metrics = _statement_metrics(rows)
+                metrics["dart_year"] = target_year
+                metrics["dart_fs_div"] = fs_div
+                metrics["dart_report_code"] = report_code
+                cleaned = {k: v for k, v in metrics.items() if not (isinstance(v, float) and pd.isna(v))}
+                best_metrics.update({k: v for k, v in cleaned.items() if k not in best_metrics})
+                if all(k in best_metrics for k in ["cash", "operating_cashflow", "free_cashflow"]):
+                    return best_metrics
+        if best_metrics:
+            return best_metrics
     return {}
 
 
