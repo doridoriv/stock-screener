@@ -3,6 +3,7 @@ import html
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import analyzer
 import diagnostics
@@ -717,7 +718,7 @@ def mobile_signal_cards(row):
 
     return [
         ("좋은 회사인가", quality_text, quality_tone),
-        ("현재 가격인가", price_text, price_tone),
+        ("지금 저렴한가", price_text, price_tone),
         ("주의할 점", caution_text, caution_tone),
     ]
 
@@ -925,6 +926,26 @@ def render_mobile_candidate_card(row, list_index, is_kr):
     )
 
 
+def scroll_mobile_detail_to_top():
+    components.html(
+        """
+        <script>
+        window.parent.scrollTo({ top: 0, behavior: "smooth" });
+        </script>
+        """,
+        height=0,
+    )
+
+
+def render_mobile_fixed_back_link():
+    st.markdown(
+        """
+        <a class="mobile-fixed-back" href="?mobile_back=list">후보 목록으로</a>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_mobile_metric(label, value_text, explanation):
     st.markdown(
         f"""
@@ -1099,6 +1120,12 @@ st.set_page_config(
     layout="wide", 
     initial_sidebar_state=st.session_state.sidebar_state
 )
+
+if st.query_params.get("mobile_back") == "list":
+    st.session_state.mobile_view = "list"
+    st.session_state.mobile_selected_symbol = None
+    st.query_params.clear()
+    st.rerun()
 
 # ==========================================
 # 2. UI 스타일링 (간격 및 여백 극한 압축)
@@ -1311,6 +1338,76 @@ st.markdown("""
             font-size: 1.35rem;
             line-height: 1;
         }
+        .mobile-fixed-back {
+            position: fixed;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: min(92vw, 520px);
+            min-height: 44px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111827;
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-size: 0.94rem;
+            font-weight: 800;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+        }
+        .mobile-evidence-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 8px 0;
+            background: #ffffff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+        }
+        .mobile-evidence-title {
+            color: #111827;
+            font-size: 0.94rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .mobile-evidence-verdict {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .mobile-evidence-verdict span {
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #334155;
+            padding: 4px 8px;
+            font-size: 0.78rem;
+            font-weight: 750;
+        }
+        .mobile-evidence-verdict b {
+            color: #ff4b4b;
+            font-size: 0.86rem;
+        }
+        .mobile-evidence-values {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .mobile-evidence-values span {
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #334155;
+            padding: 7px 6px;
+            font-size: 0.76rem;
+            line-height: 1.25;
+        }
+        .mobile-evidence-meaning {
+            color: #475569;
+            font-size: 0.82rem;
+            line-height: 1.4;
+        }
         .mobile-stock-card {
             border: 1px solid rgba(148, 163, 184, 0.35);
             border-radius: 8px;
@@ -1417,6 +1514,9 @@ st.markdown("""
             color: #334155;
             font-size: 0.85rem;
             line-height: 1.4;
+        }
+        @media (max-width: 720px) {
+            .block-container { padding-bottom: 5rem; }
         }
     </style>
 """, unsafe_allow_html=True)
@@ -1547,14 +1647,35 @@ try:
             return ""
 
         st.caption("시장환경 근거표")
-        evidence_style = evidence_df.style
-        evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
-        evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
-        st.dataframe(
-            evidence_style,
-            width="stretch",
-            hide_index=True,
-        )
+        if st.session_state.table_view_mode == "모바일 보기":
+            for _, item in evidence_df.iterrows():
+                st.markdown(
+                    f"""
+                    <div class="mobile-evidence-card">
+                        <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
+                        <div class="mobile-evidence-verdict">
+                            <span>{escape_html(item.get("평가", "-"))}</span>
+                            <b>{escape_html(item.get("점수영향", "-"))}점</b>
+                        </div>
+                        <div class="mobile-evidence-values">
+                            <span>현재 {escape_html(item.get("현재값", "-"))}</span>
+                            <span>20일 {escape_html(item.get("20일", "-"))}</span>
+                            <span>60일 {escape_html(item.get("60일", "-"))}</span>
+                        </div>
+                        <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        else:
+            evidence_style = evidence_df.style
+            evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
+            evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
+            st.dataframe(
+                evidence_style,
+                width="stretch",
+                hide_index=True,
+            )
     else:
         st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
          
@@ -1778,11 +1899,13 @@ if st.session_state.data:
                 st.session_state.mobile_view = "list"
                 st.rerun()
 
+            scroll_mobile_detail_to_top()
             if st.button("← 후보 목록으로", key="mobile_back_to_list", width="stretch"):
                 st.session_state.mobile_view = "list"
                 st.session_state.mobile_selected_symbol = None
                 st.rerun()
             render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
+            render_mobile_fixed_back_link()
         else:
             title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
             st.subheader(title_text)
