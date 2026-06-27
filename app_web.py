@@ -1341,12 +1341,12 @@ st.markdown("""
         [class*="st-key-mobile_fixed_close_wrap"] {
             position: fixed;
             left: 12px;
-            right: 86px;
+            right: 148px;
             bottom: 8px;
             z-index: 9999;
             width: auto;
             max-width: 520px;
-            padding: 5px;
+            padding: 4px;
             border: 1px solid rgba(226, 232, 240, 0.95);
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.96);
@@ -1356,28 +1356,50 @@ st.markdown("""
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
             grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-            gap: 4px !important;
+            gap: 3px !important;
             align-items: center !important;
         }
-        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="column"] {
-            width: auto !important;
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stColumn"] {
+            width: 100% !important;
             min-width: 0 !important;
             flex: initial !important;
         }
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stVerticalBlock"],
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stElementContainer"],
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
-            width: 100%;
+            width: 100% !important;
+            min-width: 0 !important;
         }
         [class*="st-key-mobile_fixed_tab_"] button,
         [class*="st-key-mobile_close_detail_fixed_"] button {
-            min-height: 36px;
-            border-radius: 8px;
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 32px;
+            height: 32px;
+            border-radius: 7px;
             background: #f8fafc;
             color: #374151;
             border: 1px solid rgba(226, 232, 240, 0.95);
-            font-size: 0.7rem;
+            font-size: 0.66rem;
             font-weight: 800;
-            padding: 0 4px;
+            padding: 0 2px;
             white-space: nowrap;
+            line-height: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        [class*="st-key-mobile_fixed_tab_"] button p,
+        [class*="st-key-mobile_close_detail_fixed_"] button p {
+            margin: 0;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        [class*="st-key-mobile_fixed_tab_active_"] button {
+            background: #111827;
+            color: #ffffff;
+            border-color: #111827;
         }
         [class*="st-key-mobile_close_detail_fixed_"] button {
             background: #111827;
@@ -1970,11 +1992,11 @@ if st.session_state.data:
                     tab_cols = st.columns(5)
                     fixed_tabs = [("요약", "요약"), ("수치", "상세 수치"), ("차트", "차트"), ("정보", "기업 정보")]
                     for tab_col, (short_label, tab_label) in zip(tab_cols[:4], fixed_tabs):
-                        active_prefix = "● " if st.session_state.mobile_detail_tab == tab_label else ""
+                        active_key_part = "active_" if st.session_state.mobile_detail_tab == tab_label else ""
                         with tab_col:
                             if st.button(
-                                f"{active_prefix}{short_label}",
-                                key=f"mobile_fixed_tab_{tab_label}_{symbol}_{list_index}",
+                                short_label,
+                                key=f"mobile_fixed_tab_{active_key_part}{tab_label}_{symbol}_{list_index}",
                                 width="stretch",
                             ):
                                 st.session_state.mobile_detail_tab = tab_label
