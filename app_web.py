@@ -44,6 +44,9 @@ if "mobile_visible_count" not in st.session_state:
 
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
+
+if "mobile_detail_tab" not in st.session_state:
+    st.session_state.mobile_detail_tab = "요약"
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -1009,8 +1012,23 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
     else:
         st.markdown('<div class="mobile-inline-detail-anchor"></div>', unsafe_allow_html=True)
 
-    tab_summary, tab_metrics, tab_chart, tab_company = st.tabs(["요약", "상세 수치", "차트", "기업 정보"])
-    with tab_summary:
+    detail_tab_options = ["요약", "상세 수치", "차트", "기업 정보"]
+    if st.session_state.mobile_detail_tab not in detail_tab_options:
+        st.session_state.mobile_detail_tab = "요약"
+    top_tab_cols = st.columns(4)
+    for tab_col, tab_label in zip(top_tab_cols, detail_tab_options):
+        active_prefix = "● " if st.session_state.mobile_detail_tab == tab_label else ""
+        with tab_col:
+            if st.button(
+                f"{active_prefix}{tab_label}",
+                key=f"mobile_top_tab_{tab_label}_{symbol}",
+                width="stretch",
+            ):
+                st.session_state.mobile_detail_tab = tab_label
+                st.rerun()
+    selected_detail_tab = st.session_state.mobile_detail_tab
+
+    if selected_detail_tab == "요약":
         render_mobile_section("1. 기업 품질", [
             ("ROE", format_metric(row.get("roe"), "%"), "자본 효율과 기업 체력을 봅니다."),
             ("매출성장률", format_metric(row.get("revenue_growth"), "%"), "외형 성장이 이어지는지 확인합니다."),
@@ -1044,7 +1062,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
             ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
             ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈는 점수에 충분히 반영되지 않을 수 있습니다."),
         ])
-    with tab_metrics:
+    elif selected_detail_tab == "상세 수치":
         st.dataframe(
             pd.DataFrame([
                 {"항목": label, "점수": points, "기준": reason}
@@ -1079,14 +1097,14 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
             ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
             ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
         ])
-    with tab_chart:
+    elif selected_detail_tab == "차트":
         render_mobile_section("차트 대신 보는 핵심 위치", [
             ("현재 가격", price, "모바일에서는 차트보다 위치 판단을 먼저 보여줍니다."),
             ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
             ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
             ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
         ])
-    with tab_company:
+    else:
         render_mobile_section("기업 정보", [
             ("종목코드", str(symbol), "선택한 종목의 코드입니다."),
             ("시장순위", f"#{rank}", "시가총액 기준 후보군 내 위치입니다."),
@@ -1347,17 +1365,38 @@ st.markdown("""
             font-size: 1.35rem;
             line-height: 1;
         }
-        .mobile-fixed-close [data-testid="stButton"],
-        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
+        [class*="st-key-mobile_fixed_close_wrap"] {
             position: fixed;
             left: 50%;
-            bottom: 14px;
+            bottom: 12px;
             transform: translateX(-50%);
             z-index: 9999;
             width: min(92vw, 520px);
+            padding: 8px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.20);
+            backdrop-filter: blur(10px);
         }
-        .mobile-fixed-close [data-testid="stButton"] button,
-        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] button {
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stHorizontalBlock"] {
+            gap: 6px;
+        }
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
+            width: 100%;
+        }
+        [class*="st-key-mobile_fixed_tab_"] button {
+            min-height: 34px;
+            border-radius: 999px;
+            background: #f8fafc;
+            color: #374151;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            font-size: 0.74rem;
+            font-weight: 800;
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+        [class*="st-key-mobile_close_detail_fixed_"] button {
             min-height: 44px;
             border-radius: 999px;
             background: #111827;
@@ -1365,7 +1404,7 @@ st.markdown("""
             border: 0;
             font-size: 0.94rem;
             font-weight: 800;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+            margin-top: 4px;
         }
         .mobile-evidence-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
@@ -1950,14 +1989,24 @@ if st.session_state.data:
                     st.rerun()
                 render_mobile_stock_card(row_dict, is_kr, show_header=False)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
-                    st.markdown('<div class="mobile-fixed-close">', unsafe_allow_html=True)
+                    tab_cols = st.columns(4)
+                    for tab_col, tab_label in zip(tab_cols, ["요약", "상세 수치", "차트", "기업 정보"]):
+                        active_prefix = "● " if st.session_state.mobile_detail_tab == tab_label else ""
+                        with tab_col:
+                            if st.button(
+                                f"{active_prefix}{tab_label}",
+                                key=f"mobile_fixed_tab_{tab_label}_{symbol}_{list_index}",
+                                width="stretch",
+                            ):
+                                st.session_state.mobile_detail_tab = tab_label
+                                st.rerun()
                     if st.button("상세 닫기", key=f"mobile_close_detail_fixed_{symbol}_{list_index}", width="stretch"):
                         st.session_state.mobile_selected_symbol = None
                         st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
             else:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
+                    st.session_state.mobile_detail_tab = "요약"
                     st.rerun()
 
         if not excluded_mobile_df.empty:
