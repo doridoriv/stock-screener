@@ -1368,43 +1368,38 @@ st.markdown("""
         [class*="st-key-mobile_fixed_close_wrap"] {
             position: fixed;
             left: 50%;
-            bottom: 12px;
+            bottom: 8px;
             transform: translateX(-50%);
             z-index: 9999;
-            width: min(92vw, 520px);
-            padding: 8px;
+            width: min(94vw, 520px);
+            padding: 5px;
             border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 18px;
+            border-radius: 999px;
             background: rgba(255, 255, 255, 0.96);
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.20);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
             backdrop-filter: blur(10px);
         }
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stHorizontalBlock"] {
-            gap: 6px;
+            gap: 4px;
         }
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
             width: 100%;
         }
-        [class*="st-key-mobile_fixed_tab_"] button {
-            min-height: 34px;
+        [class*="st-key-mobile_fixed_tab_"] button,
+        [class*="st-key-mobile_close_detail_fixed_"] button {
+            min-height: 36px;
             border-radius: 999px;
             background: #f8fafc;
             color: #374151;
             border: 1px solid rgba(226, 232, 240, 0.95);
-            font-size: 0.74rem;
+            font-size: 0.72rem;
             font-weight: 800;
-            padding-left: 6px;
-            padding-right: 6px;
+            padding: 0 4px;
         }
         [class*="st-key-mobile_close_detail_fixed_"] button {
-            min-height: 44px;
-            border-radius: 999px;
             background: #111827;
             color: #ffffff;
             border: 0;
-            font-size: 0.94rem;
-            font-weight: 800;
-            margin-top: 4px;
         }
         .mobile-evidence-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
@@ -1989,20 +1984,22 @@ if st.session_state.data:
                     st.rerun()
                 render_mobile_stock_card(row_dict, is_kr, show_header=False)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
-                    tab_cols = st.columns(4)
-                    for tab_col, tab_label in zip(tab_cols, ["요약", "상세 수치", "차트", "기업 정보"]):
+                    tab_cols = st.columns(5)
+                    fixed_tabs = [("요약", "요약"), ("수치", "상세 수치"), ("차트", "차트"), ("정보", "기업 정보")]
+                    for tab_col, (short_label, tab_label) in zip(tab_cols[:4], fixed_tabs):
                         active_prefix = "● " if st.session_state.mobile_detail_tab == tab_label else ""
                         with tab_col:
                             if st.button(
-                                f"{active_prefix}{tab_label}",
+                                f"{active_prefix}{short_label}",
                                 key=f"mobile_fixed_tab_{tab_label}_{symbol}_{list_index}",
                                 width="stretch",
                             ):
                                 st.session_state.mobile_detail_tab = tab_label
                                 st.rerun()
-                    if st.button("상세 닫기", key=f"mobile_close_detail_fixed_{symbol}_{list_index}", width="stretch"):
-                        st.session_state.mobile_selected_symbol = None
-                        st.rerun()
+                    with tab_cols[4]:
+                        if st.button("닫기", key=f"mobile_close_detail_fixed_{symbol}_{list_index}", width="stretch"):
+                            st.session_state.mobile_selected_symbol = None
+                            st.rerun()
             else:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
