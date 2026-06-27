@@ -52,6 +52,71 @@ def _grade_metric(value, good=None, bad=None, lower_is_better=False):
     return "중립"
 
 
+def _signed_txt(value, suffix=""):
+    value = _num(value)
+    if value is None:
+        return "N/A"
+    return f"{value:+,.2f}{suffix}"
+
+
+def _compact_amount(value):
+    value = _num(value)
+    if value is None:
+        return "N/A"
+    sign = "-" if value < 0 else ""
+    abs_value = abs(value)
+    if abs_value >= 1_000_000_000_000:
+        return f"{sign}{abs_value / 1_000_000_000_000:.2f}T"
+    if abs_value >= 1_000_000_000:
+        return f"{sign}{abs_value / 1_000_000_000:.2f}B"
+    if abs_value >= 1_000_000:
+        return f"{sign}{abs_value / 1_000_000:.2f}M"
+    return f"{value:,.2f}"
+
+
+def _missing_metric_value(row: Dict[str, object], key: str) -> str:
+    amount_keys = {
+        "free_cashflow",
+        "operating_cashflow",
+        "cash",
+        "net_cash",
+    }
+    suffix_keys = {
+        "operating_margin",
+        "net_margin",
+        "peer_per_gap",
+    }
+    if key in amount_keys:
+        return _compact_amount(row.get(key))
+    if key in suffix_keys:
+        return _signed_txt(row.get(key), "%")
+    return _txt(row.get(key))
+
+
+def _missing_metric_interpretation(row: Dict[str, object], key: str) -> str:
+    value = _num(row.get(key))
+    if value is None:
+        return "아직 수치가 없어 판단 보류"
+
+    if key in ["free_cashflow", "operating_cashflow"]:
+        return "플러스라 현금 창출 확인" if value > 0 else "마이너스라 현금 유출 부담"
+    if key == "cash":
+        return "현금 보유로 위기 대응 여력 확인" if value > 0 else "현금 여력 낮음"
+    if key == "net_cash":
+        return "순현금이라 재무 부담 낮음" if value > 0 else "순차입이라 재무 부담 확인 필요"
+    if key == "operating_margin":
+        return "영업 수익성이 양호" if value >= 15 else "영업 수익성 추가 확인"
+    if key == "net_margin":
+        return "최종 수익성이 양호" if value >= 10 else "최종 수익성 추가 확인"
+    if key in ["foreign_net_buy", "institution_net_buy"]:
+        return "순매수라 수급 방향 긍정" if value > 0 else "순매도라 수급 부담"
+    if key == "consensus_revision":
+        return "기대치 상향 흐름" if value > 0 else "기대치 하향 부담"
+    if key == "peer_per_gap":
+        return "업종 대비 저렴" if value < 0 else "업종 대비 비쌈"
+    return "수치 확인됨"
+
+
 def _metric_result_text(kind: str, row: Dict[str, object]) -> str:
     if kind == "business":
         roe = _num(row.get("roe"))
@@ -194,10 +259,13 @@ def missing_data_review(row: Dict[str, object]) -> List[Dict[str, str]]:
     rows = []
     for label, key, missing_status, reason in required:
         available = _has_value(row, key)
+        status = "확인" if available else missing_status
         rows.append({
             "항목": label,
-            "확인 가능 여부": "확인" if available else missing_status,
-            "이유": reason,
+            "상태": status,
+            "현재 수치": _missing_metric_value(row, key) if available else "N/A",
+            "해석": _missing_metric_interpretation(row, key) if available else "자료 보강 전까지 판단 제한",
+            "왜 중요한가": reason,
         })
     return rows
 
