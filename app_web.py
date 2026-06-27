@@ -1092,7 +1092,7 @@ with st.sidebar:
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
 st.header(f"🎯 {get_market_text()} 시장 분석 대시보드")
-st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 상승을 막는 요인")
+st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 좋은 회사인데 왜 안 오르지?")
 
 st.subheader("분석 기준")
 criteria_col1, criteria_col2, criteria_col3 = st.columns([4, 2, 2], vertical_alignment="bottom")
@@ -1487,7 +1487,7 @@ if st.session_state.data:
 
     if st.session_state.table_view_mode == "PC 보기":
         st.divider()
-        st.subheader("3단계: 상승을 막는 요인")
+        st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
     
         symbol_options = {
             f"{row.get('rank', '')}. {row.get('name', row.get('symbol'))} ({row.get('symbol')})": row.get("symbol")
@@ -1526,11 +1526,11 @@ if st.session_state.data:
         st.markdown("**핵심 원인 TOP 3**")
         st.dataframe(pd.DataFrame(blocker_diagnosis["top_blockers"]), width="stretch", hide_index=True)
     
-        tab_reasons, tab_review, tab_missing, tab_market = st.tabs(["상세 원인·수치", "전체 수치 검토", "부족한 데이터", "시장환경 연결"])
-        with tab_reasons:
-            st.dataframe(pd.DataFrame(blocker_diagnosis["detail_blockers"]), width="stretch", hide_index=True)
+        tab_review, tab_reasons, tab_missing, tab_market = st.tabs(["전체 수치 검토", "상세 원인·수치", "부족한 데이터", "시장환경 연결"])
         with tab_review:
             st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
+        with tab_reasons:
+            st.dataframe(pd.DataFrame(blocker_diagnosis["detail_blockers"]), width="stretch", hide_index=True)
         with tab_missing:
             st.dataframe(pd.DataFrame(diagnostics.missing_data_review(selected_row)), width="stretch", hide_index=True)
             supplemental_data.ensure_template()
@@ -1545,6 +1545,16 @@ if st.session_state.data:
                     "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
                 }]
             st.dataframe(pd.DataFrame(market_rows), width="stretch", hide_index=True)
+        with st.expander("스크리너가 모르는 것", expanded=False):
+            st.caption("이 진단은 수치로 확인 가능한 데이터 중심입니다. 아래 변수는 점수와 결론에 충분히 반영되지 않을 수 있습니다.")
+            st.markdown(
+                "- 지정학적 리스크\n"
+                "- 정치·규제 변화\n"
+                "- 예기치 못한 대형 사건\n"
+                "- 경영진의 돌발 이슈\n"
+                "- 소송·회계·공시 리스크\n"
+                "- 실적 발표 직전 변동성"
+            )
 
 else:
     st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")
