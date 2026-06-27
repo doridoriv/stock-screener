@@ -1545,16 +1545,11 @@ if st.session_state.data:
                     "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
                 }]
             st.dataframe(pd.DataFrame(market_rows), width="stretch", hide_index=True)
-        with st.expander("스크리너가 모르는 것", expanded=False):
-            st.caption("이 진단은 수치로 확인 가능한 데이터 중심입니다. 아래 변수는 점수와 결론에 충분히 반영되지 않을 수 있습니다.")
-            st.markdown(
-                "- 지정학적 리스크\n"
-                "- 정치·규제 변화\n"
-                "- 예기치 못한 대형 사건\n"
-                "- 경영진의 돌발 이슈\n"
-                "- 소송·회계·공시 리스크\n"
-                "- 실적 발표 직전 변동성"
-            )
+        st.warning("스크리너가 모르는 것: 이 진단은 수치로 확인 가능한 데이터 중심입니다. 아래 변수는 점수와 결론에 충분히 반영되지 않을 수 있습니다.")
+        st.markdown(
+            "지정학적 리스크 · 정치·규제 변화 · 예기치 못한 대형 사건 · "
+            "경영진의 돌발 이슈 · 소송·회계·공시 리스크 · 실적 발표 직전 변동성"
+        )
 
 else:
     st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")
