@@ -3,7 +3,6 @@ import html
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 import analyzer
 import diagnostics
@@ -45,9 +44,6 @@ if "mobile_visible_count" not in st.session_state:
 
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
-
-if "mobile_scroll_target_symbol" not in st.session_state:
-    st.session_state.mobile_scroll_target_symbol = None
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -166,11 +162,6 @@ def format_cap(value, is_kr):
 
 def escape_html(value):
     return html.escape(str(value if value is not None else ""))
-
-
-def html_id(value):
-    text = str(value if value is not None else "")
-    return "".join(ch if ch.isalnum() else "-" for ch in text)
 
 
 def mobile_grade_label(row):
@@ -924,7 +915,6 @@ def render_mobile_candidate_card(row, list_index, is_kr):
 
     st.markdown(
         f"""
-        <div id="mobile-candidate-{html_id(row.get("symbol", ""))}" class="mobile-candidate-anchor"></div>
         <div class="mobile-candidate-card">
             <div class="mobile-candidate-head">
                 <div class="mobile-candidate-name">
@@ -945,27 +935,6 @@ def render_mobile_candidate_card(row, list_index, is_kr):
         </div>
         """,
         unsafe_allow_html=True,
-    )
-
-
-def scroll_to_mobile_candidate(symbol):
-    target_id = f"mobile-candidate-{html_id(symbol)}"
-    components.html(
-        f"""
-        <script>
-        const scrollCandidate = () => {{
-            const doc = window.parent.document;
-            const target = doc.getElementById("{target_id}");
-            if (target) {{
-                target.scrollIntoView({{ behavior: "auto", block: "start" }});
-                window.parent.scrollBy(0, -12);
-            }}
-        }};
-        setTimeout(scrollCandidate, 120);
-        setTimeout(scrollCandidate, 450);
-        </script>
-        """,
-        height=0,
     )
 
 
@@ -1147,13 +1116,6 @@ st.set_page_config(
     layout="wide", 
     initial_sidebar_state=st.session_state.sidebar_state
 )
-
-mobile_close_symbol = st.query_params.get("mobile_close")
-if mobile_close_symbol:
-    st.session_state.mobile_selected_symbol = None
-    st.session_state.mobile_scroll_target_symbol = str(mobile_close_symbol)
-    st.query_params.clear()
-    st.rerun()
 
 # ==========================================
 # 2. UI 스타일링 (간격 및 여백 극한 압축)
@@ -1385,21 +1347,22 @@ st.markdown("""
             font-size: 1.35rem;
             line-height: 1;
         }
-        .mobile-fixed-close {
+        .mobile-fixed-close [data-testid="stButton"],
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
             position: fixed;
             left: 50%;
             bottom: 14px;
             transform: translateX(-50%);
             z-index: 9999;
             width: min(92vw, 520px);
+        }
+        .mobile-fixed-close [data-testid="stButton"] button,
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] button {
             min-height: 44px;
             border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background: #111827;
-            color: #ffffff !important;
-            text-decoration: none !important;
+            color: #ffffff;
+            border: 0;
             font-size: 0.94rem;
             font-weight: 800;
             box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
@@ -1984,15 +1947,14 @@ if st.session_state.data:
             if st.session_state.mobile_selected_symbol == symbol:
                 if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
-                    st.session_state.mobile_scroll_target_symbol = symbol
                     st.rerun()
                 render_mobile_stock_card(row_dict, is_kr, show_header=False)
-                st.markdown(
-                    f"""
-                    <a class="mobile-fixed-close" href="?mobile_close={escape_html(symbol)}">상세 접기</a>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
+                    st.markdown('<div class="mobile-fixed-close">', unsafe_allow_html=True)
+                    if st.button("상세 닫기", key=f"mobile_close_detail_fixed_{symbol}_{list_index}", width="stretch"):
+                        st.session_state.mobile_selected_symbol = None
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
             else:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
@@ -2011,9 +1973,6 @@ if st.session_state.data:
                     })
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
-        if st.session_state.mobile_scroll_target_symbol:
-            scroll_to_mobile_candidate(st.session_state.mobile_scroll_target_symbol)
-            st.session_state.mobile_scroll_target_symbol = None
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
