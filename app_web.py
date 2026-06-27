@@ -1092,7 +1092,7 @@ with st.sidebar:
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
 st.header(f"🎯 {get_market_text()} 시장 분석 대시보드")
-st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 안 오르는 이유 진단")
+st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 상승을 막는 요인")
 
 st.subheader("분석 기준")
 criteria_col1, criteria_col2, criteria_col3 = st.columns([4, 2, 2], vertical_alignment="bottom")
@@ -1485,50 +1485,66 @@ if st.session_state.data:
             st.caption("확대 보기")
             st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
-    st.divider()
-    st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
-
-    symbol_options = {
-        f"{row.get('rank', '')}. {row.get('name', row.get('symbol'))} ({row.get('symbol')})": row.get("symbol")
-        for _, row in df.iterrows()
-    }
-    option_values = list(symbol_options.values())
-    selected_index = option_values.index(st.session_state.selected_symbol) if st.session_state.selected_symbol in option_values else 0
-    selected_label = st.selectbox("상세 진단 종목", list(symbol_options.keys()), index=selected_index)
-    st.session_state.selected_symbol = symbol_options[selected_label]
-    selected_row = df[df["symbol"] == st.session_state.selected_symbol].iloc[0].to_dict()
-
-    headline, reason_rows = diagnostics.diagnose_why_not_rising(selected_row)
-    if hasattr(diagnostics, "data_completeness"):
-        completeness = diagnostics.data_completeness(selected_row)
-    else:
-        completeness = {"score": 0, "available_count": 0, "total_count": 0, "summary": "진단 모듈 업데이트 대기"}
-    st.info(f"**진단 요약:** {headline}")
-    st.caption(
-        f"데이터 완성도: `{completeness['score']}%` "
-        f"({completeness['available_count']}/{completeness['total_count']})"
-        f" | 부족: `{completeness['summary']}`"
-    )
-
-    tab_review, tab_missing, tab_reasons, tab_market = st.tabs(["확인한 항목", "부족한 데이터", "안 오르는 이유", "시장환경 연결"])
-    with tab_review:
-        st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
-    with tab_missing:
-        st.dataframe(pd.DataFrame(diagnostics.missing_data_review(selected_row)), width="stretch", hide_index=True)
-        supplemental_data.ensure_template()
-        st.caption(f"차단 위험 없이 보강하려면 공식/유료 데이터 또는 직접 받은 CSV를 `{supplemental_data.SUPPLEMENTAL_FILE}`에 채우면 다음 수집 때 자동 병합됩니다.")
-    with tab_reasons:
-        st.dataframe(pd.DataFrame(reason_rows), width="stretch", hide_index=True)
-    with tab_market:
-        if hasattr(diagnostics, "market_context_review"):
-            market_rows = diagnostics.market_context_review(market_data)
+    if st.session_state.table_view_mode == "PC 보기":
+        st.divider()
+        st.subheader("3단계: 상승을 막는 요인")
+    
+        symbol_options = {
+            f"{row.get('rank', '')}. {row.get('name', row.get('symbol'))} ({row.get('symbol')})": row.get("symbol")
+            for _, row in df.iterrows()
+        }
+        option_values = list(symbol_options.values())
+        selected_index = option_values.index(st.session_state.selected_symbol) if st.session_state.selected_symbol in option_values else 0
+        selected_label = st.selectbox("상세 진단 종목", list(symbol_options.keys()), index=selected_index)
+        st.session_state.selected_symbol = symbol_options[selected_label]
+        selected_row = df[df["symbol"] == st.session_state.selected_symbol].iloc[0].to_dict()
+    
+        headline, reason_rows = diagnostics.diagnose_why_not_rising(selected_row)
+        if hasattr(diagnostics, "diagnose_blockers"):
+            blocker_diagnosis = diagnostics.diagnose_blockers(selected_row)
         else:
-            market_rows = [{
-                "구분": "시장환경",
-                "항목": market_data.get("score_state", market_data.get("market_state", "미확인")),
-                "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
-            }]
-        st.dataframe(pd.DataFrame(market_rows), width="stretch", hide_index=True)
+            blocker_diagnosis = {
+                "headline": headline,
+                "decision": headline,
+                "positives": "진단 모듈 업데이트 대기",
+                "top_blockers": reason_rows[:3],
+                "detail_blockers": reason_rows,
+            }
+        if hasattr(diagnostics, "data_completeness"):
+            completeness = diagnostics.data_completeness(selected_row)
+        else:
+            completeness = {"score": 0, "available_count": 0, "total_count": 0, "summary": "진단 모듈 업데이트 대기"}
+    
+        st.info(f"**결론:** {blocker_diagnosis['decision']}")
+        st.caption(
+            f"데이터 완성도: `{completeness['score']}%` "
+            f"({completeness['available_count']}/{completeness['total_count']})"
+            f" | 부족: `{completeness['summary']}`"
+        )
+        st.caption(f"긍정 요인: {blocker_diagnosis['positives']}")
+    
+        st.markdown("**핵심 원인 TOP 3**")
+        st.dataframe(pd.DataFrame(blocker_diagnosis["top_blockers"]), width="stretch", hide_index=True)
+    
+        tab_reasons, tab_review, tab_missing, tab_market = st.tabs(["상세 원인·수치", "전체 수치 검토", "부족한 데이터", "시장환경 연결"])
+        with tab_reasons:
+            st.dataframe(pd.DataFrame(blocker_diagnosis["detail_blockers"]), width="stretch", hide_index=True)
+        with tab_review:
+            st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
+        with tab_missing:
+            st.dataframe(pd.DataFrame(diagnostics.missing_data_review(selected_row)), width="stretch", hide_index=True)
+            supplemental_data.ensure_template()
+            st.caption(f"차단 위험 없이 보강하려면 공식/유료 데이터 또는 직접 받은 CSV를 `{supplemental_data.SUPPLEMENTAL_FILE}`에 채우면 다음 수집 때 자동 병합됩니다.")
+        with tab_market:
+            if hasattr(diagnostics, "market_context_review"):
+                market_rows = diagnostics.market_context_review(market_data)
+            else:
+                market_rows = [{
+                    "구분": "시장환경",
+                    "항목": market_data.get("score_state", market_data.get("market_state", "미확인")),
+                    "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
+                }]
+            st.dataframe(pd.DataFrame(market_rows), width="stretch", hide_index=True)
 
 else:
     st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")

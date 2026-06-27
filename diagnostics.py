@@ -261,6 +261,150 @@ def market_context_review(market_data: Dict[str, object]) -> List[Dict[str, str]
     ]
 
 
+def diagnose_blockers(row: Dict[str, object]) -> Dict[str, object]:
+    name = row.get("name", row.get("symbol", "선택 종목"))
+    blockers = []
+    positives = []
+
+    per = _num(row.get("per"))
+    hist_per = _num(row.get("hist_per_avg"))
+    pbr = _num(row.get("pbr"))
+    roe = _num(row.get("roe"))
+    eps_growth = _num(row.get("eps_growth"))
+    revenue_growth = _num(row.get("revenue_growth"))
+    operating_growth = _num(row.get("operating_growth"))
+    peg = _num(row.get("peg"))
+    fcf = _num(row.get("free_cashflow"))
+    operating_cashflow = _num(row.get("operating_cashflow"))
+    diff = _num(row.get("diff"))
+    peak_diff = _num(row.get("peak_diff"))
+    rsi = _num(row.get("rsi"))
+    debt_ratio = _num(row.get("debt_ratio"))
+    foreign_supply = _num(row.get("foreign_supply"))
+
+    if roe is not None and roe >= 15:
+        positives.append("ROE 우수")
+    if revenue_growth is not None and revenue_growth > 0:
+        positives.append("매출 성장")
+    if operating_growth is not None and operating_growth > 0:
+        positives.append("영업이익 성장")
+
+    if per is not None and hist_per is not None and hist_per > 0:
+        per_gap = (per / hist_per - 1) * 100
+        if per_gap > 20:
+            blockers.append({
+                "우선순위": len(blockers) + 1,
+                "핵심 원인": "가격 부담",
+                "결론": "좋은 회사여도 현재 가격에 기대가 많이 반영됐을 수 있습니다.",
+                "상세 수치": f"현재 PER {_txt(per)} / 과거 평균 PER {_txt(hist_per)} / 괴리 {per_gap:+.1f}%",
+                "판정": "매수 보류 또는 더 싼 가격 대기",
+            })
+    elif per is not None and per >= 25:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "높은 PER",
+            "결론": "이익 성장보다 주가 기대치가 앞서 있을 수 있습니다.",
+            "상세 수치": f"현재 PER {_txt(per)} / 과거 평균 PER N/A",
+            "판정": "성장률 재확인",
+        })
+
+    if eps_growth is None or eps_growth <= 0:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "이익 성장 둔화",
+            "결론": "이익 증가가 약하면 PER 재평가가 늦어질 수 있습니다.",
+            "상세 수치": f"EPS성장률 {_txt(eps_growth, '%')} / 매출성장률 {_txt(revenue_growth, '%')} / 영업이익성장률 {_txt(operating_growth, '%')}",
+            "판정": "실적 반전 확인 전까지 보수적 관찰",
+        })
+
+    if fcf is None:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "현금흐름 미확인",
+            "결론": "이익이 실제 현금으로 남는지 아직 확정하기 어렵습니다.",
+            "상세 수치": f"FCF N/A / 영업현금흐름 {_txt(operating_cashflow)}",
+            "판정": "현금흐름 데이터 보강 필요",
+        })
+    elif fcf < 0:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "FCF 적자",
+            "결론": "성장 중이어도 현금 유출이 크면 주가가 눌릴 수 있습니다.",
+            "상세 수치": f"FCF {_txt(fcf)} / 영업현금흐름 {_txt(operating_cashflow)}",
+            "판정": "현금 창출 회복 확인",
+        })
+
+    if diff is not None and diff < 0:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "추세 미회복",
+            "결론": "아직 시장이 중장기 상승 추세를 인정하지 않은 상태입니다.",
+            "상세 수치": f"200일선 대비 {_txt(diff, '%')} / 최고점 대비 {_txt(peak_diff, '%')} / RSI {_txt(rsi)}",
+            "판정": "추세 회복 확인",
+        })
+    elif peak_diff is not None and peak_diff < -30:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "고점 대비 낙폭",
+            "결론": "낙폭이 커서 수급 전환 신호가 필요합니다.",
+            "상세 수치": f"최고점 대비 {_txt(peak_diff, '%')} / 200일선 대비 {_txt(diff, '%')} / RSI {_txt(rsi)}",
+            "판정": "반등 확인 후 접근",
+        })
+
+    if pbr is not None and pbr >= 5:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "높은 PBR",
+            "결론": "자산 대비 프리미엄이 커서 시장 눈높이가 높습니다.",
+            "상세 수치": f"PBR {_txt(pbr)} / ROE {_txt(roe, '%')}",
+            "판정": "ROE 지속성 확인",
+        })
+
+    if roe is not None and roe < 8:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "ROE 약함",
+            "결론": "자본 효율이 낮으면 시장이 높은 배수를 주기 어렵습니다.",
+            "상세 수치": f"ROE {_txt(roe, '%')} / PER {_txt(per)} / PBR {_txt(pbr)}",
+            "판정": "기업 품질 재검토",
+        })
+
+    if debt_ratio is not None and debt_ratio > 200:
+        blockers.append({
+            "우선순위": len(blockers) + 1,
+            "핵심 원인": "부채 부담",
+            "결론": "금리와 업황 둔화에 주가가 민감할 수 있습니다.",
+            "상세 수치": f"부채비율 {_txt(debt_ratio, '%')} / FCF {_txt(fcf)}",
+            "판정": "재무 리스크 우선 확인",
+        })
+
+    if not blockers:
+        blockers.append({
+            "우선순위": 1,
+            "핵심 원인": "뚜렷한 저해 요인 적음",
+            "결론": "보유 데이터 기준으로는 수급, 컨센서스, 뉴스 변수가 핵심입니다.",
+            "상세 수치": f"PER {_txt(per)} / ROE {_txt(roe, '%')} / 200일선 대비 {_txt(diff, '%')} / 외인·기관 {_txt(foreign_supply, '%')}",
+            "판정": "관찰 유지",
+        })
+
+    severe_names = {"부채 부담", "FCF 적자", "가격 부담"}
+    top_names = [item["핵심 원인"] for item in blockers[:3]]
+    if any(name in severe_names for name in top_names):
+        decision = "매수 보류: 핵심 리스크 확인 전까지 가격보다 원인 해소가 먼저입니다."
+    elif len(blockers) <= 2 and len(positives) >= 2:
+        decision = "관찰 유지: 기업 체력은 있으나 상승 신호 확인이 필요합니다."
+    else:
+        decision = "추가 확인: 상승을 막는 요인을 수치로 하나씩 제거해야 합니다."
+
+    return {
+        "headline": f"{name}: {decision}",
+        "decision": decision,
+        "positives": " · ".join(positives[:4]) if positives else "강한 긍정 요인 확인 필요",
+        "top_blockers": blockers[:3],
+        "detail_blockers": blockers,
+    }
+
+
 def diagnose_why_not_rising(row: Dict[str, object]) -> Tuple[str, List[Dict[str, str]]]:
     reasons = []
     positives = []
