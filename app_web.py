@@ -958,7 +958,7 @@ def render_mobile_section(title, metrics):
         render_mobile_metric(label, value_text, explanation)
 
 
-def render_mobile_stock_card(row, is_kr):
+def render_mobile_stock_card(row, is_kr, show_header=True):
     rank = row.get("rank", "")
     name = row.get("name", row.get("symbol", "이름 없음"))
     symbol = row.get("symbol", "")
@@ -984,27 +984,30 @@ def render_mobile_stock_card(row, is_kr):
             f"</div>"
         )
 
-    st.markdown(
-        f"""
-        <div id="mobile-detail-top"></div>
-        <div class="mobile-detail-hero">
-            <div class="mobile-detail-top">
-                <div>
-                    <div class="mobile-stock-title">{escape_html(name)}</div>
-                    <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(row.get("sector") or row.get("industry") or "업종 확인")}</div>
+    if show_header:
+        st.markdown(
+            f"""
+            <div id="mobile-detail-top"></div>
+            <div class="mobile-detail-hero">
+                <div class="mobile-detail-top">
+                    <div>
+                        <div class="mobile-stock-title">{escape_html(name)}</div>
+                        <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(row.get("sector") or row.get("industry") or "업종 확인")}</div>
+                    </div>
+                    <span class="mobile-grade-pill">{escape_html(mobile_grade_label(row))}</span>
                 </div>
-                <span class="mobile-grade-pill">{escape_html(mobile_grade_label(row))}</span>
+                <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
+                <div class="mobile-detail-signals">{signal_html}</div>
+                <div class="mobile-detail-score">
+                    <span>후보적합도 {candidate_score:.0f}%</span>
+                    <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
+                </div>
             </div>
-            <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
-            <div class="mobile-detail-signals">{signal_html}</div>
-            <div class="mobile-detail-score">
-                <span>후보적합도 {candidate_score:.0f}%</span>
-                <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="mobile-inline-detail-anchor"></div>', unsafe_allow_html=True)
 
     tab_summary, tab_metrics, tab_chart, tab_company = st.tabs(["요약", "상세 수치", "차트", "기업 정보"])
     with tab_summary:
@@ -1113,6 +1116,11 @@ st.set_page_config(
     layout="wide", 
     initial_sidebar_state=st.session_state.sidebar_state
 )
+
+if st.query_params.get("mobile_close"):
+    st.session_state.mobile_selected_symbol = None
+    st.query_params.clear()
+    st.rerun()
 
 # ==========================================
 # 2. UI 스타일링 (간격 및 여백 극한 압축)
@@ -1343,6 +1351,25 @@ st.markdown("""
             color: #111827;
             font-size: 1.35rem;
             line-height: 1;
+        }
+        .mobile-fixed-close {
+            position: fixed;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            z-index: 9999;
+            width: min(92vw, 520px);
+            min-height: 44px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111827;
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-size: 0.94rem;
+            font-weight: 800;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
         }
         .mobile-evidence-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
@@ -1925,7 +1952,13 @@ if st.session_state.data:
                 if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
                     st.rerun()
-                render_mobile_stock_card(row_dict, is_kr)
+                render_mobile_stock_card(row_dict, is_kr, show_header=False)
+                st.markdown(
+                    f"""
+                    <a class="mobile-fixed-close" href="?mobile_close={escape_html(symbol)}">상세 접기</a>
+                    """,
+                    unsafe_allow_html=True,
+                )
             else:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
