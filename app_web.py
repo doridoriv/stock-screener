@@ -1,4 +1,5 @@
 import os
+import html
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -160,6 +161,10 @@ def format_cap(value, is_kr):
     if number >= 1:
         return f"${number:.0f}B"
     return f"${number / 1_000_000:.0f}M"
+
+
+def escape_html(value):
+    return html.escape(str(value if value is not None else ""))
 
 
 def mobile_grade_label(row):
@@ -683,23 +688,72 @@ def mobile_warning_reasons(row):
     return warnings
 
 
+def mobile_signal_cards(row):
+    quality = mobile_quality_score(row)
+    cheapness = mobile_cheapness_score(row)
+    risk = mobile_risk_penalty(row)
+    warnings = mobile_warning_reasons(row)
+
+    if quality >= 26:
+        quality_text, quality_tone = "좋음", "good"
+    elif quality >= 14:
+        quality_text, quality_tone = "보통", "watch"
+    else:
+        quality_text, quality_tone = "확인 필요", "risk"
+
+    if cheapness >= 28:
+        price_text, price_tone = "저평가 가능", "good"
+    elif cheapness >= 18:
+        price_text, price_tone = "중립", "watch"
+    else:
+        price_text, price_tone = "아직 비쌈", "risk"
+
+    if risk <= 8 and not warnings:
+        caution_text, caution_tone = "특이사항 적음", "good"
+    elif risk <= 18:
+        caution_text, caution_tone = "사이클 확인 필요", "watch"
+    else:
+        caution_text, caution_tone = "주의 필요", "risk"
+
+    return [
+        ("좋은 회사인가", quality_text, quality_tone),
+        ("현재 가격인가", price_text, price_tone),
+        ("주의할 점", caution_text, caution_tone),
+    ]
+
+
+def mobile_change_text(row):
+    after_change = clean_number(row.get("after_market_change_pct"))
+    peak_diff = clean_number(row.get("peak_diff"))
+    if after_change is not None:
+        return f"{after_change:+.2f}%"
+    if peak_diff is not None:
+        return f"최고점 대비 {peak_diff:.1f}%"
+    return "등락 N/A"
+
+
 def render_mobile_market_notes(market_data):
-    with st.expander("⚠️ 오늘의 시장 메시지", expanded=False):
-        st.write(market_data.get("summary", "시장환경 요약을 확인 중입니다."))
-        st.caption(
-            "금리, 환율, 업종 강도처럼 숫자로 볼 수 있는 시장 변수는 참고하되, "
-            "정책·규제·전쟁 같은 정성 변수는 별도 확인이 필요합니다."
-        )
-    with st.expander("스크리너가 모르는 것", expanded=False):
-        st.caption("숫자로 보이는 저렴함만으로 모든 현실을 설명할 수는 없습니다.")
-        st.markdown(
-            "- 지정학적 리스크\n"
-            "- 정치·규제 변화\n"
-            "- 예기치 못한 대형 사건\n"
-            "- 경영진의 돌발 이슈\n"
-            "- 소송·회계·공시 리스크\n"
-            "- 실적 발표 직전 변동성"
-        )
+    score = clean_number(market_data.get("market_score"))
+    state = market_data.get("score_state") or market_data.get("market_state") or "확인 중"
+    summary = market_data.get("summary", "시장환경 요약을 확인 중입니다.")
+    score_text = f"{score:.1f}점" if score is not None else "N/A"
+    st.markdown(
+        f"""
+        <div class="mobile-market-card">
+            <div class="mobile-market-top">
+                <b>시장환경 한눈에 보기</b>
+                <span>자세히 보기 ›</span>
+            </div>
+            <div class="mobile-market-state">상태: <b>{escape_html(state)}</b></div>
+            <div class="mobile-market-score">위험선호도 <b>{score_text}</b></div>
+            <div class="mobile-market-summary">{escape_html(summary)}</div>
+            <div class="mobile-market-tags">
+                <span>정량 확인</span><span>정성 변수 별도</span><span>캐시 기준</span><span>뉴스 별도 확인</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def metric_explanation(label, row, value):
@@ -823,6 +877,54 @@ def metric_explanation(label, row, value):
     return "현재 수치만으로 결론내리기 어렵습니다. 같은 섹션의 다른 지표와 함께 확인하세요."
 
 
+def render_mobile_candidate_card(row, list_index, is_kr):
+    name = escape_html(row.get("name", row.get("symbol", "이름 없음")))
+    symbol = escape_html(row.get("symbol", ""))
+    sector = escape_html(row.get("sector") or row.get("industry") or "업종 확인")
+    price = escape_html(format_price(row.get("price"), is_kr))
+    change_text = escape_html(mobile_change_text(row))
+    grade = escape_html(mobile_grade_label(row))
+    candidate_score = mobile_candidate_score(row)
+    confidence_score, confidence_label, _, _, _ = mobile_confidence(row)
+    cheap_reasons = mobile_cheap_reasons(row)
+    good_reasons = mobile_good_reasons(row)
+    momentum_reasons = mobile_momentum_reasons(row)
+    reason_chips = (good_reasons + cheap_reasons + momentum_reasons)[:3] or ["근거 확인 필요"]
+    chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
+    signal_html = ""
+    for title, signal_value, tone in mobile_signal_cards(row):
+        signal_html += (
+            f"<div class='mobile-signal-card {tone}'>"
+            f"<small>{escape_html(title)}</small><b>{escape_html(signal_value)}</b>"
+            f"</div>"
+        )
+    rank_tone = "hot" if list_index <= 3 else "base"
+
+    st.markdown(
+        f"""
+        <div class="mobile-candidate-card">
+            <div class="mobile-candidate-head">
+                <div class="mobile-candidate-name">
+                    <span class="mobile-rank-badge {rank_tone}">{list_index}</span>
+                    <div><b>{name}</b><small>{symbol} · {sector}</small></div>
+                </div>
+                <span class="mobile-grade-pill">{grade}</span>
+            </div>
+            <div class="mobile-price-row">
+                <b>{price}</b><span>{change_text}</span>
+            </div>
+            <div class="mobile-signal-grid">{signal_html}</div>
+            <div class="mobile-score-row">
+                <span>후보적합도 {candidate_score:.0f}%</span>
+                <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
+            </div>
+            <div class="mobile-chip-row">{chip_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_mobile_metric(label, value_text, explanation):
     st.markdown(
         f"""
@@ -861,38 +963,71 @@ def render_mobile_stock_card(row, is_kr):
     good_facts = mobile_reason_facts(row, "good")
     momentum_facts = mobile_reason_facts(row, "momentum")
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
+    signal_html = ""
+    for title, signal_value, tone in mobile_signal_cards(row):
+        signal_html += (
+            f"<div class='mobile-detail-signal {tone}'>"
+            f"<small>{escape_html(title)}</small><b>{escape_html(signal_value)}</b>"
+            f"</div>"
+        )
 
     st.markdown(
         f"""
-        <div class="mobile-stock-card">
-            <div class="mobile-stock-rank">시장순위 #{rank} · {symbol}</div>
-            <div class="mobile-stock-title">{name}</div>
-            <div class="mobile-stock-grade">{mobile_grade_label(row)} · 후보적합도 {candidate_score:.0f}점</div>
-            <div class="mobile-stock-trust">분석 신뢰도 {confidence_score}% · {available_count}/{total_count}개 확인 · {confidence_label}</div>
-            <div class="mobile-stock-warning"><b>부족</b> {confidence_missing}</div>
-            <div class="mobile-stock-summary">{mobile_summary(row)}</div>
-            <div class="mobile-stock-reason"><b>싼 이유</b> {' · '.join(cheap_reasons[:3])}</div>
-            <div class="mobile-stock-facts"><b>수치 근거</b> {cheap_facts}</div>
-            <div class="mobile-stock-reason"><b>좋은 이유</b> {' · '.join(good_reasons[:3])}</div>
-            <div class="mobile-stock-facts"><b>수치 근거</b> {good_facts}</div>
-            <div class="mobile-stock-reason"><b>주도 이유</b> {' · '.join(momentum_reasons[:3]) if momentum_reasons else '업종/수급 모멘텀 추가 확인'}</div>
-            <div class="mobile-stock-facts"><b>수치 근거</b> {momentum_facts}</div>
-            <div class="mobile-stock-warning"><b>주의</b> {' · '.join(warning_reasons[:2])}</div>
-            <div class="mobile-stock-metrics">
-                <span>가격 {price}</span>
-                <span>시총 {cap}</span>
-                <span>PER {format_metric(row.get("per"))}</span>
-                <span>ROE {format_metric(row.get("roe"), "%")}</span>
-                <span>등급 {grade}</span>
-                <span>종합점수 {score}점</span>
+        <div class="mobile-detail-hero">
+            <div class="mobile-detail-top">
+                <div>
+                    <div class="mobile-stock-title">{escape_html(name)}</div>
+                    <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(row.get("sector") or row.get("industry") or "업종 확인")}</div>
+                </div>
+                <span class="mobile-grade-pill">{escape_html(mobile_grade_label(row))}</span>
+            </div>
+            <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
+            <div class="mobile-detail-signals">{signal_html}</div>
+            <div class="mobile-detail-score">
+                <span>후보적합도 {candidate_score:.0f}%</span>
+                <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("**상세보기**")
-    with st.expander("후보적합도 계산", expanded=False):
+    tab_summary, tab_metrics, tab_chart, tab_company = st.tabs(["요약", "상세 수치", "차트", "기업 정보"])
+    with tab_summary:
+        render_mobile_section("1. 기업 품질", [
+            ("ROE", format_metric(row.get("roe"), "%"), "자본 효율과 기업 체력을 봅니다."),
+            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), "외형 성장이 이어지는지 확인합니다."),
+            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), "본업 이익이 실제로 늘고 있는지 봅니다."),
+        ])
+        render_mobile_section("2. 가격 매력", [
+            ("PER", format_metric(row.get("per")), cheap_facts),
+            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
+        ])
+        render_mobile_section("3. 현금흐름", [
+            ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
+        ])
+        render_mobile_section("4. 재무 안정성", [
+            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
+            ("시가총액", cap, "기업 규모와 변동성을 함께 볼 때 참고합니다."),
+        ])
+        render_mobile_section("5. 수급", [
+            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
+        ])
+        render_mobile_section("6. 기술적 위치", [
+            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
+            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
+        ])
+        render_mobile_section("7. 시장환경", [
+            ("주도 이유", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", momentum_facts),
+        ])
+        render_mobile_section("8. 리스크", [
+            ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다."),
+        ])
+        render_mobile_section("9. 데이터 신뢰도", [
+            ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
+            ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈는 점수에 충분히 반영되지 않을 수 있습니다."),
+        ])
+    with tab_metrics:
         st.dataframe(
             pd.DataFrame([
                 {"항목": label, "점수": points, "기준": reason}
@@ -901,39 +1036,47 @@ def render_mobile_stock_card(row, is_kr):
             width="stretch",
             hide_index=True,
         )
-    render_mobile_section("기업 품질", [
-        ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
-        ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
-        ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
-    ])
-    render_mobile_section("가격", [
-        ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
-        ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
-        ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
-    ])
-    render_mobile_section("성장성", [
-        ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
-        ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
-    ])
-    render_mobile_section("재무", [
-        ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
-        ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
-    ])
-    render_mobile_section("수급", [
-        ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
-    ])
-    render_mobile_section("시장환경", [
-        ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
-        ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
-        ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
-    ])
-    render_mobile_section("리스크", [
-        ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
-        ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
-        ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"이 값은 수익 확률이 아니라 분석에 필요한 데이터가 얼마나 채워졌는지입니다. 부족한 부분: {confidence_missing}"),
-        ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
-        ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈, 소송·회계 리스크는 점수에 충분히 반영되지 않을 수 있습니다."),
-    ])
+        render_mobile_section("기업 품질", [
+            ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
+            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
+            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
+        ])
+        render_mobile_section("가격", [
+            ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
+            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
+            ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
+        ])
+        render_mobile_section("성장성", [
+            ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
+            ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
+        ])
+        render_mobile_section("재무", [
+            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
+            ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
+        ])
+        render_mobile_section("수급", [
+            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
+        ])
+        render_mobile_section("리스크", [
+            ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
+            ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
+            ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
+        ])
+    with tab_chart:
+        render_mobile_section("차트 대신 보는 핵심 위치", [
+            ("현재 가격", price, "모바일에서는 차트보다 위치 판단을 먼저 보여줍니다."),
+            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
+            ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
+            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
+        ])
+    with tab_company:
+        render_mobile_section("기업 정보", [
+            ("종목코드", str(symbol), "선택한 종목의 코드입니다."),
+            ("시장순위", f"#{rank}", "시가총액 기준 후보군 내 위치입니다."),
+            ("시가총액", cap, "기업 규모를 보는 기준입니다."),
+            ("등급", str(grade), "기존 스크리너의 종합 등급입니다."),
+            ("종합점수", f"{score}점", "기존 PC 표와 같은 종합점수입니다."),
+        ])
 
 
 def handle_market_change():
@@ -971,6 +1114,202 @@ st.markdown("""
             border-left: 5px solid #FFD700;
             margin-bottom: 20px;
             border-radius: 4px;
+        }
+        .mobile-market-card {
+            border: 1px solid rgba(191, 219, 254, 0.9);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 10px 0 14px 0;
+            background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+        .mobile-market-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #1e3a8a;
+            font-size: 0.92rem;
+            margin-bottom: 10px;
+        }
+        .mobile-market-top span {
+            color: #2563eb;
+            font-size: 0.78rem;
+        }
+        .mobile-market-state {
+            color: #0f172a;
+            font-size: 1.08rem;
+            margin-bottom: 6px;
+        }
+        .mobile-market-score,
+        .mobile-market-summary {
+            color: #334155;
+            font-size: 0.86rem;
+            line-height: 1.45;
+            margin-bottom: 8px;
+        }
+        .mobile-market-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .mobile-market-tags span,
+        .mobile-chip-row span {
+            border-radius: 999px;
+            padding: 5px 9px;
+            background: #f1f5f9;
+            color: #334155;
+            font-size: 0.78rem;
+            font-weight: 650;
+        }
+        .mobile-candidate-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 14px;
+            padding: 13px;
+            margin: 12px 0 6px 0;
+            background: #ffffff;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+        }
+        .mobile-candidate-head,
+        .mobile-detail-top,
+        .mobile-price-row,
+        .mobile-score-row,
+        .mobile-detail-score {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .mobile-candidate-name {
+            display: flex;
+            gap: 9px;
+            align-items: flex-start;
+            color: #111827;
+            min-width: 0;
+        }
+        .mobile-candidate-name b {
+            display: block;
+            font-size: 0.98rem;
+            line-height: 1.2;
+        }
+        .mobile-candidate-name small,
+        .mobile-stock-rank {
+            display: block;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+        .mobile-rank-badge {
+            min-width: 24px;
+            height: 24px;
+            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 0.82rem;
+            background: #94a3b8;
+        }
+        .mobile-rank-badge.hot {
+            background: linear-gradient(135deg, #ef4444, #f97316);
+        }
+        .mobile-grade-pill {
+            border: 1px solid #fecaca;
+            color: #ef4444;
+            background: #fff7f7;
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 0.72rem;
+            font-weight: 750;
+            white-space: nowrap;
+        }
+        .mobile-price-row {
+            align-items: center;
+            margin: 13px 0 10px 0;
+        }
+        .mobile-price-row b {
+            color: #111827;
+            font-size: 1.05rem;
+        }
+        .mobile-price-row span,
+        .mobile-detail-price span {
+            color: #2563eb;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .mobile-signal-grid,
+        .mobile-detail-signals {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            margin-bottom: 10px;
+        }
+        .mobile-signal-card,
+        .mobile-detail-signal {
+            border-radius: 10px;
+            padding: 8px 7px;
+            background: #f8fafc;
+            min-height: 54px;
+        }
+        .mobile-signal-card small,
+        .mobile-detail-signal small {
+            display: block;
+            color: #64748b;
+            font-size: 0.72rem;
+            margin-bottom: 4px;
+        }
+        .mobile-signal-card b,
+        .mobile-detail-signal b {
+            color: #0f172a;
+            font-size: 0.82rem;
+            line-height: 1.2;
+        }
+        .mobile-signal-card.good,
+        .mobile-detail-signal.good { background: #f0fdf4; }
+        .mobile-signal-card.good b,
+        .mobile-detail-signal.good b { color: #16a34a; }
+        .mobile-signal-card.watch,
+        .mobile-detail-signal.watch { background: #fffbeb; }
+        .mobile-signal-card.watch b,
+        .mobile-detail-signal.watch b { color: #d97706; }
+        .mobile-signal-card.risk,
+        .mobile-detail-signal.risk { background: #fef2f2; }
+        .mobile-signal-card.risk b,
+        .mobile-detail-signal.risk b { color: #ef4444; }
+        .mobile-score-row,
+        .mobile-detail-score {
+            color: #64748b;
+            font-size: 0.78rem;
+            margin: 8px 0;
+        }
+        .mobile-score-row b,
+        .mobile-detail-score b {
+            color: #16a34a;
+        }
+        .mobile-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .mobile-detail-hero {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 18px;
+            padding: 16px;
+            margin: 12px 0 14px 0;
+            background: #ffffff;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+        }
+        .mobile-detail-price {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 0 12px 0;
+        }
+        .mobile-detail-price b {
+            color: #111827;
+            font-size: 1.35rem;
+            line-height: 1;
         }
         .mobile-stock-card {
             border: 1px solid rgba(148, 163, 184, 0.35);
@@ -1469,13 +1808,8 @@ if st.session_state.data:
             for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
                 row_dict = row.to_dict()
                 symbol = str(row_dict.get("symbol", ""))
-                confidence_score, _, _, available_count, total_count = mobile_confidence(row_dict)
-                button_label = (
-                    f"{list_index}. {row_dict.get('name', symbol)} · {mobile_grade_label(row_dict)} · "
-                    f"후보적합도 {mobile_candidate_score(row_dict):.0f}점 · "
-                    f"신뢰도 {confidence_score}%({available_count}/{total_count})"
-                )
-                if st.button(button_label, key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
+                render_mobile_candidate_card(row_dict, list_index, is_kr)
+                if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
                     st.session_state.mobile_view = "detail"
                     st.rerun()
