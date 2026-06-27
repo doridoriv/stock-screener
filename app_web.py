@@ -1380,7 +1380,15 @@ st.markdown("""
             backdrop-filter: blur(10px);
         }
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stHorizontalBlock"] {
-            gap: 4px;
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            gap: 4px !important;
+            align-items: center !important;
+        }
+        [class*="st-key-mobile_fixed_close_wrap"] [data-testid="column"] {
+            width: auto !important;
+            min-width: 0 !important;
+            flex: initial !important;
         }
         [class*="st-key-mobile_fixed_close_wrap"] [data-testid="stButton"] {
             width: 100%;
@@ -1395,6 +1403,7 @@ st.markdown("""
             font-size: 0.72rem;
             font-weight: 800;
             padding: 0 4px;
+            white-space: nowrap;
         }
         [class*="st-key-mobile_close_detail_fixed_"] button {
             background: #111827;
