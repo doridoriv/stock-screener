@@ -48,6 +48,9 @@ if "mobile_selected_symbol" not in st.session_state:
 
 if "mobile_view" not in st.session_state:
     st.session_state.mobile_view = "list"
+
+if "mobile_scroll_reset" not in st.session_state:
+    st.session_state.mobile_scroll_reset = False
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -733,6 +736,22 @@ def mobile_change_text(row):
     return "등락 N/A"
 
 
+def split_market_summary(summary):
+    summary = str(summary or "")
+    headline = summary
+    positive = ""
+    negative = ""
+    if "우호 요인:" in summary:
+        headline, positive_part = summary.split("우호 요인:", 1)
+        if "부담 요인:" in positive_part:
+            positive, negative = positive_part.split("부담 요인:", 1)
+        else:
+            positive = positive_part
+    elif "부담 요인:" in summary:
+        headline, negative = summary.split("부담 요인:", 1)
+    return headline.strip(" ."), positive.strip(" ."), negative.strip(" .")
+
+
 def render_mobile_market_notes(market_data):
     score = clean_number(market_data.get("market_score"))
     state = market_data.get("score_state") or market_data.get("market_state") or "확인 중"
@@ -930,7 +949,17 @@ def scroll_mobile_detail_to_top():
     components.html(
         """
         <script>
-        window.parent.scrollTo({ top: 0, behavior: "smooth" });
+        const jumpTop = () => {
+            const doc = window.parent.document;
+            const anchor = doc.getElementById("mobile-detail-top");
+            if (anchor) {
+                anchor.scrollIntoView({ behavior: "auto", block: "start" });
+            }
+            window.parent.scrollTo({ top: 0, behavior: "auto" });
+        };
+        setTimeout(jumpTop, 60);
+        setTimeout(jumpTop, 250);
+        setTimeout(jumpTop, 650);
         </script>
         """,
         height=0,
@@ -994,6 +1023,7 @@ def render_mobile_stock_card(row, is_kr):
 
     st.markdown(
         f"""
+        <div id="mobile-detail-top"></div>
         <div class="mobile-detail-hero">
             <div class="mobile-detail-top">
                 <div>
@@ -1124,6 +1154,7 @@ st.set_page_config(
 if st.query_params.get("mobile_back") == "list":
     st.session_state.mobile_view = "list"
     st.session_state.mobile_selected_symbol = None
+    st.session_state.mobile_scroll_reset = False
     st.query_params.clear()
     st.rerun()
 
@@ -1187,6 +1218,25 @@ st.markdown("""
             color: #334155;
             font-size: 0.78rem;
             font-weight: 650;
+        }
+        .market-score-guide {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 4px 0 12px 0;
+        }
+        .market-score-guide span,
+        .market-score-guide b {
+            border-radius: 999px;
+            padding: 5px 9px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 0.78rem;
+        }
+        .market-score-guide b {
+            background: #fff7ed;
+            color: #ea580c;
+            border: 1px solid #fed7aa;
         }
         .mobile-candidate-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
@@ -1386,9 +1436,11 @@ st.markdown("""
             font-weight: 750;
         }
         .mobile-evidence-verdict b {
-            color: #ff4b4b;
             font-size: 0.86rem;
         }
+        .mobile-evidence-verdict b.positive { color: #ff4b4b; }
+        .mobile-evidence-verdict b.negative { color: #2563eb; }
+        .mobile-evidence-verdict b.neutral { color: #64748b; }
         .mobile-evidence-values {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1574,10 +1626,25 @@ try:
         )
     with col_m2:
         source_text = market_data.get("collected_at", "미지정")
+        headline, positive_summary, negative_summary = split_market_summary(market_data.get("summary", ""))
+        summary_lines = [f"**상태:** {state_color}"]
+        if headline:
+            summary_lines.append(f"**요약:** {headline}")
+        if positive_summary:
+            summary_lines.append(f"**우호 요인:** {positive_summary}")
+        if negative_summary:
+            summary_lines.append(f"**부담 요인:** {negative_summary}")
+        summary_lines.append(f"**시장환경 수집시각:** `{source_text}`")
         st.info(
-            f"**상태:** {state_color}  |  **요약:** {market_data['summary']}  \n"
-            "**기준:** 80↑ 매우 우호 | 65↑ 우호 | 50=평균 | 35↓ 부담 | 20↓ 매우 부담  \n"
-            f"**시장환경 수집시각:** `{source_text}`"
+            "  \n".join(summary_lines)
+        )
+        st.markdown(
+            """
+            <div class="market-score-guide">
+                <span>80↑ 매우 우호</span><span>65↑ 우호</span><b>50점 = 평균</b><span>35↓ 부담</span><span>20↓ 매우 부담</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
     def format_market_value(label, value):
@@ -1643,19 +1710,21 @@ try:
             if text in ["우호", "매우 우호"] or text.startswith("+"):
                 return "color: #FF4B4B; font-weight: bold;"
             if text in ["부담", "매우 부담", "비우호"] or text.startswith("-"):
-                return "color: #00BFFF; font-weight: bold;"
-            return ""
+                return "color: #2563EB; font-weight: bold;"
+            return "color: #64748B;"
 
         st.caption("시장환경 근거표")
         if st.session_state.table_view_mode == "모바일 보기":
             for _, item in evidence_df.iterrows():
+                impact_text = str(item.get("점수영향", "-"))
+                impact_class = "positive" if impact_text.startswith("+") else "negative" if impact_text.startswith("-") else "neutral"
                 st.markdown(
                     f"""
                     <div class="mobile-evidence-card">
                         <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
                         <div class="mobile-evidence-verdict">
                             <span>{escape_html(item.get("평가", "-"))}</span>
-                            <b>{escape_html(item.get("점수영향", "-"))}점</b>
+                            <b class="{impact_class}">{escape_html(impact_text)}점</b>
                         </div>
                         <div class="mobile-evidence-values">
                             <span>현재 {escape_html(item.get("현재값", "-"))}</span>
@@ -1899,10 +1968,13 @@ if st.session_state.data:
                 st.session_state.mobile_view = "list"
                 st.rerun()
 
-            scroll_mobile_detail_to_top()
+            if st.session_state.mobile_scroll_reset:
+                scroll_mobile_detail_to_top()
+                st.session_state.mobile_scroll_reset = False
             if st.button("← 후보 목록으로", key="mobile_back_to_list", width="stretch"):
                 st.session_state.mobile_view = "list"
                 st.session_state.mobile_selected_symbol = None
+                st.session_state.mobile_scroll_reset = False
                 st.rerun()
             render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
             render_mobile_fixed_back_link()
@@ -1935,6 +2007,7 @@ if st.session_state.data:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
                     st.session_state.mobile_view = "detail"
+                    st.session_state.mobile_scroll_reset = True
                     st.rerun()
 
             if not excluded_mobile_df.empty:
