@@ -979,8 +979,10 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
     good_facts = mobile_reason_facts(row, "good")
     momentum_facts = mobile_reason_facts(row, "momentum")
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
+    signal_cards = mobile_signal_cards(row)
+    signal_labels = {title: signal_value for title, signal_value, _ in signal_cards}
     signal_html = ""
-    for title, signal_value, tone in mobile_signal_cards(row):
+    for title, signal_value, tone in signal_cards:
         signal_html += (
             f"<div class='mobile-detail-signal {tone}'>"
             f"<small>{escape_html(title)}</small><b>{escape_html(signal_value)}</b>"
@@ -1015,52 +1017,23 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
     detail_tab_options = ["요약", "상세 수치", "차트", "기업 정보"]
     if st.session_state.mobile_detail_tab not in detail_tab_options:
         st.session_state.mobile_detail_tab = "요약"
-    top_tab_cols = st.columns(4)
-    for tab_col, tab_label in zip(top_tab_cols, detail_tab_options):
-        active_prefix = "● " if st.session_state.mobile_detail_tab == tab_label else ""
-        with tab_col:
-            if st.button(
-                f"{active_prefix}{tab_label}",
-                key=f"mobile_top_tab_{tab_label}_{symbol}",
-                width="stretch",
-            ):
-                st.session_state.mobile_detail_tab = tab_label
-                st.rerun()
     selected_detail_tab = st.session_state.mobile_detail_tab
 
     if selected_detail_tab == "요약":
-        render_mobile_section("1. 기업 품질", [
-            ("ROE", format_metric(row.get("roe"), "%"), "자본 효율과 기업 체력을 봅니다."),
-            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), "외형 성장이 이어지는지 확인합니다."),
-            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), "본업 이익이 실제로 늘고 있는지 봅니다."),
+        render_mobile_section("1. 후보 판단", [
+            ("좋은 회사인가", signal_labels.get("좋은 회사인가", "확인 필요"), "품질 지표와 성장 흐름을 종합한 판단입니다."),
+            ("지금 저렴한가", signal_labels.get("지금 저렴한가", "확인 필요"), "구체적인 가격 지표는 수치 탭에서 확인하세요."),
+            ("주의할 점", signal_labels.get("주의할 점", "확인 필요"), "상세 수치 탭에서 재무와 가격 위치를 따로 확인하세요."),
         ])
-        render_mobile_section("2. 가격 매력", [
-            ("PER", format_metric(row.get("per")), cheap_facts),
-            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
+        render_mobile_section("2. 핵심 근거", [
+            ("좋은 이유", " · ".join(good_reasons[:3]) if good_reasons else "추가 확인", "성장성, 수익성, 재무 안정성 중 확인된 강점입니다."),
+            ("싼 이유", " · ".join(cheap_reasons[:3]) if cheap_reasons else "추가 확인", "가격 매력은 수치 탭에서 구체적으로 확인할 수 있습니다."),
+            ("시장환경", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", "시장 방향과 업종 흐름을 함께 반영한 판단입니다."),
         ])
-        render_mobile_section("3. 현금흐름", [
+        render_mobile_section("3. 확인 필요", [
             ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
-        ])
-        render_mobile_section("4. 재무 안정성", [
-            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
-            ("시가총액", cap, "기업 규모와 변동성을 함께 볼 때 참고합니다."),
-        ])
-        render_mobile_section("5. 수급", [
-            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
-        ])
-        render_mobile_section("6. 기술적 위치", [
-            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
-            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
-        ])
-        render_mobile_section("7. 시장환경", [
-            ("주도 이유", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", momentum_facts),
-        ])
-        render_mobile_section("8. 리스크", [
             ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다."),
-        ])
-        render_mobile_section("9. 데이터 신뢰도", [
             ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
-            ("스크리너가 모르는 것", "정성·돌발 변수", "지정학, 정치·규제, 대형 사건, 경영진 이슈는 점수에 충분히 반영되지 않을 수 있습니다."),
         ])
     elif selected_detail_tab == "상세 수치":
         st.dataframe(
@@ -1367,14 +1340,15 @@ st.markdown("""
         }
         [class*="st-key-mobile_fixed_close_wrap"] {
             position: fixed;
-            left: 50%;
+            left: 12px;
+            right: 86px;
             bottom: 8px;
-            transform: translateX(-50%);
             z-index: 9999;
-            width: min(94vw, 520px);
+            width: auto;
+            max-width: 520px;
             padding: 5px;
             border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 999px;
+            border-radius: 10px;
             background: rgba(255, 255, 255, 0.96);
             box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
             backdrop-filter: blur(10px);
@@ -1396,11 +1370,11 @@ st.markdown("""
         [class*="st-key-mobile_fixed_tab_"] button,
         [class*="st-key-mobile_close_detail_fixed_"] button {
             min-height: 36px;
-            border-radius: 999px;
+            border-radius: 8px;
             background: #f8fafc;
             color: #374151;
             border: 1px solid rgba(226, 232, 240, 0.95);
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 800;
             padding: 0 4px;
             white-space: nowrap;
