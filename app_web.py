@@ -3,6 +3,7 @@ import html
 from datetime import datetime
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import analyzer
 import diagnostics
@@ -44,6 +45,9 @@ if "mobile_visible_count" not in st.session_state:
 
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
+
+if "mobile_scroll_target_symbol" not in st.session_state:
+    st.session_state.mobile_scroll_target_symbol = None
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -162,6 +166,11 @@ def format_cap(value, is_kr):
 
 def escape_html(value):
     return html.escape(str(value if value is not None else ""))
+
+
+def html_id(value):
+    text = str(value if value is not None else "")
+    return "".join(ch if ch.isalnum() else "-" for ch in text)
 
 
 def mobile_grade_label(row):
@@ -915,6 +924,7 @@ def render_mobile_candidate_card(row, list_index, is_kr):
 
     st.markdown(
         f"""
+        <div id="mobile-candidate-{html_id(row.get("symbol", ""))}" class="mobile-candidate-anchor"></div>
         <div class="mobile-candidate-card">
             <div class="mobile-candidate-head">
                 <div class="mobile-candidate-name">
@@ -935,6 +945,27 @@ def render_mobile_candidate_card(row, list_index, is_kr):
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def scroll_to_mobile_candidate(symbol):
+    target_id = f"mobile-candidate-{html_id(symbol)}"
+    components.html(
+        f"""
+        <script>
+        const scrollCandidate = () => {{
+            const doc = window.parent.document;
+            const target = doc.getElementById("{target_id}");
+            if (target) {{
+                target.scrollIntoView({{ behavior: "auto", block: "start" }});
+                window.parent.scrollBy(0, -12);
+            }}
+        }};
+        setTimeout(scrollCandidate, 120);
+        setTimeout(scrollCandidate, 450);
+        </script>
+        """,
+        height=0,
     )
 
 
@@ -1117,8 +1148,10 @@ st.set_page_config(
     initial_sidebar_state=st.session_state.sidebar_state
 )
 
-if st.query_params.get("mobile_close"):
+mobile_close_symbol = st.query_params.get("mobile_close")
+if mobile_close_symbol:
     st.session_state.mobile_selected_symbol = None
+    st.session_state.mobile_scroll_target_symbol = str(mobile_close_symbol)
     st.query_params.clear()
     st.rerun()
 
@@ -1951,6 +1984,7 @@ if st.session_state.data:
             if st.session_state.mobile_selected_symbol == symbol:
                 if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
+                    st.session_state.mobile_scroll_target_symbol = symbol
                     st.rerun()
                 render_mobile_stock_card(row_dict, is_kr, show_header=False)
                 st.markdown(
@@ -1976,6 +2010,10 @@ if st.session_state.data:
                         "이유": "품질은 좋지만 현재 저렴함 점수가 낮아 기본 후보에서 제외",
                     })
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+        if st.session_state.mobile_scroll_target_symbol:
+            scroll_to_mobile_candidate(st.session_state.mobile_scroll_target_symbol)
+            st.session_state.mobile_scroll_target_symbol = None
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
