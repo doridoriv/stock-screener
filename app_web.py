@@ -43,6 +43,9 @@ if "mobile_visible_count" not in st.session_state:
 
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
+
+if "mobile_view" not in st.session_state:
+    st.session_state.mobile_view = "list"
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -1424,60 +1427,71 @@ if st.session_state.data:
             visible_count = min(5, total_candidates)
             st.session_state.mobile_visible_count = visible_count
 
-        title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
-        st.subheader(title_text)
-        render_mobile_market_notes(market_data)
-
-        count_cols = st.columns(5)
-        quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
-        for idx, (label, count) in enumerate(quick_options):
-            with count_cols[idx]:
-                if st.button(label, key=f"mobile_count_{label}", width="stretch"):
-                    st.session_state.mobile_visible_count = min(count, total_candidates)
-                    st.rerun()
-
-        with count_cols[4]:
-            next_count = min(visible_count + 5, total_candidates)
-            if st.button("다음 5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
-                st.session_state.mobile_visible_count = next_count
-                st.rerun()
-
         visible_mobile_df = mobile_df.head(visible_count)
-        if st.session_state.mobile_selected_symbol not in set(visible_mobile_df["symbol"].astype(str)):
+        if st.session_state.mobile_selected_symbol not in set(mobile_df["symbol"].astype(str)):
             st.session_state.mobile_selected_symbol = None
+            st.session_state.mobile_view = "list"
 
-        st.caption("종목명을 누르면 한 종목만 열립니다. 열린 종목을 다시 누르면 닫힙니다.")
-        for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
-            row_dict = row.to_dict()
-            symbol = str(row_dict.get("symbol", ""))
-            confidence_score, _, _, available_count, total_count = mobile_confidence(row_dict)
-            button_label = (
-                f"{list_index}. {row_dict.get('name', symbol)} · {mobile_grade_label(row_dict)} · "
-                f"후보적합도 {mobile_candidate_score(row_dict):.0f}점 · "
-                f"신뢰도 {confidence_score}%({available_count}/{total_count})"
-            )
-            if st.button(button_label, key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
-                st.session_state.mobile_selected_symbol = None if st.session_state.mobile_selected_symbol == symbol else symbol
+        if st.session_state.mobile_view == "detail" and st.session_state.mobile_selected_symbol:
+            selected_mobile = mobile_df[mobile_df["symbol"].astype(str) == st.session_state.mobile_selected_symbol]
+            if selected_mobile.empty:
+                st.session_state.mobile_selected_symbol = None
+                st.session_state.mobile_view = "list"
                 st.rerun()
 
-            if st.session_state.mobile_selected_symbol == symbol:
-                if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
-                    st.session_state.mobile_selected_symbol = None
-                    st.rerun()
-                render_mobile_stock_card(row_dict, is_kr)
+            if st.button("← 후보 목록으로", key="mobile_back_to_list", width="stretch"):
+                st.session_state.mobile_view = "list"
+                st.session_state.mobile_selected_symbol = None
+                st.rerun()
+            render_mobile_stock_card(selected_mobile.iloc[0].to_dict(), is_kr)
+        else:
+            title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
+            st.subheader(title_text)
+            render_mobile_market_notes(market_data)
 
-        if not excluded_mobile_df.empty:
-            with st.expander(f"관찰 후보 보기: 좋은 회사지만 아직 비쌈 {len(excluded_mobile_df)}개", expanded=False):
-                rows = []
-                for idx, (_, row) in enumerate(excluded_mobile_df.head(20).iterrows(), start=1):
-                    row_dict = row.to_dict()
-                    rows.append({
-                        "순서": idx,
-                        "종목": row_dict.get("name", row_dict.get("symbol")),
-                        "후보적합도": f"{mobile_candidate_score(row_dict):.0f}",
-                        "이유": "품질은 좋지만 현재 저렴함 점수가 낮아 기본 후보에서 제외",
-                    })
-                st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+            count_cols = st.columns(5)
+            quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
+            for idx, (label, count) in enumerate(quick_options):
+                with count_cols[idx]:
+                    if st.button(label, key=f"mobile_count_{label}", width="stretch"):
+                        st.session_state.mobile_visible_count = min(count, total_candidates)
+                        st.session_state.mobile_view = "list"
+                        st.rerun()
+
+            with count_cols[4]:
+                next_count = min(visible_count + 5, total_candidates)
+                if st.button("다음 5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
+                    st.session_state.mobile_visible_count = next_count
+                    st.session_state.mobile_view = "list"
+                    st.rerun()
+
+            st.caption("종목명을 누르면 상세 화면으로 이동합니다. 뒤로가기로 후보 목록에 돌아올 수 있습니다.")
+            for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
+                row_dict = row.to_dict()
+                symbol = str(row_dict.get("symbol", ""))
+                confidence_score, _, _, available_count, total_count = mobile_confidence(row_dict)
+                button_label = (
+                    f"{list_index}. {row_dict.get('name', symbol)} · {mobile_grade_label(row_dict)} · "
+                    f"후보적합도 {mobile_candidate_score(row_dict):.0f}점 · "
+                    f"신뢰도 {confidence_score}%({available_count}/{total_count})"
+                )
+                if st.button(button_label, key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
+                    st.session_state.mobile_selected_symbol = symbol
+                    st.session_state.mobile_view = "detail"
+                    st.rerun()
+
+            if not excluded_mobile_df.empty:
+                with st.expander(f"관찰 후보 보기: 좋은 회사지만 아직 비쌈 {len(excluded_mobile_df)}개", expanded=False):
+                    rows = []
+                    for idx, (_, row) in enumerate(excluded_mobile_df.head(20).iterrows(), start=1):
+                        row_dict = row.to_dict()
+                        rows.append({
+                            "순서": idx,
+                            "종목": row_dict.get("name", row_dict.get("symbol")),
+                            "후보적합도": f"{mobile_candidate_score(row_dict):.0f}",
+                            "이유": "품질은 좋지만 현재 저렴함 점수가 낮아 기본 후보에서 제외",
+                        })
+                    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
