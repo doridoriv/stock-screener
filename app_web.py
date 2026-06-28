@@ -67,16 +67,16 @@ MOBILE_LENS_META = {
             ("CAGR", "중장기 성장 추세를 봅니다."),
         ],
     },
-    "💵 배당": {
-        "short": "배당",
-        "score_label": "배당여력",
-        "title": "배당 여력 후보",
-        "description": "배당 데이터가 부족한 경우 현금창출력과 재무 여력을 중심으로 표시합니다.",
+    "💸 현금창출": {
+        "short": "현금창출",
+        "score_label": "현금창출점수",
+        "title": "현금창출 후보",
+        "description": "FCF와 영업현금흐름 등 실제 현금을 만들어내는 회사를 우선 표시합니다.",
         "criteria": [
             ("FCF", "투자 후 남는 현금이 있는지 봅니다."),
             ("영업현금흐름", "본업에서 현금이 들어오는지 봅니다."),
             ("순현금", "차입 부담보다 현금 여력이 큰지 봅니다."),
-            ("부채비율", "배당을 지속할 체력이 있는지 봅니다."),
+            ("부채비율", "현금창출을 유지할 재무 체력이 있는지 봅니다."),
         ],
     },
     "🔥 모멘텀": {
@@ -138,6 +138,8 @@ if "mobile_detail_tab" not in st.session_state:
     st.session_state.mobile_detail_tab = "요약"
 
 if "mobile_investment_lens" not in st.session_state:
+    st.session_state.mobile_investment_lens = "🎯 종합평가"
+elif st.session_state.mobile_investment_lens not in MOBILE_LENS_OPTIONS:
     st.session_state.mobile_investment_lens = "🎯 종합평가"
 
 if "last_mobile_investment_lens" not in st.session_state:
@@ -776,7 +778,7 @@ def mobile_lens_score(row, lens):
         score = bounded((mobile_cheapness_score(row) / 45) * 82 + mobile_quality_score(row) * 0.35)
     elif lens == "📈 성장":
         score = mobile_growth_score(row)
-    elif lens == "💵 배당":
+    elif lens == "💸 현금창출":
         score = bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
     elif lens == "🔥 모멘텀":
         score = bounded((mobile_momentum_score(row) / 35) * 85 + mobile_timing_score(row) * 0.75)
@@ -948,8 +950,8 @@ def mobile_lens_reasons(row, lens):
         reasons = mobile_cheap_reasons(row)
     elif lens == "📈 성장":
         reasons = mobile_growth_reasons(row)
-    elif lens == "💵 배당":
-        reasons = mobile_cash_reasons(row) or ["배당 데이터 보강 필요"]
+    elif lens == "💸 현금창출":
+        reasons = mobile_cash_reasons(row) or ["현금흐름 데이터 보강 필요"]
     elif lens == "🔥 모멘텀":
         reasons = mobile_momentum_reasons(row)
     elif lens == "🛡 안정성":
