@@ -18,6 +18,95 @@ MARKET_LABEL_TO_VALUE = {
 }
 MARKET_VALUE_TO_LABEL = {value: label for label, value in MARKET_LABEL_TO_VALUE.items()}
 
+MOBILE_LENS_META = {
+    "🎯 종합평가": {
+        "short": "종합평가",
+        "score_label": "종합평가",
+        "title": "종합평가 후보",
+        "description": "좋은 회사와 좋은 가격을 함께 고려해 장기 투자 후보를 우선 표시합니다.",
+        "criteria": [
+            ("ROE", "자본을 얼마나 효율적으로 쓰는지 봅니다."),
+            ("PER/PBR", "이익과 자산 대비 가격이 부담 없는지 봅니다."),
+            ("성장률", "매출과 이익이 함께 늘고 있는지 봅니다."),
+            ("리스크", "부채와 데이터 부족, 과열 여부를 함께 봅니다."),
+        ],
+    },
+    "🏢 좋은 회사": {
+        "short": "좋은 회사",
+        "score_label": "품질점수",
+        "title": "좋은 회사",
+        "description": "돈을 꾸준히 잘 버는 회사를 우선 표시합니다.",
+        "criteria": [
+            ("ROE", "자본을 얼마나 효율적으로 쓰는지 봅니다."),
+            ("영업이익성장률", "본업 이익이 실제로 늘고 있는지 봅니다."),
+            ("매출성장률", "외형 성장이 이어지는지 봅니다."),
+            ("현금흐름", "FCF와 영업현금흐름이 플러스인지 봅니다."),
+        ],
+    },
+    "💰 저평가": {
+        "short": "저평가",
+        "score_label": "저평가점수",
+        "title": "저평가 후보",
+        "description": "기업 가치 대비 가격이 싼 회사를 우선 표시합니다.",
+        "criteria": [
+            ("PER", "이익 대비 주가가 낮은지 봅니다."),
+            ("PBR", "자산 대비 주가가 낮은지 봅니다."),
+            ("PEG", "성장률 대비 가격이 싼지 봅니다."),
+            ("고점대비", "최근 고점에서 얼마나 내려왔는지 봅니다."),
+        ],
+    },
+    "📈 성장": {
+        "short": "성장",
+        "score_label": "성장점수",
+        "title": "성장 후보",
+        "description": "실적이 빠르게 증가하는 회사를 우선 표시합니다.",
+        "criteria": [
+            ("매출성장률", "외형이 커지고 있는지 봅니다."),
+            ("영업이익성장률", "성장이 이익으로 이어지는지 봅니다."),
+            ("EPS성장률", "주당 이익이 늘고 있는지 봅니다."),
+            ("CAGR", "중장기 성장 추세를 봅니다."),
+        ],
+    },
+    "💵 배당": {
+        "short": "배당",
+        "score_label": "배당여력",
+        "title": "배당 여력 후보",
+        "description": "배당 데이터가 부족한 경우 현금창출력과 재무 여력을 중심으로 표시합니다.",
+        "criteria": [
+            ("FCF", "투자 후 남는 현금이 있는지 봅니다."),
+            ("영업현금흐름", "본업에서 현금이 들어오는지 봅니다."),
+            ("순현금", "차입 부담보다 현금 여력이 큰지 봅니다."),
+            ("부채비율", "배당을 지속할 체력이 있는지 봅니다."),
+        ],
+    },
+    "🔥 모멘텀": {
+        "short": "모멘텀",
+        "score_label": "모멘텀점수",
+        "title": "모멘텀 후보",
+        "description": "최근 시장의 선택을 받는 회사를 우선 표시합니다.",
+        "criteria": [
+            ("200일선", "장기 추세 위에 있는지 봅니다."),
+            ("RSI", "단기 수급 온기와 과열을 함께 봅니다."),
+            ("고점근접도", "신고가 또는 고점권 흐름인지 봅니다."),
+            ("주도테마", "시장 관심 업종에 속하는지 봅니다."),
+        ],
+    },
+    "🛡 안정성": {
+        "short": "안정성",
+        "score_label": "안정성점수",
+        "title": "안정성 후보",
+        "description": "위기에도 버틸 가능성이 높은 회사를 우선 표시합니다.",
+        "criteria": [
+            ("부채비율", "무리한 빚이 있는지 봅니다."),
+            ("순현금", "현금에서 총부채를 뺀 여력을 봅니다."),
+            ("영업현금흐름", "본업 현금 창출이 안정적인지 봅니다."),
+            ("수익성", "ROE와 이익 성장의 안정성을 함께 봅니다."),
+        ],
+    },
+}
+
+MOBILE_LENS_OPTIONS = list(MOBILE_LENS_META.keys())
+
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
     cached_panel = market_analyzer.load_market_panel_cache()
@@ -47,6 +136,12 @@ if "mobile_selected_symbol" not in st.session_state:
 
 if "mobile_detail_tab" not in st.session_state:
     st.session_state.mobile_detail_tab = "요약"
+
+if "mobile_investment_lens" not in st.session_state:
+    st.session_state.mobile_investment_lens = "🎯 종합평가"
+
+if "last_mobile_investment_lens" not in st.session_state:
+    st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
     
 if "top_n" not in st.session_state:
     st.session_state.top_n = FIXED_TOP_N
@@ -200,11 +295,11 @@ def mobile_summary(row):
     return "핵심 지표를 상세보기에서 확인하세요."
 
 
-def sort_mobile_candidates(df):
+def sort_mobile_candidates(df, lens="🎯 종합평가"):
     if df is None or df.empty:
         return df
     out = df.copy()
-    out["_mobile_score_sort"] = out.apply(lambda row: mobile_candidate_score(row.to_dict()), axis=1)
+    out["_mobile_score_sort"] = out.apply(lambda row: mobile_lens_score(row.to_dict(), lens), axis=1)
     out["_rank_sort"] = pd.to_numeric(out.get("rank"), errors="coerce").fillna(999999)
     out = out.sort_values(
         by=["_mobile_score_sort", "_rank_sort"],
@@ -219,6 +314,14 @@ def filter_mobile_candidates(df):
     out = df.copy()
     labels = out.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1)
     return out[labels != "⚪ 좋은 회사지만 아직 비쌈"].reset_index(drop=True)
+
+
+def filter_mobile_candidates_for_lens(df, lens):
+    if lens == "🎯 종합평가":
+        return filter_mobile_candidates(df)
+    if df is None or df.empty:
+        return df
+    return df.reset_index(drop=True)
 
 
 def bounded(value, low=0, high=100):
@@ -561,6 +664,182 @@ def mobile_score_breakdown(row):
     return rows
 
 
+def mobile_growth_score(row):
+    score = 0
+    revenue = clean_number(row.get("revenue_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    cagr = clean_number(row.get("cagr"))
+    roe = clean_number(row.get("roe"))
+
+    for value, strong, good, weak in [
+        (revenue, 20, 12, 0),
+        (operating, 25, 12, 0),
+        (eps_growth, 20, 10, 0),
+        (cagr, 15, 8, 0),
+    ]:
+        if value is None:
+            continue
+        if value >= strong:
+            score += 18
+        elif value >= good:
+            score += 12
+        elif value > weak:
+            score += 7
+        else:
+            score -= 8
+    if roe is not None:
+        if roe >= 15:
+            score += 12
+        elif roe >= 8:
+            score += 6
+        elif roe < 5:
+            score -= 6
+    return bounded(score, 0, 100)
+
+
+def mobile_cash_generation_score(row):
+    score = 0
+    fcf = clean_number(row.get("free_cashflow"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    net_cash = clean_number(row.get("net_cash"))
+    cash = clean_number(row.get("cash"))
+    operating_margin = clean_number(row.get("operating_margin"))
+    debt = clean_number(row.get("debt_ratio"))
+
+    if fcf is not None:
+        score += 24 if fcf > 0 else -12
+    if operating_cashflow is not None:
+        score += 24 if operating_cashflow > 0 else -12
+    if net_cash is not None:
+        score += 20 if net_cash > 0 else -6
+    if cash is not None and cash > 0:
+        score += 10
+    if operating_margin is not None:
+        if operating_margin >= 15:
+            score += 14
+        elif operating_margin >= 8:
+            score += 8
+        elif operating_margin < 0:
+            score -= 8
+    if debt is not None:
+        if debt <= 80:
+            score += 8
+        elif debt >= 200:
+            score -= 12
+    return bounded(score, 0, 100)
+
+
+def mobile_stability_score(row):
+    confidence, _, _, _, _ = mobile_confidence(row)
+    debt = clean_number(row.get("debt_ratio"))
+    roe = clean_number(row.get("roe"))
+    operating = clean_number(row.get("operating_growth"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    fcf = clean_number(row.get("free_cashflow"))
+    net_cash = clean_number(row.get("net_cash"))
+    score = 55
+
+    score -= mobile_risk_penalty(row) * 2
+    if debt is not None:
+        if debt <= 80:
+            score += 16
+        elif debt <= 150:
+            score += 8
+        elif debt >= 200:
+            score -= 16
+    if roe is not None:
+        if roe >= 10:
+            score += 10
+        elif roe < 5:
+            score -= 10
+    if operating is not None:
+        score += 8 if operating >= 0 else -8
+    if operating_cashflow is not None:
+        score += 8 if operating_cashflow > 0 else -8
+    if fcf is not None:
+        score += 8 if fcf > 0 else -8
+    if net_cash is not None:
+        score += 10 if net_cash > 0 else -6
+    if confidence < 60:
+        score -= 8
+    return bounded(score, 0, 100)
+
+
+def mobile_lens_score(row, lens):
+    risk_profile = mobile_structural_risk(row)
+    if lens == "🎯 종합평가":
+        score = mobile_candidate_score(row)
+    elif lens == "🏢 좋은 회사":
+        score = bounded((mobile_quality_score(row) / 35) * 70 + mobile_cash_generation_score(row) * 0.2 + mobile_stability_score(row) * 0.1)
+    elif lens == "💰 저평가":
+        score = bounded((mobile_cheapness_score(row) / 45) * 82 + mobile_quality_score(row) * 0.35)
+    elif lens == "📈 성장":
+        score = mobile_growth_score(row)
+    elif lens == "💵 배당":
+        score = bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
+    elif lens == "🔥 모멘텀":
+        score = bounded((mobile_momentum_score(row) / 35) * 85 + mobile_timing_score(row) * 0.75)
+    elif lens == "🛡 안정성":
+        score = mobile_stability_score(row)
+    else:
+        score = mobile_candidate_score(row)
+    if risk_profile["level"] == "hard":
+        score = min(score, 35)
+    return bounded(score, 0, 100)
+
+
+def mobile_growth_reasons(row):
+    reasons = []
+    revenue = clean_number(row.get("revenue_growth"))
+    operating = clean_number(row.get("operating_growth"))
+    eps_growth = clean_number(row.get("eps_growth"))
+    cagr = clean_number(row.get("cagr"))
+    if revenue is not None and revenue >= 10:
+        reasons.append("매출 성장 강함")
+    if operating is not None and operating >= 15:
+        reasons.append("영업이익 성장")
+    if eps_growth is not None and eps_growth >= 15:
+        reasons.append("EPS 성장")
+    if cagr is not None and cagr >= 10:
+        reasons.append("CAGR 양호")
+    return reasons
+
+
+def mobile_cash_reasons(row):
+    reasons = []
+    fcf = clean_number(row.get("free_cashflow"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    net_cash = clean_number(row.get("net_cash"))
+    operating_margin = clean_number(row.get("operating_margin"))
+    if fcf is not None and fcf > 0:
+        reasons.append("FCF 플러스")
+    if operating_cashflow is not None and operating_cashflow > 0:
+        reasons.append("영업현금흐름 플러스")
+    if net_cash is not None and net_cash > 0:
+        reasons.append("순현금")
+    if operating_margin is not None and operating_margin >= 10:
+        reasons.append("영업이익률 양호")
+    return reasons
+
+
+def mobile_stability_reasons(row):
+    reasons = []
+    debt = clean_number(row.get("debt_ratio"))
+    net_cash = clean_number(row.get("net_cash"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    fcf = clean_number(row.get("free_cashflow"))
+    if debt is not None and debt <= 80:
+        reasons.append("부채 부담 낮음")
+    if net_cash is not None and net_cash > 0:
+        reasons.append("순현금")
+    if operating_cashflow is not None and operating_cashflow > 0:
+        reasons.append("본업 현금 유입")
+    if fcf is not None and fcf > 0:
+        reasons.append("FCF 플러스")
+    return reasons
+
+
 def mobile_cheap_reasons(row):
     reasons = []
     per = clean_number(row.get("per"))
@@ -660,6 +939,24 @@ def mobile_reason_facts(row, reason_type):
         if foreign_supply is not None:
             facts.append(f"외인/기관지분: {foreign_supply:.2f}%")
     return " · ".join(facts[:3]) if facts else "수치 근거 확인 필요"
+
+
+def mobile_lens_reasons(row, lens):
+    if lens == "🏢 좋은 회사":
+        reasons = mobile_good_reasons(row) + mobile_cash_reasons(row)
+    elif lens == "💰 저평가":
+        reasons = mobile_cheap_reasons(row)
+    elif lens == "📈 성장":
+        reasons = mobile_growth_reasons(row)
+    elif lens == "💵 배당":
+        reasons = mobile_cash_reasons(row) or ["배당 데이터 보강 필요"]
+    elif lens == "🔥 모멘텀":
+        reasons = mobile_momentum_reasons(row)
+    elif lens == "🛡 안정성":
+        reasons = mobile_stability_reasons(row)
+    else:
+        reasons = mobile_good_reasons(row) + mobile_cheap_reasons(row) + mobile_momentum_reasons(row)
+    return reasons[:3] or ["근거 확인 필요"]
 
 
 def mobile_warning_reasons(row):
@@ -893,19 +1190,17 @@ def metric_explanation(label, row, value):
     return "현재 수치만으로 결론내리기 어렵습니다. 같은 섹션의 다른 지표와 함께 확인하세요."
 
 
-def render_mobile_candidate_card(row, list_index, is_kr):
+def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가"):
     name = escape_html(row.get("name", row.get("symbol", "이름 없음")))
     symbol = escape_html(row.get("symbol", ""))
     sector = escape_html(row.get("sector") or row.get("industry") or "업종 확인")
     price = escape_html(format_price(row.get("price"), is_kr))
     change_text = escape_html(mobile_change_text(row))
     grade = escape_html(mobile_grade_label(row))
-    candidate_score = mobile_candidate_score(row)
+    lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
+    candidate_score = mobile_lens_score(row, lens)
     confidence_score, confidence_label, _, _, _ = mobile_confidence(row)
-    cheap_reasons = mobile_cheap_reasons(row)
-    good_reasons = mobile_good_reasons(row)
-    momentum_reasons = mobile_momentum_reasons(row)
-    reason_chips = (good_reasons + cheap_reasons + momentum_reasons)[:3] or ["근거 확인 필요"]
+    reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
     signal_html = ""
     for title, signal_value, tone in mobile_signal_cards(row):
@@ -931,7 +1226,7 @@ def render_mobile_candidate_card(row, list_index, is_kr):
             </div>
             <div class="mobile-signal-grid">{signal_html}</div>
             <div class="mobile-score-row">
-                <span>후보적합도 {candidate_score:.0f}%</span>
+                <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>
                 <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
             </div>
             <div class="mobile-chip-row">{chip_html}</div>
@@ -961,7 +1256,25 @@ def render_mobile_section(title, metrics):
         render_mobile_metric(label, value_text, explanation)
 
 
-def render_mobile_stock_card(row, is_kr, show_header=True):
+def render_mobile_lens_panel(lens):
+    lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
+    st.markdown(
+        f"""
+        <div class="mobile-lens-card">
+            <div class="mobile-lens-title">🎯 투자 렌즈</div>
+            <div class="mobile-lens-current">{escape_html(lens)}</div>
+            <div class="mobile-lens-description">{escape_html(lens_meta["description"])}</div>
+            <div class="mobile-lens-note">같은 회사도 어떤 관점으로 보느냐에 따라 순위가 달라집니다.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.expander("주요 기준 보기", expanded=False):
+        for label, explanation in lens_meta["criteria"]:
+            st.markdown(f"**{label}** - {explanation}")
+
+
+def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평가"):
     rank = row.get("rank", "")
     name = row.get("name", row.get("symbol", "이름 없음"))
     symbol = row.get("symbol", "")
@@ -969,7 +1282,8 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
     grade = row.get("grade", "N/A")
     price = format_price(row.get("price"), is_kr)
     cap = format_cap(row.get("market_cap"), is_kr)
-    candidate_score = mobile_candidate_score(row)
+    lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
+    candidate_score = mobile_lens_score(row, lens)
     confidence_score, confidence_label, confidence_missing, available_count, total_count = mobile_confidence(row)
     risk_profile = mobile_structural_risk(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
@@ -1004,7 +1318,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True):
                 <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
                 <div class="mobile-detail-signals">{signal_html}</div>
                 <div class="mobile-detail-score">
-                    <span>후보적합도 {candidate_score:.0f}%</span>
+                    <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>
                     <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
                 </div>
             </div>
@@ -1159,6 +1473,37 @@ st.markdown("""
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
+        }
+        .mobile-lens-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            padding: 13px 14px;
+            margin: 8px 0 12px 0;
+            background: #ffffff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+        }
+        .mobile-lens-title {
+            color: #475569;
+            font-size: 0.78rem;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+        .mobile-lens-current {
+            color: #111827;
+            font-size: 1rem;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+        .mobile-lens-description {
+            color: #334155;
+            font-size: 0.86rem;
+            line-height: 1.45;
+            margin-bottom: 6px;
+        }
+        .mobile-lens-note {
+            color: #64748b;
+            font-size: 0.78rem;
+            line-height: 1.35;
         }
         .mobile-market-tags span,
         .mobile-chip-row span {
@@ -1944,11 +2289,30 @@ if st.session_state.data:
             st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
 
     if st.session_state.table_view_mode == "모바일 보기":
-        sorted_mobile_df = sort_mobile_candidates(df)
-        mobile_df = filter_mobile_candidates(sorted_mobile_df)
-        excluded_mobile_df = sorted_mobile_df[
-            sorted_mobile_df.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1) == "⚪ 좋은 회사지만 아직 비쌈"
-        ].reset_index(drop=True)
+        lens_index = MOBILE_LENS_OPTIONS.index(st.session_state.mobile_investment_lens) if st.session_state.mobile_investment_lens in MOBILE_LENS_OPTIONS else 0
+        st.selectbox(
+            "투자 렌즈",
+            MOBILE_LENS_OPTIONS,
+            index=lens_index,
+            key="mobile_investment_lens",
+        )
+        if st.session_state.last_mobile_investment_lens != st.session_state.mobile_investment_lens:
+            st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
+            st.session_state.mobile_visible_count = 5
+            st.session_state.mobile_selected_symbol = None
+
+        current_lens = st.session_state.mobile_investment_lens
+        lens_meta = MOBILE_LENS_META.get(current_lens, MOBILE_LENS_META["🎯 종합평가"])
+        render_mobile_lens_panel(current_lens)
+
+        sorted_mobile_df = sort_mobile_candidates(df, current_lens)
+        mobile_df = filter_mobile_candidates_for_lens(sorted_mobile_df, current_lens)
+        if current_lens == "🎯 종합평가":
+            excluded_mobile_df = sorted_mobile_df[
+                sorted_mobile_df.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1) == "⚪ 좋은 회사지만 아직 비쌈"
+            ].reset_index(drop=True)
+        else:
+            excluded_mobile_df = pd.DataFrame()
         total_candidates = len(mobile_df)
         visible_count = min(st.session_state.mobile_visible_count, total_candidates)
         if visible_count <= 0:
@@ -1959,7 +2323,8 @@ if st.session_state.data:
         if st.session_state.mobile_selected_symbol not in set(mobile_df["symbol"].astype(str)):
             st.session_state.mobile_selected_symbol = None
 
-        title_text = f"전체 후보 {total_candidates}개" if visible_count >= total_candidates else f"오늘의 후보 {visible_count}개"
+        title_prefix = lens_meta["title"]
+        title_text = f"{title_prefix} 전체 {total_candidates}개" if visible_count >= total_candidates else f"{title_prefix} {visible_count}개"
         st.subheader(title_text)
 
         count_cols = st.columns(5)
@@ -1982,12 +2347,12 @@ if st.session_state.data:
         for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
             row_dict = row.to_dict()
             symbol = str(row_dict.get("symbol", ""))
-            render_mobile_candidate_card(row_dict, list_index, is_kr)
+            render_mobile_candidate_card(row_dict, list_index, is_kr, current_lens)
             if st.session_state.mobile_selected_symbol == symbol:
                 if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
                     st.rerun()
-                render_mobile_stock_card(row_dict, is_kr, show_header=False)
+                render_mobile_stock_card(row_dict, is_kr, show_header=False, lens=current_lens)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
                     tab_cols = st.columns(5)
                     fixed_tabs = [("요약", "요약"), ("수치", "상세 수치"), ("차트", "차트"), ("정보", "기업 정보")]
