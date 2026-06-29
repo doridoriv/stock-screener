@@ -1922,7 +1922,7 @@ st.markdown("""
             display: flex;
             gap: 8px;
             align-items: center;
-            margin-bottom: 7px;
+            justify-content: flex-end;
         }
         .mobile-evidence-verdict span {
             border-radius: 999px;
@@ -1979,6 +1979,53 @@ st.markdown("""
         .cache-status-card b {
             color: #111827;
             font-weight: 750;
+        }
+        [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            gap: 4px !important;
+            align-items: center !important;
+            width: 100% !important;
+            flex-wrap: nowrap !important;
+            overflow: hidden !important;
+        }
+        [class*="st-key-mobile_card_actions_"] [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            align-items: center !important;
+            width: 100% !important;
+            flex-wrap: nowrap !important;
+            overflow: hidden !important;
+        }
+        [class*="st-key-mobile_count_wrap"] [data-testid="stColumn"],
+        [class*="st-key-mobile_card_actions_"] [data-testid="stColumn"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: initial !important;
+            max-width: none !important;
+            padding: 0 !important;
+        }
+        [class*="st-key-mobile_count_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-mobile_card_actions_"] [data-testid="stElementContainer"],
+        [class*="st-key-mobile_count_wrap"] [data-testid="stButton"],
+        [class*="st-key-mobile_card_actions_"] [data-testid="stButton"] {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [class*="st-key-mobile_count_"] button,
+        [class*="st-key-mobile_more_5"] button,
+        [class*="st-key-mobile_evidence_"] button,
+        [class*="st-key-mobile_candidate_"] button,
+        [class*="st-key-mobile_close_detail_"] button {
+            min-height: 34px;
+            height: 34px;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            padding: 0 4px;
+            white-space: nowrap;
+            overflow: hidden;
         }
         .mobile-signal-evidence-panel {
             display: grid;
@@ -2278,17 +2325,17 @@ try:
                     <div class="mobile-evidence-card">
                         <div class="mobile-evidence-topline">
                             <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
-                            <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
-                        </div>
-                        <div class="mobile-evidence-verdict">
-                            <span>{escape_html(item.get("평가", "-"))}</span>
-                            <b class="{impact_class}">{escape_html(impact_text)}점</b>
+                            <div class="mobile-evidence-verdict">
+                                <span>{escape_html(item.get("평가", "-"))}</span>
+                                <b class="{impact_class}">{escape_html(impact_text)}점</b>
+                            </div>
                         </div>
                         <div class="mobile-evidence-values">
                             <span>현재 {escape_html(item.get("현재값", "-"))}</span>
                             <span>20일 {escape_html(item.get("20일", "-"))}</span>
                             <span>60일 {escape_html(item.get("60일", "-"))}</span>
                         </div>
+                        <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -2546,23 +2593,24 @@ if st.session_state.data:
         title_text = f"{title_prefix} 전체 {total_candidates}개" if visible_count >= total_candidates else f"{title_prefix} {visible_count}개"
         st.subheader(title_text)
 
-        count_cols = st.columns(5, gap="small")
-        quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
-        for idx, (label, count) in enumerate(quick_options):
-            with count_cols[idx]:
-                if st.button(label, key=f"mobile_count_{label}", width="stretch"):
-                    st.session_state.mobile_visible_count = min(count, total_candidates)
+        with st.container(key="mobile_count_wrap"):
+            count_cols = st.columns(5, gap="small")
+            quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
+            for idx, (label, count) in enumerate(quick_options):
+                with count_cols[idx]:
+                    if st.button(label, key=f"mobile_count_{label}", width="stretch"):
+                        st.session_state.mobile_visible_count = min(count, total_candidates)
+                        st.session_state.mobile_selected_symbol = None
+                        st.session_state.mobile_evidence_symbol = None
+                        st.rerun()
+
+            with count_cols[4]:
+                next_count = min(visible_count + 5, total_candidates)
+                if st.button("다음5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
+                    st.session_state.mobile_visible_count = next_count
                     st.session_state.mobile_selected_symbol = None
                     st.session_state.mobile_evidence_symbol = None
                     st.rerun()
-
-        with count_cols[4]:
-            next_count = min(visible_count + 5, total_candidates)
-            if st.button("다음 5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
-                st.session_state.mobile_visible_count = next_count
-                st.session_state.mobile_selected_symbol = None
-                st.session_state.mobile_evidence_symbol = None
-                st.rerun()
 
         st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
         for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
@@ -2571,22 +2619,23 @@ if st.session_state.data:
             render_mobile_candidate_card(row_dict, list_index, is_kr, current_lens)
             evidence_open = st.session_state.mobile_evidence_symbol == symbol
             evidence_label = "근거 닫기" if evidence_open else "근거 보기"
-            action_cols = st.columns(2, gap="small")
-            with action_cols[0]:
-                if st.button(evidence_label, key=f"mobile_evidence_{symbol}_{list_index}", width="stretch"):
-                    st.session_state.mobile_evidence_symbol = None if evidence_open else symbol
-                    st.rerun()
-            with action_cols[1]:
-                if st.session_state.mobile_selected_symbol == symbol:
-                    if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
-                        st.session_state.mobile_selected_symbol = None
+            with st.container(key=f"mobile_card_actions_{symbol}_{list_index}"):
+                action_cols = st.columns(2, gap="small")
+                with action_cols[0]:
+                    if st.button(evidence_label, key=f"mobile_evidence_{symbol}_{list_index}", width="stretch"):
+                        st.session_state.mobile_evidence_symbol = None if evidence_open else symbol
                         st.rerun()
-                else:
-                    if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
-                        st.session_state.mobile_selected_symbol = symbol
-                        st.session_state.mobile_evidence_symbol = None
-                        st.session_state.mobile_detail_tab = "요약"
-                        st.rerun()
+                with action_cols[1]:
+                    if st.session_state.mobile_selected_symbol == symbol:
+                        if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
+                            st.session_state.mobile_selected_symbol = None
+                            st.rerun()
+                    else:
+                        if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
+                            st.session_state.mobile_selected_symbol = symbol
+                            st.session_state.mobile_evidence_symbol = None
+                            st.session_state.mobile_detail_tab = "요약"
+                            st.rerun()
             if evidence_open:
                 render_mobile_evidence_panel(row_dict, current_lens)
             if st.session_state.mobile_selected_symbol == symbol:
