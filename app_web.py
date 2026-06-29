@@ -1956,6 +1956,46 @@ st.markdown("""
             color: #ffffff;
             border-color: #111827;
         }
+        [class*="st-key-mobile_fixed_tab_summary_"] button {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }
+        [class*="st-key-mobile_fixed_tab_numbers_"] button {
+            background: #f0fdf4;
+            color: #15803d;
+            border-color: #bbf7d0;
+        }
+        [class*="st-key-mobile_fixed_tab_chart_"] button {
+            background: #fff7ed;
+            color: #c2410c;
+            border-color: #fed7aa;
+        }
+        [class*="st-key-mobile_fixed_tab_info_"] button {
+            background: #f8fafc;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+        [class*="st-key-mobile_fixed_tab_active_summary_"] button {
+            background: #1d4ed8 !important;
+            color: #ffffff !important;
+            border-color: #1d4ed8 !important;
+        }
+        [class*="st-key-mobile_fixed_tab_active_numbers_"] button {
+            background: #15803d !important;
+            color: #ffffff !important;
+            border-color: #15803d !important;
+        }
+        [class*="st-key-mobile_fixed_tab_active_chart_"] button {
+            background: #c2410c !important;
+            color: #ffffff !important;
+            border-color: #c2410c !important;
+        }
+        [class*="st-key-mobile_fixed_tab_active_info_"] button {
+            background: #475569 !important;
+            color: #ffffff !important;
+            border-color: #475569 !important;
+        }
         [class*="st-key-mobile_close_detail_fixed_"] button {
             background: #111827;
             color: #ffffff;
@@ -2839,13 +2879,13 @@ if st.session_state.data:
                 render_mobile_stock_card(row_dict, is_kr, show_header=False, lens=current_lens)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
                     tab_cols = st.columns(5)
-                    fixed_tabs = [("요약", "요약"), ("수치", "상세 수치"), ("차트", "차트"), ("정보", "기업 정보")]
-                    for tab_col, (short_label, tab_label) in zip(tab_cols[:4], fixed_tabs):
+                    fixed_tabs = [("요약", "요약", "summary"), ("수치", "상세 수치", "numbers"), ("차트", "차트", "chart"), ("정보", "기업 정보", "info")]
+                    for tab_col, (short_label, tab_label, tone_key) in zip(tab_cols[:4], fixed_tabs):
                         active_key_part = "active_" if st.session_state.mobile_detail_tab == tab_label else ""
                         with tab_col:
                             if st.button(
                                 short_label,
-                                key=f"mobile_fixed_tab_{active_key_part}{tab_label}_{symbol}_{list_index}",
+                                key=f"mobile_fixed_tab_{active_key_part}{tone_key}_{symbol}_{list_index}",
                                 width="stretch",
                             ):
                                 st.session_state.mobile_detail_tab = tab_label
