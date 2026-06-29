@@ -1401,6 +1401,14 @@ def render_mobile_evidence_panel(row, lens="🎯 종합평가"):
 
 
 def render_mobile_section(title, metrics):
+    if title.startswith("1."):
+        section_tone = "judgment"
+    elif title.startswith("2."):
+        section_tone = "positive"
+    elif title.startswith("3."):
+        section_tone = "caution"
+    else:
+        section_tone = "neutral"
     if not metrics:
         rows_html = "<div class='mobile-detail-section-empty'>확인 가능한 데이터가 아직 부족합니다.</div>"
     else:
@@ -1414,7 +1422,7 @@ def render_mobile_section(title, metrics):
             )
     st.markdown(
         f"""
-        <div class="mobile-detail-section-card">
+        <div class="mobile-detail-section-card {section_tone}">
             <div class="mobile-detail-section-title">{escape_html(title)}</div>
             {rows_html}
         </div>
@@ -1961,6 +1969,23 @@ st.markdown("""
             background: #ffffff;
             box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         }
+        .mobile-market-evidence-box {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 12px;
+            padding: 8px 10px;
+            margin: 6px 0 12px 0;
+            background: #f8fafc;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+        }
+        .mobile-market-evidence-box .mobile-evidence-card {
+            margin: 7px 0;
+        }
+        .mobile-market-evidence-box .mobile-evidence-card:first-child {
+            margin-top: 0;
+        }
+        .mobile-market-evidence-box .mobile-evidence-card:last-child {
+            margin-bottom: 0;
+        }
         .mobile-evidence-line {
             display: grid;
             min-width: 0;
@@ -2125,6 +2150,12 @@ st.markdown("""
             white-space: nowrap;
             overflow: hidden;
         }
+        [class*="st-key-mobile_count_active_"] button {
+            background: #111827 !important;
+            color: #ffffff !important;
+            border-color: #111827 !important;
+            box-shadow: 0 7px 16px rgba(17, 24, 39, 0.18);
+        }
         .mobile-signal-evidence-panel {
             display: grid;
             grid-template-columns: 1fr;
@@ -2178,18 +2209,33 @@ st.markdown("""
             background: #ffffff;
             box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         }
+        .mobile-detail-section-card.judgment {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+        }
+        .mobile-detail-section-card.positive {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+        .mobile-detail-section-card.caution {
+            border-color: #fde68a;
+            background: #fffbeb;
+        }
         .mobile-detail-section-title {
             color: #111827;
             font-size: 0.9rem;
             font-weight: 900;
             margin-bottom: 8px;
         }
+        .mobile-detail-section-card.judgment .mobile-detail-section-title { color: #1d4ed8; }
+        .mobile-detail-section-card.positive .mobile-detail-section-title { color: #15803d; }
+        .mobile-detail-section-card.caution .mobile-detail-section-title { color: #b45309; }
         .mobile-detail-section-row {
             border: 1px solid rgba(226, 232, 240, 0.86);
             border-radius: 9px;
             padding: 8px;
             margin-top: 7px;
-            background: #f8fafc;
+            background: rgba(255, 255, 255, 0.78);
         }
         .mobile-detail-section-head {
             display: grid;
@@ -2465,26 +2511,32 @@ try:
 
         st.caption("시장환경 근거표")
         if st.session_state.table_view_mode == "모바일 보기":
+            evidence_cards_html = ""
             for _, item in evidence_df.iterrows():
                 impact_text = str(item.get("점수영향", "-"))
                 impact_class = "positive" if impact_text.startswith("+") else "negative" if impact_text.startswith("-") else "neutral"
-                st.markdown(
-                    f"""
-                    <div class="mobile-evidence-card">
-                        <div class="mobile-evidence-line mobile-evidence-line-main">
-                            <b>{escape_html(item.get("항목", "시장환경"))}</b>
-                            <span>{escape_html(item.get("의미", ""))}</span>
-                        </div>
-                        <div class="mobile-evidence-line mobile-evidence-line-data">
-                            <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
-                            <em>현재 {escape_html(item.get("현재값", "-"))}</em>
-                            <em>20일 {escape_html(item.get("20일", "-"))}</em>
-                            <em>60일 {escape_html(item.get("60일", "-"))}</em>
-                        </div>
+                evidence_cards_html += f"""
+                <div class="mobile-evidence-card">
+                    <div class="mobile-evidence-line mobile-evidence-line-main">
+                        <b>{escape_html(item.get("항목", "시장환경"))}</b>
+                        <span>{escape_html(item.get("의미", ""))}</span>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                    <div class="mobile-evidence-line mobile-evidence-line-data">
+                        <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
+                        <em>현재 {escape_html(item.get("현재값", "-"))}</em>
+                        <em>20일 {escape_html(item.get("20일", "-"))}</em>
+                        <em>60일 {escape_html(item.get("60일", "-"))}</em>
+                    </div>
+                </div>
+                """
+            st.markdown(
+                f"""
+                <div class="mobile-market-evidence-box">
+                    {evidence_cards_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         else:
             evidence_style = evidence_df.style
             evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
@@ -2735,15 +2787,15 @@ if st.session_state.data:
             st.session_state.mobile_selected_symbol = None
 
         title_prefix = lens_meta["title"]
-        title_text = f"{title_prefix} 전체 {total_candidates}개" if visible_count >= total_candidates else f"{title_prefix} {visible_count}개"
-        st.subheader(title_text)
+        st.subheader(title_prefix)
 
         with st.container(key="mobile_count_wrap"):
             count_cols = st.columns(5, gap="small")
             quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
             for idx, (label, count) in enumerate(quick_options):
                 with count_cols[idx]:
-                    if st.button(label, key=f"mobile_count_{label}", width="stretch"):
+                    is_active_count = visible_count >= total_candidates if label == "전체" else visible_count == count
+                    if st.button(label, key=f"mobile_count_{'active_' if is_active_count else ''}{idx}", width="stretch"):
                         st.session_state.mobile_visible_count = min(count, total_candidates)
                         st.session_state.mobile_selected_symbol = None
                         st.session_state.mobile_evidence_symbol = None
