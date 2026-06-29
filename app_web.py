@@ -134,6 +134,9 @@ if "mobile_visible_count" not in st.session_state:
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
 
+if "mobile_evidence_symbol" not in st.session_state:
+    st.session_state.mobile_evidence_symbol = None
+
 if "mobile_detail_tab" not in st.session_state:
     st.session_state.mobile_detail_tab = "요약"
 
@@ -987,11 +990,43 @@ def mobile_warning_reasons(row):
     return warnings
 
 
-def mobile_signal_cards(row):
+def metric_fact(row, key, label, suffix="", decimals=2):
+    value = clean_number(row.get(key))
+    if value is None:
+        return f"{label} N/A"
+    if decimals == 0:
+        return f"{label} {value:,.0f}{suffix}"
+    return f"{label} {value:,.{decimals}f}{suffix}"
+
+
+def join_facts(*facts):
+    clean = [fact for fact in facts if fact and "N/A" not in fact]
+    return " · ".join(clean[:2]) if clean else "수치 근거 확인 필요"
+
+
+def signal_item(title, value, tone, summary, details):
+    return {
+        "title": title,
+        "value": value,
+        "tone": tone,
+        "summary": summary,
+        "details": details[:4],
+    }
+
+
+def mobile_signal_cards(row, lens="🎯 종합평가"):
     quality = mobile_quality_score(row)
     cheapness = mobile_cheapness_score(row)
+    growth = mobile_growth_score(row)
+    cash_generation = mobile_cash_generation_score(row)
+    momentum = mobile_momentum_score(row)
+    stability = mobile_stability_score(row)
     risk = mobile_risk_penalty(row)
     warnings = mobile_warning_reasons(row)
+    debt = clean_number(row.get("debt_ratio"))
+    fcf = clean_number(row.get("free_cashflow"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    rsi = clean_number(row.get("rsi"))
 
     if quality >= 26:
         quality_text, quality_tone = "좋음", "good"
@@ -1014,11 +1049,88 @@ def mobile_signal_cards(row):
     else:
         caution_text, caution_tone = "주의 필요", "risk"
 
-    return [
-        ("좋은 회사인가", quality_text, quality_tone),
-        ("지금 저렴한가", price_text, price_tone),
-        ("주의할 점", caution_text, caution_tone),
-    ]
+    quality_item = signal_item(
+        "좋은 회사인가",
+        quality_text,
+        quality_tone,
+        join_facts(metric_fact(row, "roe", "ROE", "%"), metric_fact(row, "operating_growth", "영업익", "%")),
+        [
+            f"ROE: {format_metric(row.get('roe'), '%')} - 자본 효율 기준입니다.",
+            f"매출성장률: {format_metric(row.get('revenue_growth'), '%')} - 외형 성장 여부입니다.",
+            f"영업이익성장률: {format_metric(row.get('operating_growth'), '%')} - 이익 개선 여부입니다.",
+            f"부채비율: {format_metric(row.get('debt_ratio'), '%')} - 재무 부담 확인입니다.",
+        ],
+    )
+    cheap_item = signal_item(
+        "지금 저렴한가",
+        price_text,
+        price_tone,
+        join_facts(metric_fact(row, "per", "PER"), metric_fact(row, "peak_diff", "고점대비", "%")),
+        [
+            f"PER: {format_metric(row.get('per'))} - 이익 대비 가격입니다.",
+            f"PBR: {format_metric(row.get('pbr'))} - 자산 대비 가격입니다.",
+            f"최고점대비: {format_metric(row.get('peak_diff'), '%')} - 가격 위치입니다.",
+            f"업종PER괴리: {format_metric(row.get('peer_per_gap'), '%')} - 업종 대비 가격입니다.",
+        ],
+    )
+    caution_item = signal_item(
+        "주의할 점",
+        caution_text,
+        caution_tone,
+        " · ".join(warnings[:2]) if warnings else join_facts(metric_fact(row, "debt_ratio", "부채", "%"), metric_fact(row, "rsi", "RSI")),
+        [
+            f"부채비율: {format_metric(row.get('debt_ratio'), '%')} - 높으면 재무 부담입니다.",
+            f"RSI: {format_metric(row.get('rsi'))} - 단기 과열 여부입니다.",
+            f"FCF: {format_metric(row.get('free_cashflow'), '억')} - 마이너스면 현금 유출 부담입니다.",
+            f"확인사항: {' · '.join(warnings[:3]) if warnings else '강한 경고는 적습니다.'}",
+        ],
+    )
+
+    if lens == "🏢 좋은 회사":
+        return [
+            signal_item("이익을 잘 내나", quality_text, quality_tone, join_facts(metric_fact(row, "roe", "ROE", "%"), metric_fact(row, "operating_margin", "영업률", "%")), quality_item["details"]),
+            signal_item("성장도 있나", "좋음" if growth >= 65 else "보통" if growth >= 40 else "확인 필요", "good" if growth >= 65 else "watch" if growth >= 40 else "risk", join_facts(metric_fact(row, "revenue_growth", "매출", "%"), metric_fact(row, "operating_growth", "영업익", "%")), [
+                f"매출성장률: {format_metric(row.get('revenue_growth'), '%')}",
+                f"영업이익성장률: {format_metric(row.get('operating_growth'), '%')}",
+                f"EPS성장률: {format_metric(row.get('eps_growth'), '%')}",
+            ]),
+            signal_item("재무가 버티나", "튼튼" if stability >= 70 else "보통" if stability >= 45 else "주의", "good" if stability >= 70 else "watch" if stability >= 45 else "risk", join_facts(metric_fact(row, "debt_ratio", "부채", "%"), metric_fact(row, "net_cash", "순현금", "억")), caution_item["details"]),
+        ]
+    if lens == "💰 저평가":
+        return [
+            signal_item("가격이 싼가", price_text, price_tone, cheap_item["summary"], cheap_item["details"]),
+            signal_item("업종보다 싼가", "저렴" if clean_number(row.get("peer_per_gap")) is not None and clean_number(row.get("peer_per_gap")) <= -15 else "중립", "good" if clean_number(row.get("peer_per_gap")) is not None and clean_number(row.get("peer_per_gap")) <= -15 else "watch", join_facts(metric_fact(row, "peer_per_gap", "PER괴리", "%"), metric_fact(row, "peer_pbr_gap", "PBR괴리", "%")), [
+                f"업종 평균 PER: {format_metric(row.get('peer_per_avg'))}",
+                f"업종 평균 PBR: {format_metric(row.get('peer_pbr_avg'))}",
+                f"업종 내 표본수: {format_metric(row.get('peer_group_count'), decimals=0)}",
+            ]),
+            signal_item("싸 보이는 이유는", caution_text, caution_tone, " · ".join(warnings[:2]) if warnings else "특이 리스크 적음", caution_item["details"]),
+        ]
+    if lens == "📈 성장":
+        return [
+            signal_item("매출이 크나", "성장" if clean_number(row.get("revenue_growth")) is not None and clean_number(row.get("revenue_growth")) > 0 else "확인 필요", "good" if clean_number(row.get("revenue_growth")) is not None and clean_number(row.get("revenue_growth")) >= 10 else "watch", metric_fact(row, "revenue_growth", "매출성장", "%"), [f"매출성장률: {format_metric(row.get('revenue_growth'), '%')}"]),
+            signal_item("이익도 따라오나", "성장" if clean_number(row.get("operating_growth")) is not None and clean_number(row.get("operating_growth")) > 0 else "확인 필요", "good" if clean_number(row.get("operating_growth")) is not None and clean_number(row.get("operating_growth")) >= 15 else "watch", metric_fact(row, "operating_growth", "영업익", "%"), [f"영업이익성장률: {format_metric(row.get('operating_growth'), '%')}", f"EPS성장률: {format_metric(row.get('eps_growth'), '%')}"]),
+            signal_item("지속성이 있나", "양호" if growth >= 65 else "확인", "good" if growth >= 65 else "watch", join_facts(metric_fact(row, "cagr", "CAGR", "%"), metric_fact(row, "roe", "ROE", "%")), [f"CAGR: {format_metric(row.get('cagr'), '%')}", f"ROE: {format_metric(row.get('roe'), '%')}"]),
+        ]
+    if lens == "💸 현금창출":
+        return [
+            signal_item("현금이 들어오나", "플러스" if operating_cashflow is not None and operating_cashflow > 0 else "확인 필요", "good" if operating_cashflow is not None and operating_cashflow > 0 else "risk", metric_fact(row, "operating_cashflow", "영업현금", "억"), [f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}"]),
+            signal_item("FCF가 남나", "남음" if fcf is not None and fcf > 0 else "부족", "good" if fcf is not None and fcf > 0 else "risk", metric_fact(row, "free_cashflow", "FCF", "억"), [f"FCF: {format_metric(row.get('free_cashflow'), '억')}", "FCF는 투자 후 남는 현금입니다."]),
+            signal_item("부채 부담은", "낮음" if debt is not None and debt <= 80 else "확인" if debt is not None and debt < 200 else "높음", "good" if debt is not None and debt <= 80 else "watch" if debt is not None and debt < 200 else "risk", join_facts(metric_fact(row, "debt_ratio", "부채", "%"), metric_fact(row, "net_cash", "순현금", "억")), caution_item["details"]),
+        ]
+    if lens == "🔥 모멘텀":
+        return [
+            signal_item("추세가 살아있나", "강함" if momentum >= 24 else "보통", "good" if momentum >= 24 else "watch", join_facts(metric_fact(row, "diff", "200일", "%"), metric_fact(row, "peak_diff", "고점대비", "%")), [f"200일괴리율: {format_metric(row.get('diff'), '%')}", f"최고점대비: {format_metric(row.get('peak_diff'), '%')}"]),
+            signal_item("과열은 아닌가", "과열" if rsi is not None and rsi >= 70 else "중립", "risk" if rsi is not None and rsi >= 70 else "good", metric_fact(row, "rsi", "RSI"), [f"RSI: {format_metric(row.get('rsi'))}", "70 이상이면 단기 과열로 봅니다."]),
+            signal_item("주도 테마인가", "확인" if not mobile_theme_tags(row) else "테마 있음", "watch" if not mobile_theme_tags(row) else "good", " · ".join(mobile_theme_tags(row)[:2]) if mobile_theme_tags(row) else "테마 확인 필요", [f"테마: {'/'.join(mobile_theme_tags(row)[:3]) if mobile_theme_tags(row) else '확인 필요'}"]),
+        ]
+    if lens == "🛡 안정성":
+        return [
+            signal_item("빚 부담은 낮나", "낮음" if debt is not None and debt <= 80 else "확인" if debt is not None and debt < 200 else "높음", "good" if debt is not None and debt <= 80 else "watch" if debt is not None and debt < 200 else "risk", metric_fact(row, "debt_ratio", "부채", "%"), [f"부채비율: {format_metric(row.get('debt_ratio'), '%')}"]),
+            signal_item("현금 여력은", "양호" if clean_number(row.get("net_cash")) is not None and clean_number(row.get("net_cash")) > 0 else "확인", "good" if clean_number(row.get("net_cash")) is not None and clean_number(row.get("net_cash")) > 0 else "watch", join_facts(metric_fact(row, "cash", "현금", "억"), metric_fact(row, "net_cash", "순현금", "억")), [f"현금: {format_metric(row.get('cash'), '억')}", f"순현금: {format_metric(row.get('net_cash'), '억')}"]),
+            signal_item("이익 변동은", "안정" if risk <= 8 else "확인", "good" if risk <= 8 else "watch", join_facts(metric_fact(row, "roe", "ROE", "%"), metric_fact(row, "operating_growth", "영업익", "%")), quality_item["details"]),
+        ]
+    return [quality_item, cheap_item, caution_item]
 
 
 def mobile_change_text(row):
@@ -1205,10 +1317,12 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
     reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
     signal_html = ""
-    for title, signal_value, tone in mobile_signal_cards(row):
+    for signal in mobile_signal_cards(row, lens):
         signal_html += (
-            f"<div class='mobile-signal-card {tone}'>"
-            f"<small>{escape_html(title)}</small><b>{escape_html(signal_value)}</b>"
+            f"<div class='mobile-signal-card {escape_html(signal['tone'])}'>"
+            f"<small>{escape_html(signal['title'])}</small>"
+            f"<b>{escape_html(signal['value'])}</b>"
+            f"<em>{escape_html(signal['summary'])}</em>"
             f"</div>"
         )
     rank_tone = "hot" if list_index <= 3 else "base"
@@ -1244,6 +1358,31 @@ def render_mobile_metric(label, value_text, explanation):
         <div class="mobile-metric-row">
             <div class="mobile-metric-head"><b>{label}</b><span>{value_text}</span></div>
             <div class="mobile-metric-explain">{explanation}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_mobile_evidence_panel(row, lens="🎯 종합평가"):
+    signals = mobile_signal_cards(row, lens)
+    panel_html = ""
+    for signal in signals:
+        details = "".join([f"<li>{escape_html(detail)}</li>" for detail in signal["details"]])
+        panel_html += (
+            f"<div class='mobile-signal-evidence-card {escape_html(signal['tone'])}'>"
+            f"<div class='mobile-signal-evidence-head'>"
+            f"<span>{escape_html(signal['title'])}</span>"
+            f"<b>{escape_html(signal['value'])}</b>"
+            f"</div>"
+            f"<p>{escape_html(signal['summary'])}</p>"
+            f"<ul>{details}</ul>"
+            f"</div>"
+        )
+    st.markdown(
+        f"""
+        <div class="mobile-signal-evidence-panel">
+            {panel_html}
         </div>
         """,
         unsafe_allow_html=True,
@@ -1295,13 +1434,15 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
     good_facts = mobile_reason_facts(row, "good")
     momentum_facts = mobile_reason_facts(row, "momentum")
     warning_reasons = mobile_warning_reasons(row) or ["정치·규제·뉴스 변수 별도 확인"]
-    signal_cards = mobile_signal_cards(row)
-    signal_labels = {title: signal_value for title, signal_value, _ in signal_cards}
+    signal_cards = mobile_signal_cards(row, lens)
+    signal_labels = {signal["title"]: signal["value"] for signal in signal_cards}
     signal_html = ""
-    for title, signal_value, tone in signal_cards:
+    for signal in signal_cards:
         signal_html += (
-            f"<div class='mobile-detail-signal {tone}'>"
-            f"<small>{escape_html(title)}</small><b>{escape_html(signal_value)}</b>"
+            f"<div class='mobile-detail-signal {escape_html(signal['tone'])}'>"
+            f"<small>{escape_html(signal['title'])}</small>"
+            f"<b>{escape_html(signal['value'])}</b>"
+            f"<em>{escape_html(signal['summary'])}</em>"
             f"</div>"
         )
 
@@ -1337,9 +1478,8 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
 
     if selected_detail_tab == "요약":
         render_mobile_section("1. 후보 판단", [
-            ("좋은 회사인가", signal_labels.get("좋은 회사인가", "확인 필요"), "품질 지표와 성장 흐름을 종합한 판단입니다."),
-            ("지금 저렴한가", signal_labels.get("지금 저렴한가", "확인 필요"), "구체적인 가격 지표는 수치 탭에서 확인하세요."),
-            ("주의할 점", signal_labels.get("주의할 점", "확인 필요"), "상세 수치 탭에서 재무와 가격 위치를 따로 확인하세요."),
+            (signal["title"], signal_labels.get(signal["title"], "확인 필요"), signal["summary"])
+            for signal in signal_cards
         ])
         render_mobile_section("2. 핵심 근거", [
             ("좋은 이유", " · ".join(good_reasons[:3]) if good_reasons else "추가 확인", "성장성, 수익성, 재무 안정성 중 확인된 강점입니다."),
@@ -1623,7 +1763,8 @@ st.markdown("""
             border-radius: 10px;
             padding: 8px 7px;
             background: #f8fafc;
-            min-height: 54px;
+            min-height: 72px;
+            overflow: hidden;
         }
         .mobile-signal-card small,
         .mobile-detail-signal small {
@@ -1634,9 +1775,20 @@ st.markdown("""
         }
         .mobile-signal-card b,
         .mobile-detail-signal b {
+            display: block;
             color: #0f172a;
             font-size: 0.82rem;
             line-height: 1.2;
+        }
+        .mobile-signal-card em,
+        .mobile-detail-signal em {
+            display: block;
+            color: #64748b;
+            font-size: 0.68rem;
+            font-style: normal;
+            line-height: 1.25;
+            margin-top: 5px;
+            overflow-wrap: anywhere;
         }
         .mobile-signal-card.good,
         .mobile-detail-signal.good { background: #f0fdf4; }
@@ -1805,6 +1957,51 @@ st.markdown("""
             color: #475569;
             font-size: 0.82rem;
             line-height: 1.4;
+        }
+        .mobile-signal-evidence-panel {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin: 8px 0 12px 0;
+        }
+        .mobile-signal-evidence-card {
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: #ffffff;
+        }
+        .mobile-signal-evidence-card.good { border-color: #bbf7d0; background: #f0fdf4; }
+        .mobile-signal-evidence-card.watch { border-color: #fde68a; background: #fffbeb; }
+        .mobile-signal-evidence-card.risk { border-color: #fecaca; background: #fef2f2; }
+        .mobile-signal-evidence-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .mobile-signal-evidence-head span {
+            color: #334155;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+        .mobile-signal-evidence-head b {
+            color: #111827;
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+        .mobile-signal-evidence-card p {
+            margin: 0 0 7px 0;
+            color: #0f172a;
+            font-size: 0.82rem;
+            font-weight: 750;
+        }
+        .mobile-signal-evidence-card ul {
+            margin: 0;
+            padding-left: 16px;
+            color: #475569;
+            font-size: 0.78rem;
+            line-height: 1.45;
         }
         .mobile-stock-card {
             border: 1px solid rgba(148, 163, 184, 0.35);
@@ -2302,6 +2499,7 @@ if st.session_state.data:
             st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
             st.session_state.mobile_visible_count = 5
             st.session_state.mobile_selected_symbol = None
+            st.session_state.mobile_evidence_symbol = None
 
         current_lens = st.session_state.mobile_investment_lens
         lens_meta = MOBILE_LENS_META.get(current_lens, MOBILE_LENS_META["🎯 종합평가"])
@@ -2336,6 +2534,7 @@ if st.session_state.data:
                 if st.button(label, key=f"mobile_count_{label}", width="stretch"):
                     st.session_state.mobile_visible_count = min(count, total_candidates)
                     st.session_state.mobile_selected_symbol = None
+                    st.session_state.mobile_evidence_symbol = None
                     st.rerun()
 
         with count_cols[4]:
@@ -2343,6 +2542,7 @@ if st.session_state.data:
             if st.button("다음 5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
                 st.session_state.mobile_visible_count = next_count
                 st.session_state.mobile_selected_symbol = None
+                st.session_state.mobile_evidence_symbol = None
                 st.rerun()
 
         st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
@@ -2350,6 +2550,13 @@ if st.session_state.data:
             row_dict = row.to_dict()
             symbol = str(row_dict.get("symbol", ""))
             render_mobile_candidate_card(row_dict, list_index, is_kr, current_lens)
+            evidence_open = st.session_state.mobile_evidence_symbol == symbol
+            evidence_label = "근거 닫기" if evidence_open else "근거 보기"
+            if st.button(evidence_label, key=f"mobile_evidence_{symbol}_{list_index}", width="stretch"):
+                st.session_state.mobile_evidence_symbol = None if evidence_open else symbol
+                st.rerun()
+            if evidence_open:
+                render_mobile_evidence_panel(row_dict, current_lens)
             if st.session_state.mobile_selected_symbol == symbol:
                 if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = None
@@ -2375,6 +2582,7 @@ if st.session_state.data:
             else:
                 if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
                     st.session_state.mobile_selected_symbol = symbol
+                    st.session_state.mobile_evidence_symbol = None
                     st.session_state.mobile_detail_tab = "요약"
                     st.rerun()
 
