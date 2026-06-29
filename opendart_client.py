@@ -223,7 +223,55 @@ def _dividend_metrics(rows):
         metrics["dividend_total"] = round(dividend_total_million / 100, 2)
     if any(pd.notna(value) for value in metrics.values()):
         metrics["dividend_source"] = "OpenDART"
-    return metrics
+        return metrics
+    return {}
+
+
+def _collect_dividend_history(api_key: str, corp_code: str, start_year: int, years: int = 5) -> dict:
+    history = []
+    for target_year in range(start_year, start_year - years, -1):
+        for report_code in REPORT_CODES:
+            try:
+                rows = _fetch_dividend_rows(api_key, corp_code, target_year, report_code)
+            except Exception:
+                rows = []
+            metrics = _dividend_metrics(rows)
+            if not metrics:
+                continue
+            dps = metrics.get("dividend_per_share")
+            history.append({
+                "year": target_year,
+                "report_code": report_code,
+                "dividend_per_share": dps,
+                "dividend_yield": metrics.get("dividend_yield"),
+                "payout_ratio": metrics.get("payout_ratio"),
+            })
+            break
+
+    if not history:
+        return {}
+
+    dps_values = [
+        item.get("dividend_per_share")
+        for item in sorted(history, key=lambda item: item["year"])
+        if pd.notna(item.get("dividend_per_share")) and item.get("dividend_per_share") > 0
+    ]
+    result = {
+        "dividend_history_years": len(dps_values),
+        "dividend_consecutive_years": len(dps_values),
+        "dividend_cut_flag": False,
+        "dividend_history_source": "OpenDART",
+    }
+    if len(dps_values) >= 2:
+        first = dps_values[0]
+        last = dps_values[-1]
+        if first > 0:
+            result["dividend_growth_3y"] = round(((last / first) ** (1 / (len(dps_values) - 1)) - 1) * 100, 2)
+        result["dividend_cut_flag"] = any(
+            later < earlier
+            for earlier, later in zip(dps_values, dps_values[1:])
+        )
+    return result
 
 
 def _statement_metrics(rows):
@@ -322,8 +370,9 @@ def fetch_dart_metrics(stock_code: str, year: int | None = None) -> dict:
         return {}
 
     start_year = year or _latest_business_year()
+    dividend_history = _collect_dividend_history(api_key, corp_code, start_year)
     for target_year in range(start_year, start_year - 3, -1):
-        best_metrics = {}
+        best_metrics = dict(dividend_history)
         for report_code in REPORT_CODES:
             try:
                 dividend_rows = _fetch_dividend_rows(api_key, corp_code, target_year, report_code)

@@ -2,6 +2,7 @@ import json
 
 import krx_client
 import opendart_client
+import finnhub_client
 from secret_utils import get_secret
 
 
@@ -52,6 +53,18 @@ def main():
     for stock_code in ["005930", "000660", "196170"]:
         result = opendart_client.debug_dart_accounts(stock_code, limit=30)
         print(json.dumps(_compact_dart_result(result), ensure_ascii=False, default=str))
+
+    print("\n[finnhub-check]")
+    for symbol in ["AAPL", "MSFT"]:
+        metrics = finnhub_client.fetch_finnhub_metrics(symbol)
+        compact = {key: metrics.get(key) for key in [
+            "analyst_buy_ratio",
+            "consensus_revision",
+            "target_mean",
+            "earnings_surprise_pct",
+            "finnhub_source",
+        ]}
+        print(json.dumps({"symbol": symbol, "metrics": compact}, ensure_ascii=False, default=str))
 
 
 if __name__ == "__main__":

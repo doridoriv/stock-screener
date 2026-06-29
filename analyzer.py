@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import FinanceDataReader as fdr
+import finnhub_client
+import krx_client
 import nxt_client
 import opendart_client
 import supplemental_data
@@ -253,6 +255,46 @@ def _needs_dart_boost(data: dict) -> bool:
     ]
     return any(_is_missing_value(data.get(field)) for field in dart_fields)
 
+
+def add_peer_comparison_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    out = df.copy()
+    group_col = None
+    for candidate in ["sector", "industry"]:
+        if candidate in out.columns and out[candidate].fillna("").astype(str).str.strip().ne("").any():
+            group_col = candidate
+            break
+    if not group_col:
+        return out
+
+    out["_peer_group"] = out[group_col].fillna("").astype(str).str.strip()
+    out.loc[out["_peer_group"] == "", "_peer_group"] = "미분류"
+    for field in ["per", "pbr", "roe"]:
+        if field in out.columns:
+            out[field] = pd.to_numeric(out[field], errors="coerce")
+
+    valid_per = out["per"].where(out["per"] > 0) if "per" in out.columns else pd.Series(np.nan, index=out.index)
+    valid_pbr = out["pbr"].where(out["pbr"] > 0) if "pbr" in out.columns else pd.Series(np.nan, index=out.index)
+    valid_roe = out["roe"] if "roe" in out.columns else pd.Series(np.nan, index=out.index)
+
+    out["peer_per_avg"] = valid_per.groupby(out["_peer_group"]).transform("mean").round(2)
+    out["peer_pbr_avg"] = valid_pbr.groupby(out["_peer_group"]).transform("mean").round(2)
+    out["peer_roe_avg"] = valid_roe.groupby(out["_peer_group"]).transform("mean").round(2)
+    out["peer_group_count"] = out.groupby("_peer_group")["_peer_group"].transform("count")
+
+    out["peer_per_gap"] = np.where(
+        (out["peer_group_count"] >= 3) & (out["peer_per_avg"] > 0) & (out["per"] > 0),
+        ((out["per"] - out["peer_per_avg"]) / out["peer_per_avg"] * 100).round(2),
+        np.nan,
+    )
+    out["peer_pbr_gap"] = np.where(
+        (out["peer_group_count"] >= 3) & (out["peer_pbr_avg"] > 0) & (out["pbr"] > 0),
+        ((out["pbr"] - out["peer_pbr_avg"]) / out["peer_pbr_avg"] * 100).round(2),
+        np.nan,
+    )
+    return out.drop(columns=["_peer_group"], errors="ignore")
+
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
 # ==========================================
@@ -314,7 +356,12 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
         "payout_ratio": np.nan,
         "dividend_per_share": np.nan,
         "dividend_total": np.nan,
-        "dividend_source": ""
+        "dividend_source": "",
+        "dividend_growth_3y": np.nan,
+        "dividend_consecutive_years": np.nan,
+        "dividend_cut_flag": "",
+        "sector": "",
+        "industry": ""
     }
     
     try:
@@ -492,7 +539,20 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         "payout_ratio": np.nan,
         "dividend_per_share": np.nan,
         "dividend_total": np.nan,
-        "dividend_source": ""
+        "dividend_source": "",
+        "dividend_growth_3y": np.nan,
+        "dividend_consecutive_years": np.nan,
+        "dividend_cut_flag": "",
+        "sector": "",
+        "industry": "",
+        "analyst_buy_ratio": np.nan,
+        "consensus_revision": np.nan,
+        "target_mean": np.nan,
+        "target_high": np.nan,
+        "target_low": np.nan,
+        "target_upside": np.nan,
+        "earnings_surprise_pct": np.nan,
+        "finnhub_source": ""
     }
 
     try:
@@ -506,6 +566,8 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
             
         res_dict["per"] = info.get("trailingPE", np.nan)
         res_dict["pbr"] = info.get("priceToBook", np.nan)
+        res_dict["sector"] = info.get("sector", "")
+        res_dict["industry"] = info.get("industry", "")
         
         roe_val = info.get("returnOnEquity")
         if roe_val is not None:
@@ -641,8 +703,10 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
                 debt_series = balance.loc["Total Debt"].dropna()
                 if len(debt_series) >= 1:
                     res_dict["total_debt"] = round(float(debt_series.iloc[0]), 2)
-            if pd.notna(res_dict["cash"]) and pd.notna(res_dict["total_debt"]):
-                res_dict["net_cash"] = round(float(res_dict["cash"]) - float(res_dict["total_debt"]), 2)
+        if pd.notna(res_dict["cash"]) and pd.notna(res_dict["total_debt"]):
+            res_dict["net_cash"] = round(float(res_dict["cash"]) - float(res_dict["total_debt"]), 2)
+
+        res_dict = merge_missing_fields(res_dict, finnhub_client.fetch_finnhub_metrics(symbol))
                         
     except Exception as e:
         print(f"Error fetching yfinance for {symbol}: {e}")
@@ -741,6 +805,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         kr_nxt_prices = {}
         if market in ["한국(코스피)", "한국(코스닥)", "한국"]:
             market_type = "KOSDAQ" if market == "한국(코스닥)" else "KOSPI"
+            krx_base_info = krx_client.fetch_base_info_map(market_type)
             try:
                 kr_nxt_prices = nxt_client.fetch_nxt_latest_prices()
             except Exception as e:
@@ -756,11 +821,15 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 raise RuntimeError(f"NXT-covered {market_type} universe has only {len(df_kr)} rows; expected {top_n}.")
             for idx, r in df_kr.iterrows():
                 code = str(r["Code"]).zfill(6)
+                krx_info = krx_base_info.get(code, {})
                 tickers_info.append({
                     "yf_symbol": f"{code}.KQ" if market_type == "KOSDAQ" else f"{code}.KS", 
                     "symbol": code, 
                     "name": r["Name"], 
-                    "market_cap": int(r["Marcap"]/100000000)
+                    "market_cap": int(r["Marcap"]/100000000),
+                    "sector": krx_info.get("sector") or r.get("Sector") or r.get("Industry") or "",
+                    "industry": krx_info.get("industry") or r.get("Industry") or krx_info.get("sector") or "",
+                    "krx_source": krx_info.get("krx_source", "")
                 })
         else:
             tickers_info = fetch_us_top100_tickers(top_n)
@@ -854,7 +923,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
                 for _, row in prev_df.iterrows():
                     sym = row[key_col]
-                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code"]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "dividend_history_years", "dividend_history_source", "sector", "industry", "peer_per_avg", "peer_pbr_avg", "peer_roe_avg", "peer_group_count", "peer_per_gap", "peer_pbr_gap", "analyst_buy_ratio", "consensus_revision", "target_mean", "target_high", "target_low", "target_upside", "earnings_surprise_pct", "finnhub_source"]
                     data_dict = {}
                     for f in fund_fields:
                         val = row.get(f)
@@ -883,7 +952,11 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "operating_margin": np.nan, "net_margin": np.nan, "operating_cashflow": np.nan,
                     "free_cashflow": np.nan, "cash": np.nan, "total_debt": np.nan, "net_cash": np.nan,
                     "dividend_yield": np.nan, "payout_ratio": np.nan, "dividend_per_share": np.nan,
-                    "dividend_total": np.nan, "dividend_source": ""
+                    "dividend_total": np.nan, "dividend_source": "", "dividend_growth_3y": np.nan,
+                    "dividend_consecutive_years": np.nan, "dividend_cut_flag": "", "sector": "",
+                    "industry": "", "analyst_buy_ratio": np.nan, "consensus_revision": np.nan,
+                    "target_mean": np.nan, "target_high": np.nan, "target_low": np.nan,
+                    "target_upside": np.nan, "earnings_surprise_pct": np.nan, "finnhub_source": ""
                 }
                 data.update(prev_fund_map[sym])
                 if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
@@ -932,7 +1005,16 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         # 5. 데이터 병합 (Merge)
         df = pd.merge(base_df, tech_df, on='yf_symbol', how='left')
         df = pd.merge(df, fund_df, on='yf_symbol', how='left')
+        for field in ["sector", "industry"]:
+            left_col = f"{field}_x"
+            right_col = f"{field}_y"
+            if left_col in df.columns or right_col in df.columns:
+                left = df[left_col] if left_col in df.columns else ""
+                right = df[right_col] if right_col in df.columns else ""
+                df[field] = left.where(left.fillna("").astype(str).str.strip() != "", right)
+                df = df.drop(columns=[left_col, right_col], errors="ignore")
         df = supplemental_data.merge_supplemental_metrics(df, market_text)
+        df = add_peer_comparison_metrics(df)
         
         app_queue.put({"type": "progress", "value": 85, "text": "가치 및 성장성 스코어링 모형 구동..."})
 
@@ -941,6 +1023,10 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         df['us_10y_bond'] = us_10y
         df['peg'] = np.where((df['per'] > 0) & (df['eps_growth'] > 0), round(df['per'] / df['eps_growth'], 2), np.nan)
         df['cagr'] = df['eps_cagr']
+        if "target_mean" in df.columns:
+            target_mean = pd.to_numeric(df["target_mean"], errors="coerce")
+            price = pd.to_numeric(df["price"], errors="coerce")
+            df["target_upside"] = np.where((target_mean > 0) & (price > 0), ((target_mean - price) / price * 100).round(2), np.nan)
 
         # 스코어링 연산
         df['score_per'] = np.select([df['per']<=0, df['per']<=8, df['per']<=12, df['per']<=18, df['per']<=25], [0, 15, 12, 8, 4], default=0)

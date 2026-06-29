@@ -80,3 +80,49 @@ def first_available_daily(endpoint_name: str) -> dict:
 
 def rows_to_frame(rows) -> pd.DataFrame:
     return pd.DataFrame(rows or [])
+
+
+def _first_text(row: dict, keys: list[str]) -> str:
+    for key in keys:
+        value = row.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ""
+
+
+def fetch_base_info_map(market_type: str) -> dict:
+    endpoint_name = "KOSDAQ_BASE" if str(market_type).upper() == "KOSDAQ" else "KOSPI_BASE"
+    result = call_krx(endpoint_name)
+    if not result.get("ok"):
+        return {}
+
+    info = {}
+    for row in result.get("rows") or []:
+        raw_code = _first_text(row, ["ISU_SRT_CD", "isuSrtCd", "short_code", "symbol"])
+        if not raw_code:
+            continue
+        code = raw_code.zfill(6) if raw_code.isdigit() else raw_code
+        sector = _first_text(row, [
+            "IDX_IND_NM",
+            "idxIndNm",
+            "SECUGRP_NM",
+            "secugrpNm",
+            "KIND_STKCERT_TP_NM",
+            "kindStkcertTpNm",
+            "MKT_NM",
+            "mktNm",
+        ])
+        industry = _first_text(row, [
+            "IND_TP_NM",
+            "indTpNm",
+            "SECUGRP_NM",
+            "secugrpNm",
+            "IDX_IND_NM",
+            "idxIndNm",
+        ])
+        info[code] = {
+            "sector": sector,
+            "industry": industry,
+            "krx_source": "KRX",
+        }
+    return info

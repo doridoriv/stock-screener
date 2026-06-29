@@ -20,10 +20,18 @@ SUPPLEMENTAL_FIELDS = [
     "payout_ratio",
     "dividend_per_share",
     "dividend_total",
+    "dividend_growth_3y",
+    "dividend_consecutive_years",
+    "dividend_cut_flag",
     "foreign_net_buy",
     "institution_net_buy",
     "consensus_revision",
     "peer_per_gap",
+    "peer_pbr_gap",
+    "analyst_buy_ratio",
+    "target_mean",
+    "target_upside",
+    "earnings_surprise_pct",
 ]
 
 
