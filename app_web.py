@@ -1400,15 +1400,28 @@ def render_mobile_evidence_panel(row, lens="🎯 종합평가"):
     )
 
 
-def render_mobile_section(title, metrics):
+def mobile_detail_section_tone(title):
     if title.startswith("1."):
-        section_tone = "judgment"
-    elif title.startswith("2."):
-        section_tone = "positive"
-    elif title.startswith("3."):
-        section_tone = "caution"
-    else:
-        section_tone = "neutral"
+        return "judgment"
+    if title.startswith("2."):
+        return "positive"
+    if title.startswith("3."):
+        return "caution"
+    if title in ["기업 품질", "성장성"]:
+        return "positive"
+    if title in ["가격", "차트 대신 보는 핵심 위치"]:
+        return "judgment"
+    if title in ["재무", "수급"]:
+        return "stability"
+    if title == "리스크":
+        return "caution"
+    if title == "기업 정보":
+        return "info"
+    return "neutral"
+
+
+def render_mobile_section(title, metrics):
+    section_tone = mobile_detail_section_tone(title)
     if not metrics:
         rows_html = "<div class='mobile-detail-section-empty'>확인 가능한 데이터가 아직 부족합니다.</div>"
     else:
@@ -2261,6 +2274,18 @@ st.markdown("""
             border-color: #fde68a;
             background: #fffbeb;
         }
+        .mobile-detail-section-card.stability {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+        }
+        .mobile-detail-section-card.info {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        .mobile-detail-section-card.neutral {
+            border-color: #bae6fd;
+            background: #f0f9ff;
+        }
         .mobile-detail-section-title {
             color: #111827;
             font-size: 0.9rem;
@@ -2270,6 +2295,9 @@ st.markdown("""
         .mobile-detail-section-card.judgment .mobile-detail-section-title { color: #1d4ed8; }
         .mobile-detail-section-card.positive .mobile-detail-section-title { color: #15803d; }
         .mobile-detail-section-card.caution .mobile-detail-section-title { color: #b45309; }
+        .mobile-detail-section-card.stability .mobile-detail-section-title { color: #6d28d9; }
+        .mobile-detail-section-card.info .mobile-detail-section-title { color: #475569; }
+        .mobile-detail-section-card.neutral .mobile-detail-section-title { color: #0369a1; }
         .mobile-detail-section-row {
             border: 1px solid rgba(226, 232, 240, 0.86);
             border-radius: 9px;
