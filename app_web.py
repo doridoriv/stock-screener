@@ -1004,6 +1004,15 @@ def join_facts(*facts):
     return " · ".join(clean[:2]) if clean else "수치 근거 확인 필요"
 
 
+def signal_fact_lines(summary):
+    parts = [part.strip() for part in str(summary or "").split(" · ") if part and part.strip()]
+    if not parts:
+        parts = ["수치 근거 확인 필요"]
+    while len(parts) < 2:
+        parts.append("추가 수치 확인 필요")
+    return parts[:2]
+
+
 def signal_item(title, value, tone, summary, details):
     return {
         "title": title,
@@ -1318,11 +1327,13 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
     signal_html = ""
     for signal in mobile_signal_cards(row, lens):
+        fact_lines = signal_fact_lines(signal["summary"])
         signal_html += (
             f"<div class='mobile-signal-card {escape_html(signal['tone'])}'>"
             f"<small>{escape_html(signal['title'])}</small>"
             f"<b>{escape_html(signal['value'])}</b>"
-            f"<em>{escape_html(signal['summary'])}</em>"
+            f"<em>{escape_html(fact_lines[0])}</em>"
+            f"<em>{escape_html(fact_lines[1])}</em>"
             f"</div>"
         )
     rank_tone = "hot" if list_index <= 3 else "base"
@@ -1390,11 +1401,26 @@ def render_mobile_evidence_panel(row, lens="🎯 종합평가"):
 
 
 def render_mobile_section(title, metrics):
-    st.markdown(f"**{title}**")
     if not metrics:
-        st.caption("확인 가능한 데이터가 아직 부족합니다.")
-    for label, value_text, explanation in metrics:
-        render_mobile_metric(label, value_text, explanation)
+        rows_html = "<div class='mobile-detail-section-empty'>확인 가능한 데이터가 아직 부족합니다.</div>"
+    else:
+        rows_html = ""
+        for label, value_text, explanation in metrics:
+            rows_html += (
+                "<div class='mobile-detail-section-row'>"
+                f"<div class='mobile-detail-section-head'><b>{escape_html(label)}</b><span>{escape_html(value_text)}</span></div>"
+                f"<div class='mobile-detail-section-body'>{escape_html(explanation)}</div>"
+                "</div>"
+            )
+    st.markdown(
+        f"""
+        <div class="mobile-detail-section-card">
+            <div class="mobile-detail-section-title">{escape_html(title)}</div>
+            {rows_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_mobile_lens_panel(lens):
@@ -1438,11 +1464,13 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
     signal_labels = {signal["title"]: signal["value"] for signal in signal_cards}
     signal_html = ""
     for signal in signal_cards:
+        fact_lines = signal_fact_lines(signal["summary"])
         signal_html += (
             f"<div class='mobile-detail-signal {escape_html(signal['tone'])}'>"
             f"<small>{escape_html(signal['title'])}</small>"
             f"<b>{escape_html(signal['value'])}</b>"
-            f"<em>{escape_html(signal['summary'])}</em>"
+            f"<em>{escape_html(fact_lines[0])}</em>"
+            f"<em>{escape_html(fact_lines[1])}</em>"
             f"</div>"
         )
 
@@ -1657,18 +1685,26 @@ st.markdown("""
             font-weight: 650;
         }
         .market-score-guide {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 3px;
             margin: 4px 0 12px 0;
+            width: 100%;
+            overflow: hidden;
         }
         .market-score-guide span,
         .market-score-guide b {
             border-radius: 999px;
-            padding: 5px 9px;
+            padding: 5px 2px;
             background: #f1f5f9;
             color: #475569;
-            font-size: 0.78rem;
+            font-size: 0.63rem;
+            font-weight: 800;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            min-width: 0;
+            overflow: hidden;
         }
         .market-score-guide b {
             background: #fff7ed;
@@ -1763,32 +1799,44 @@ st.markdown("""
             border-radius: 10px;
             padding: 8px 7px;
             background: #f8fafc;
-            min-height: 72px;
+            min-height: 96px;
             overflow: hidden;
+            display: grid;
+            grid-template-rows: 16px 18px 18px 18px;
+            gap: 3px;
         }
         .mobile-signal-card small,
         .mobile-detail-signal small {
             display: block;
             color: #64748b;
-            font-size: 0.72rem;
-            margin-bottom: 4px;
+            font-size: 0.69rem;
+            line-height: 1.05;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0;
         }
         .mobile-signal-card b,
         .mobile-detail-signal b {
             display: block;
             color: #0f172a;
             font-size: 0.82rem;
-            line-height: 1.2;
+            line-height: 1.05;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .mobile-signal-card em,
         .mobile-detail-signal em {
             display: block;
             color: #64748b;
-            font-size: 0.68rem;
+            font-size: 0.66rem;
             font-style: normal;
-            line-height: 1.25;
-            margin-top: 5px;
-            overflow-wrap: anywhere;
+            line-height: 1.05;
+            margin-top: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .mobile-signal-card.good,
         .mobile-detail-signal.good { background: #f0fdf4; }
@@ -1907,12 +1955,62 @@ st.markdown("""
         }
         .mobile-evidence-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 12px;
-            padding: 10px;
-            margin: 8px 0;
+            border-radius: 10px;
+            padding: 9px 10px;
+            margin: 7px 0;
             background: #ffffff;
             box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         }
+        .mobile-evidence-line {
+            display: grid;
+            min-width: 0;
+        }
+        .mobile-evidence-line-main {
+            grid-template-columns: minmax(42px, auto) minmax(0, 1fr);
+            gap: 6px;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+        .mobile-evidence-line-main b {
+            color: #111827;
+            font-size: 0.82rem;
+            font-weight: 900;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+        .mobile-evidence-line-main span {
+            color: #475569;
+            font-size: 0.76rem;
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mobile-evidence-line-data {
+            grid-template-columns: minmax(58px, auto) repeat(3, minmax(0, 1fr));
+            gap: 5px;
+            align-items: center;
+            color: #334155;
+        }
+        .mobile-evidence-line-data strong,
+        .mobile-evidence-line-data em {
+            display: block;
+            min-width: 0;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 6px 5px;
+            font-size: 0.67rem;
+            line-height: 1;
+            font-style: normal;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+        }
+        .mobile-evidence-line-data .positive { color: #ff4b4b; }
+        .mobile-evidence-line-data .negative { color: #2563eb; }
+        .mobile-evidence-line-data .neutral { color: #64748b; }
         .mobile-evidence-title {
             color: #111827;
             font-size: 0.88rem;
@@ -2071,6 +2169,56 @@ st.markdown("""
             color: #475569;
             font-size: 0.78rem;
             line-height: 1.45;
+        }
+        .mobile-detail-section-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 9px 0;
+            background: #ffffff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+        }
+        .mobile-detail-section-title {
+            color: #111827;
+            font-size: 0.9rem;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .mobile-detail-section-row {
+            border: 1px solid rgba(226, 232, 240, 0.86);
+            border-radius: 9px;
+            padding: 8px;
+            margin-top: 7px;
+            background: #f8fafc;
+        }
+        .mobile-detail-section-head {
+            display: grid;
+            grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .mobile-detail-section-head b {
+            color: #334155;
+            font-size: 0.76rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+        .mobile-detail-section-head span {
+            color: #111827;
+            font-size: 0.82rem;
+            font-weight: 850;
+            line-height: 1.2;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .mobile-detail-section-body,
+        .mobile-detail-section-empty {
+            color: #475569;
+            font-size: 0.78rem;
+            line-height: 1.35;
         }
         .mobile-stock-card {
             border: 1px solid rgba(148, 163, 184, 0.35);
@@ -2243,7 +2391,7 @@ try:
         st.markdown(
             """
             <div class="market-score-guide">
-                <span>80↑ 매우 우호</span><span>65↑ 우호</span><b>50점 = 평균</b><span>35↓ 부담</span><span>20↓ 매우 부담</span>
+                <span>80+ 매우우호</span><span>65+ 우호</span><b>50 평균</b><span>35- 부담</span><span>20- 매우부담</span>
             </div>
             """,
             unsafe_allow_html=True,
@@ -2323,19 +2471,16 @@ try:
                 st.markdown(
                     f"""
                     <div class="mobile-evidence-card">
-                        <div class="mobile-evidence-topline">
-                            <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
-                            <div class="mobile-evidence-verdict">
-                                <span>{escape_html(item.get("평가", "-"))}</span>
-                                <b class="{impact_class}">{escape_html(impact_text)}점</b>
-                            </div>
+                        <div class="mobile-evidence-line mobile-evidence-line-main">
+                            <b>{escape_html(item.get("항목", "시장환경"))}</b>
+                            <span>{escape_html(item.get("의미", ""))}</span>
                         </div>
-                        <div class="mobile-evidence-values">
-                            <span>현재 {escape_html(item.get("현재값", "-"))}</span>
-                            <span>20일 {escape_html(item.get("20일", "-"))}</span>
-                            <span>60일 {escape_html(item.get("60일", "-"))}</span>
+                        <div class="mobile-evidence-line mobile-evidence-line-data">
+                            <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
+                            <em>현재 {escape_html(item.get("현재값", "-"))}</em>
+                            <em>20일 {escape_html(item.get("20일", "-"))}</em>
+                            <em>60일 {escape_html(item.get("60일", "-"))}</em>
                         </div>
-                        <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
