@@ -105,6 +105,22 @@ def _fetch_statement_rows(api_key: str, corp_code: str, year: int, fs_div: str, 
     return payload.get("list") or []
 
 
+def _fetch_dividend_rows(api_key: str, corp_code: str, year: int, report_code: str = "11011"):
+    url = "https://opendart.fss.or.kr/api/alotMatter.json"
+    params = {
+        "crtfc_key": api_key,
+        "corp_code": corp_code,
+        "bsns_year": str(year),
+        "reprt_code": report_code,
+    }
+    response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("status") != "000":
+        return []
+    return payload.get("list") or []
+
+
 def _row_text(row, *keys):
     return " ".join(str(row.get(key, "") or "") for key in keys)
 
@@ -168,6 +184,46 @@ def _sum_picks(rows, statement_names=None, account_keywords=None, account_ids=No
     if not values:
         return np.nan
     return round(sum(values), 2)
+
+
+def _pick_dividend(rows, se_keywords, stock_kind_keywords=None):
+    stock_kind_keywords = stock_kind_keywords or []
+    candidates = []
+    for row in rows:
+        se_text = str(row.get("se", "") or "")
+        stock_kind = str(row.get("stock_knd", "") or "")
+        if not _matches_any(se_text, se_keywords):
+            continue
+        if stock_kind_keywords and stock_kind and not _matches_any(stock_kind, stock_kind_keywords):
+            continue
+        priority = 0 if "보통주" in stock_kind else 1 if not stock_kind else 2
+        candidates.append((priority, row))
+
+    if not candidates:
+        return np.nan
+    candidates.sort(key=lambda item: item[0])
+    return _to_number(candidates[0][1].get("thstrm"))
+
+
+def _dividend_metrics(rows):
+    if not rows:
+        return {}
+
+    dividend_yield = _pick_dividend(rows, ["현금배당수익률"], ["보통주"])
+    payout_ratio = _pick_dividend(rows, ["현금배당성향"])
+    dividend_per_share = _pick_dividend(rows, ["주당 현금배당금"], ["보통주"])
+    dividend_total_million = _pick_dividend(rows, ["현금배당금총액"])
+
+    metrics = {
+        "dividend_yield": dividend_yield,
+        "payout_ratio": payout_ratio,
+        "dividend_per_share": dividend_per_share,
+    }
+    if pd.notna(dividend_total_million):
+        metrics["dividend_total"] = round(dividend_total_million / 100, 2)
+    if any(pd.notna(value) for value in metrics.values()):
+        metrics["dividend_source"] = "OpenDART"
+    return metrics
 
 
 def _statement_metrics(rows):
@@ -269,6 +325,17 @@ def fetch_dart_metrics(stock_code: str, year: int | None = None) -> dict:
     for target_year in range(start_year, start_year - 3, -1):
         best_metrics = {}
         for report_code in REPORT_CODES:
+            try:
+                dividend_rows = _fetch_dividend_rows(api_key, corp_code, target_year, report_code)
+            except Exception:
+                dividend_rows = []
+            dividend_metrics = _dividend_metrics(dividend_rows)
+            if dividend_metrics:
+                dividend_metrics["dividend_year"] = target_year
+                dividend_metrics["dividend_report_code"] = report_code
+                cleaned_dividend = {k: v for k, v in dividend_metrics.items() if not (isinstance(v, float) and pd.isna(v))}
+                best_metrics.update({k: v for k, v in cleaned_dividend.items() if k not in best_metrics})
+
             for fs_div in ["CFS", "OFS"]:
                 try:
                     rows = _fetch_statement_rows(api_key, corp_code, target_year, fs_div, report_code)

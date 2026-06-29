@@ -241,6 +241,18 @@ def _is_missing_value(value) -> bool:
 def _needs_cashflow_boost(data: dict) -> bool:
     return any(_is_missing_value(data.get(field)) for field in ["free_cashflow", "operating_cashflow", "cash"])
 
+
+def _needs_dart_boost(data: dict) -> bool:
+    dart_fields = [
+        "free_cashflow",
+        "operating_cashflow",
+        "cash",
+        "dividend_yield",
+        "payout_ratio",
+        "dividend_per_share",
+    ]
+    return any(_is_missing_value(data.get(field)) for field in dart_fields)
+
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
 # ==========================================
@@ -297,7 +309,12 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
         "free_cashflow": np.nan,
         "cash": np.nan,
         "total_debt": np.nan,
-        "net_cash": np.nan
+        "net_cash": np.nan,
+        "dividend_yield": np.nan,
+        "payout_ratio": np.nan,
+        "dividend_per_share": np.nan,
+        "dividend_total": np.nan,
+        "dividend_source": ""
     }
     
     try:
@@ -470,7 +487,12 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         "free_cashflow": np.nan,
         "cash": np.nan,
         "total_debt": np.nan,
-        "net_cash": np.nan
+        "net_cash": np.nan,
+        "dividend_yield": np.nan,
+        "payout_ratio": np.nan,
+        "dividend_per_share": np.nan,
+        "dividend_total": np.nan,
+        "dividend_source": ""
     }
 
     try:
@@ -495,6 +517,19 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         info_rev_growth = info.get("revenueGrowth")
         if info_rev_growth is not None:
             res_dict["revenue_growth"] = round(float(info_rev_growth) * 100, 2)
+
+        dividend_yield = info.get("dividendYield")
+        if dividend_yield is not None:
+            res_dict["dividend_yield"] = round(float(dividend_yield) * 100, 2)
+            res_dict["dividend_source"] = "yfinance"
+        payout_ratio = info.get("payoutRatio")
+        if payout_ratio is not None:
+            res_dict["payout_ratio"] = round(float(payout_ratio) * 100, 2)
+            res_dict["dividend_source"] = "yfinance"
+        dividend_rate = info.get("dividendRate") or info.get("trailingAnnualDividendRate")
+        if dividend_rate is not None:
+            res_dict["dividend_per_share"] = round(float(dividend_rate), 2)
+            res_dict["dividend_source"] = "yfinance"
 
         # 연간 재무제표를 바탕으로 과거 평균 PER 및 EPS 트렌드 산출
         fin = t.financials
@@ -819,7 +854,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
                 for _, row in prev_df.iterrows():
                     sym = row[key_col]
-                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash"]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code"]
                     data_dict = {}
                     for f in fund_fields:
                         val = row.get(f)
@@ -846,12 +881,14 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "revenue_growth": np.nan, "operating_growth": np.nan, "eps_cagr": np.nan,
                     "eps3y": "-", "revenue": np.nan, "operating_income": np.nan, "net_income": np.nan,
                     "operating_margin": np.nan, "net_margin": np.nan, "operating_cashflow": np.nan,
-                    "free_cashflow": np.nan, "cash": np.nan, "total_debt": np.nan, "net_cash": np.nan
+                    "free_cashflow": np.nan, "cash": np.nan, "total_debt": np.nan, "net_cash": np.nan,
+                    "dividend_yield": np.nan, "payout_ratio": np.nan, "dividend_per_share": np.nan,
+                    "dividend_total": np.nan, "dividend_source": ""
                 }
                 data.update(prev_fund_map[sym])
                 if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
                     data['eps_cagr'] = prev_fund_map[sym]['cagr']
-                if market in ["한국(코스피)", "한국(코스닥)", "한국"] and _needs_cashflow_boost(data):
+                if market in ["한국(코스피)", "한국(코스닥)", "한국"] and _needs_dart_boost(data):
                     data = merge_missing_fields(data, opendart_client.fetch_dart_metrics(sym))
                 data['yf_symbol'] = sym
                 return data
