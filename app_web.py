@@ -1908,22 +1908,21 @@ st.markdown("""
         .mobile-evidence-card {
             border: 1px solid rgba(226, 232, 240, 0.95);
             border-radius: 12px;
-            padding: 12px;
+            padding: 10px;
             margin: 8px 0;
             background: #ffffff;
             box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         }
         .mobile-evidence-title {
             color: #111827;
-            font-size: 0.94rem;
+            font-size: 0.88rem;
             font-weight: 800;
-            margin-bottom: 6px;
         }
         .mobile-evidence-verdict {
             display: flex;
             gap: 8px;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 7px;
         }
         .mobile-evidence-verdict span {
             border-radius: 999px;
@@ -1955,8 +1954,31 @@ st.markdown("""
         }
         .mobile-evidence-meaning {
             color: #475569;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             line-height: 1.4;
+            text-align: right;
+            min-width: 0;
+        }
+        .mobile-evidence-topline {
+            display: grid;
+            grid-template-columns: minmax(64px, auto) minmax(0, 1fr);
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 7px;
+        }
+        .cache-status-card {
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin: 8px 0;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.74rem;
+            line-height: 1.45;
+        }
+        .cache-status-card b {
+            color: #111827;
+            font-weight: 750;
         }
         .mobile-signal-evidence-panel {
             display: grid;
@@ -2123,31 +2145,21 @@ with st.sidebar:
     st.title("📊 장기 투자 스크리너")
     st.caption("2046년 은퇴를 향한 우상향 마라톤")
     st.divider()
-    st.info("💡 데이터 수집은 GitHub Actions 스케줄 또는 Run workflow에서만 실행됩니다. 앱에서는 저장된 캐시를 읽고 새로고침합니다.")
+    st.info("💡 데이터 수집은 GitHub Actions 스케줄 또는 Run workflow에서만 실행됩니다. 앱에서는 저장된 캐시를 읽습니다.")
 
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
-st.header(f"🎯 {get_market_text()} 시장 분석 대시보드")
+st.header(f"🎯 {get_market_text()} 분석")
 st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 좋은 회사인데 왜 안 오르지?")
 
-st.subheader("분석 기준")
-criteria_col1, criteria_col2, criteria_col3 = st.columns([4, 2, 2], vertical_alignment="bottom")
-with criteria_col1:
-    st.radio(
-        "시장",
-        list(MARKET_LABEL_TO_VALUE.keys()),
-        key="market_choice",
-        horizontal=True,
-        on_change=handle_market_choice_change,
-    )
-with criteria_col2:
-    st.metric("탐색 종목 수", f"{FIXED_TOP_N}개 고정")
-with criteria_col3:
-    if st.button("🔄 캐시 새로고침", width="stretch", type="secondary"):
-        get_cached_market_panel.clear()
-        load_cached_market_data()
-        st.rerun()
+st.radio(
+    "시장",
+    list(MARKET_LABEL_TO_VALUE.keys()),
+    key="market_choice",
+    horizontal=True,
+    on_change=handle_market_choice_change,
+)
 
 # 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
 st.subheader("1단계: 시장환경")
@@ -2264,7 +2276,10 @@ try:
                 st.markdown(
                     f"""
                     <div class="mobile-evidence-card">
-                        <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
+                        <div class="mobile-evidence-topline">
+                            <div class="mobile-evidence-title">{escape_html(item.get("항목", "시장환경"))}</div>
+                            <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
+                        </div>
                         <div class="mobile-evidence-verdict">
                             <span>{escape_html(item.get("평가", "-"))}</span>
                             <b class="{impact_class}">{escape_html(impact_text)}점</b>
@@ -2274,7 +2289,6 @@ try:
                             <span>20일 {escape_html(item.get("20일", "-"))}</span>
                             <span>60일 {escape_html(item.get("60일", "-"))}</span>
                         </div>
-                        <div class="mobile-evidence-meaning">{escape_html(item.get("의미", ""))}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -2294,11 +2308,16 @@ try:
     # 데이터 신선도 및 가격 기준 표시
     cache_status = get_cache_status()
     if cache_status:
-        st.caption(
-            f"ℹ️ **최근 데이터 기준일**: `{cache_status['data_date']}` | "
-            f"**가격 기준**: `{cache_status['price_basis']}` | "
-            f"**수집 시각**: `{cache_status['price_time']}` | "
-            f"**캐시 동기화**: `{cache_status['file_time']}`"
+        st.markdown(
+            f"""
+            <div class="cache-status-card">
+                <div><b>최근 데이터 기준일</b> {escape_html(cache_status['data_date'])}</div>
+                <div><b>가격 기준</b> {escape_html(cache_status['price_basis'])}</div>
+                <div><b>수집 시각</b> {escape_html(cache_status['price_time'])}</div>
+                <div><b>캐시 동기화</b> {escape_html(cache_status['file_time'])}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 except Exception as e:
     st.error(f"시장 분석 패널 로드 오류: {e}")
@@ -2527,7 +2546,7 @@ if st.session_state.data:
         title_text = f"{title_prefix} 전체 {total_candidates}개" if visible_count >= total_candidates else f"{title_prefix} {visible_count}개"
         st.subheader(title_text)
 
-        count_cols = st.columns(5)
+        count_cols = st.columns(5, gap="small")
         quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
         for idx, (label, count) in enumerate(quick_options):
             with count_cols[idx]:
@@ -2552,15 +2571,25 @@ if st.session_state.data:
             render_mobile_candidate_card(row_dict, list_index, is_kr, current_lens)
             evidence_open = st.session_state.mobile_evidence_symbol == symbol
             evidence_label = "근거 닫기" if evidence_open else "근거 보기"
-            if st.button(evidence_label, key=f"mobile_evidence_{symbol}_{list_index}", width="stretch"):
-                st.session_state.mobile_evidence_symbol = None if evidence_open else symbol
-                st.rerun()
+            action_cols = st.columns(2, gap="small")
+            with action_cols[0]:
+                if st.button(evidence_label, key=f"mobile_evidence_{symbol}_{list_index}", width="stretch"):
+                    st.session_state.mobile_evidence_symbol = None if evidence_open else symbol
+                    st.rerun()
+            with action_cols[1]:
+                if st.session_state.mobile_selected_symbol == symbol:
+                    if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
+                        st.session_state.mobile_selected_symbol = None
+                        st.rerun()
+                else:
+                    if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
+                        st.session_state.mobile_selected_symbol = symbol
+                        st.session_state.mobile_evidence_symbol = None
+                        st.session_state.mobile_detail_tab = "요약"
+                        st.rerun()
             if evidence_open:
                 render_mobile_evidence_panel(row_dict, current_lens)
             if st.session_state.mobile_selected_symbol == symbol:
-                if st.button("상세 닫기", key=f"mobile_close_detail_{symbol}_{list_index}", width="stretch"):
-                    st.session_state.mobile_selected_symbol = None
-                    st.rerun()
                 render_mobile_stock_card(row_dict, is_kr, show_header=False, lens=current_lens)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
                     tab_cols = st.columns(5)
@@ -2579,12 +2608,6 @@ if st.session_state.data:
                         if st.button("닫기", key=f"mobile_close_detail_fixed_{symbol}_{list_index}", width="stretch"):
                             st.session_state.mobile_selected_symbol = None
                             st.rerun()
-            else:
-                if st.button("상세 보기 ›", key=f"mobile_candidate_{symbol}_{list_index}", width="stretch"):
-                    st.session_state.mobile_selected_symbol = symbol
-                    st.session_state.mobile_evidence_symbol = None
-                    st.session_state.mobile_detail_tab = "요약"
-                    st.rerun()
 
         if not excluded_mobile_df.empty:
             with st.expander(f"관찰 후보 보기: 좋은 회사지만 아직 비쌈 {len(excluded_mobile_df)}개", expanded=False):
@@ -2673,4 +2696,4 @@ if st.session_state.data:
         )
 
 else:
-    st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 [캐시 새로고침]을 눌러주세요.")
+    st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 앱을 다시 열어주세요.")
