@@ -781,9 +781,13 @@ def fetch_us_top100_tickers(top_n=100) -> list:
 # ==========================================
 # 7. [핵심] Pandas & NumPy 벡터화 스크리닝 엔진
 # ==========================================
-def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data, force_scrape=False):
+def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamental, opt_peak, us_market_cap_data, force_scrape=False, save_cache=True):
     try:
-        top_n = FIXED_TOP_N
+        try:
+            top_n = int(top_n)
+        except (TypeError, ValueError):
+            top_n = FIXED_TOP_N
+        top_n = max(1, min(top_n, FIXED_TOP_N))
         market_text = "코스닥" if market == "한국(코스닥)" else "코스피" if market in ["한국(코스피)", "한국"] else "미국"
         
         # 1. 최근 마감된 날짜 캐시 확인
@@ -1051,7 +1055,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
         # 6. 저장 및 UI 전송
         final_data = df.to_dict(orient='records')
-        df.to_csv(cache_file, index=False, encoding="utf-8-sig")
+        if save_cache:
+            df.to_csv(cache_file, index=False, encoding="utf-8-sig")
         
         app_queue.put({"type": "data", "data": final_data})
         app_queue.put({"type": "done", "text": "[OK] 스크리닝 성공 및 로컬 데이터베이스 덤프 완료!"})

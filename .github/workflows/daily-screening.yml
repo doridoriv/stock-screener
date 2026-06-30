@@ -12,6 +12,28 @@ on:
     # Korea: after KRX after-hours/NXT evening session window.
     - cron: "30 11 * * 1-5"
   workflow_dispatch:
+    inputs:
+      markets:
+        description: "Markets to screen for a manual run"
+        required: true
+        default: "US"
+        type: choice
+        options:
+          - "US"
+          - "KR"
+          - "ALL"
+      top_n:
+        description: "Number of symbols per market for a manual run"
+        required: true
+        default: "5"
+      save_cache:
+        description: "Save and commit cache files"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -48,11 +70,14 @@ jobs:
             SCREENING_MARKETS=US python cron_job.py
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "30 11 * * 1-5" ]; then
             SCREENING_MARKETS=KR python cron_job.py
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SCREENING_MARKETS="${{ inputs.markets }}" SCREENING_TOP_N="${{ inputs.top_n }}" SCREENING_SAVE_CACHE="${{ inputs.save_cache }}" python cron_job.py
           else
             SCREENING_MARKETS=ALL python cron_job.py
           fi
 
       - name: Commit updated cache
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.save_cache == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

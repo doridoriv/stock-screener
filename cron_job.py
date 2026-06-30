@@ -8,7 +8,25 @@ import analyzer
 import market_analyzer
 from config import CACHE_DIR, FIXED_TOP_N
 
-def run_auto_screening(market, top_n=FIXED_TOP_N):
+def _env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_int(name, default, minimum=1, maximum=FIXED_TOP_N):
+    value = os.getenv(name)
+    if value is None or str(value).strip() == "":
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    return max(minimum, min(parsed, maximum))
+
+
+def run_auto_screening(market, top_n=FIXED_TOP_N, force_scrape=None, save_cache=None):
     """
     웹 UI 없이 백그라운드에서 지정된 시장의 데이터를 수집하고
     기존 웹앱과 100% 호환되는 경로에 CSV 파일(일일 스냅샷)로 자동 저장합니다.
@@ -16,6 +34,11 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [START] {market} 시장 백그라운드 자동 분석 시작...")
     
     # 1. 스레드 통신용 큐 및 중지 이벤트 시뮬레이션 설정
+    if force_scrape is None:
+        force_scrape = _env_bool("SCREENING_FORCE_SCRAPE", True)
+    if save_cache is None:
+        save_cache = _env_bool("SCREENING_SAVE_CACHE", True)
+
     app_queue = queue.Queue()
     stop_check_func = lambda: False
     
@@ -26,13 +49,14 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
     try:
         analyzer.screening_worker(
             market=market,
-            top_n=FIXED_TOP_N,
+            top_n=top_n,
             app_queue=app_queue,
             stop_requested_func=stop_check_func,
             opt_fundamental=True,
             opt_peak=True,
             us_market_cap_data=us_market_cap_data,
-            force_scrape=True
+            force_scrape=force_scrape,
+            save_cache=save_cache
         )
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 엔진 가동 중 치명적 오류 발생: {e}")
@@ -68,9 +92,13 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
     if had_error:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 중 에러가 발생하여 기존 캐시를 성공으로 처리하지 않습니다.\n")
         return False
-    elif os.path.exists(file_path):
+    elif save_cache and os.path.exists(file_path):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] {market} 자동 저장 완료! 저장경로: {file_path}")
         print(f"   (목표 수: {FIXED_TOP_N}개)\n")
+        return True
+    elif not save_cache and collected_rows:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] {market} small verification completed; cache save skipped")
+        print(f"   (target: {top_n} rows)\n")
         return True
     else:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 결과 저장을 실패했거나 파일이 없습니다.\n")
@@ -82,6 +110,10 @@ if __name__ == "__main__":
     print("=========================================================")
 
     scope = os.getenv("SCREENING_MARKETS", "ALL").upper()
+    top_n = _env_int("SCREENING_TOP_N", FIXED_TOP_N)
+    force_scrape = _env_bool("SCREENING_FORCE_SCRAPE", True)
+    save_cache = _env_bool("SCREENING_SAVE_CACHE", True)
+    FIXED_TOP_N = top_n
     results = []
     if scope in ["ALL", "KR", "KOREA"]:
         results.append(run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N))
