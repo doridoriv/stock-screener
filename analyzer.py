@@ -809,16 +809,15 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             try:
                 kr_nxt_prices = nxt_client.fetch_nxt_latest_prices()
             except Exception as e:
-                raise RuntimeError(f"NXT latest price fetch failed for Korean market: {e}")
+                print(f"[WARN] NXT latest price fetch failed for Korean market; using daily close fallback: {e}")
             if not kr_nxt_prices:
-                raise RuntimeError("NXT latest price data is empty; Korean screening requires NXT prices.")
+                print("[WARN] NXT latest price data is empty; using daily close fallback for Korean screening.")
 
             df_kr = fdr.StockListing(market_type).dropna(subset=["Marcap"]).copy()
             df_kr["Code"] = df_kr["Code"].astype(str).str.zfill(6)
-            df_kr = df_kr[df_kr["Code"].isin(kr_nxt_prices.keys())]
             df_kr = df_kr.sort_values(by="Marcap", ascending=False).head(top_n)
             if len(df_kr) < top_n:
-                raise RuntimeError(f"NXT-covered {market_type} universe has only {len(df_kr)} rows; expected {top_n}.")
+                raise RuntimeError(f"{market_type} universe has only {len(df_kr)} rows; expected {top_n}.")
             for idx, r in df_kr.iterrows():
                 code = str(r["Code"]).zfill(6)
                 krx_info = krx_base_info.get(code, {})
@@ -850,13 +849,18 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         after_market_prices = pd.Series(np.nan, index=current_prices.index)
         after_market_change_pct = pd.Series(np.nan, index=current_prices.index)
         if is_kr_market:
-            nxt_prices = kr_nxt_prices or nxt_client.fetch_nxt_latest_prices()
+            nxt_prices = kr_nxt_prices
+            if not nxt_prices:
+                try:
+                    nxt_prices = nxt_client.fetch_nxt_latest_prices()
+                except Exception as e:
+                    print(f"[WARN] NXT latest price retry failed; keeping daily close prices: {e}")
 
             for sym in yf_symbols:
                 clean_sym = str(sym).split(".")[0].zfill(6)
                 nxt_price = nxt_prices.get(clean_sym)
                 if not nxt_price:
-                    raise RuntimeError(f"NXT latest price missing for selected Korean symbol: {clean_sym}")
+                    continue
                 latest_price = nxt_price.get("price")
                 if pd.notna(latest_price):
                     current_prices.loc[sym] = latest_price

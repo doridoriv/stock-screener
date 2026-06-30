@@ -36,10 +36,11 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
         )
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 엔진 가동 중 치명적 오류 발생: {e}")
-        return
+        return False
 
     # 4. 큐(Queue)에 쌓인 데이터 처리 (로그 출력 및 수집 완료 대기)
     collected_rows = []
+    had_error = False
     while True:
         try:
             msg = app_queue.get_nowait()
@@ -52,6 +53,7 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
             elif m_type in ["done", "stopped"]:
                 print(f" > [{market}] 수집 완료 신호 수신 ({msg['text']})")
             elif m_type == "error":
+                had_error = True
                 print(f" > [{market}] 수집 중 에러 발생: {msg['text']}")
         except queue.Empty:
             time.sleep(0.5)
@@ -63,11 +65,16 @@ def run_auto_screening(market, top_n=FIXED_TOP_N):
     target_date_str = analyzer.get_latest_market_date(market_text)
     file_path = os.path.join(CACHE_DIR, f"snapshot_{market_text}_{target_date_str}.csv")
     
-    if os.path.exists(file_path):
+    if had_error:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 중 에러가 발생하여 기존 캐시를 성공으로 처리하지 않습니다.\n")
+        return False
+    elif os.path.exists(file_path):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] {market} 자동 저장 완료! 저장경로: {file_path}")
         print(f"   (목표 수: {FIXED_TOP_N}개)\n")
+        return True
     else:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 결과 저장을 실패했거나 파일이 없습니다.\n")
+        return False
 
 if __name__ == "__main__":
     print("=========================================================")
@@ -75,11 +82,12 @@ if __name__ == "__main__":
     print("=========================================================")
 
     scope = os.getenv("SCREENING_MARKETS", "ALL").upper()
+    results = []
     if scope in ["ALL", "KR", "KOREA"]:
-        run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N)
-        run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N)
+        results.append(run_auto_screening("한국(코스피)", top_n=FIXED_TOP_N))
+        results.append(run_auto_screening("한국(코스닥)", top_n=FIXED_TOP_N))
     if scope in ["ALL", "US", "USA"]:
-        run_auto_screening("미국", top_n=FIXED_TOP_N)
+        results.append(run_auto_screening("미국", top_n=FIXED_TOP_N))
 
     try:
         panel = market_analyzer.save_market_panel_cache()
@@ -92,5 +100,8 @@ if __name__ == "__main__":
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [WARN] 시장환경 캐시 저장 실패: {e}")
      
     print("=========================================================")
-    print(f"> 모든 시장의 배치가 안전하게 완료되었습니다.")
+    if results and all(results):
+        print(f"> 모든 시장의 배치가 안전하게 완료되었습니다.")
+    else:
+        print(f"> 일부 시장의 배치가 실패했습니다. 위의 [FAIL] 로그를 확인하세요.")
     print("=========================================================")
