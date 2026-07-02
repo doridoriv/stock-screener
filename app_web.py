@@ -276,6 +276,29 @@ def format_cap(value, is_kr):
     return f"${number / 1_000_000:.0f}M"
 
 
+def row_is_kr(row):
+    symbol = str(row.get("symbol", ""))
+    yf_symbol = str(row.get("yf_symbol", ""))
+    return symbol.isdigit() or yf_symbol.endswith((".KS", ".KQ"))
+
+
+def format_cashflow_amount(value, row):
+    number = clean_number(value)
+    if number is None:
+        return "N/A"
+    if row_is_kr(row):
+        if abs(number) >= 10000:
+            return f"{number / 10000:,.1f}조"
+        return f"{number:,.0f}억"
+    if abs(number) >= 1_000_000_000_000:
+        return f"${number / 1_000_000_000_000:,.2f}T"
+    if abs(number) >= 1_000_000_000:
+        return f"${number / 1_000_000_000:,.1f}B"
+    if abs(number) >= 1_000_000:
+        return f"${number / 1_000_000:,.0f}M"
+    return f"${number:,.0f}"
+
+
 def escape_html(value):
     return html.escape(str(value if value is not None else ""))
 
@@ -1109,6 +1132,13 @@ def metric_fact(row, key, label, suffix="", decimals=2):
     return f"{label} {value:,.{decimals}f}{suffix}"
 
 
+def cashflow_fact(row, key, label):
+    value = clean_number(row.get(key))
+    if value is None:
+        return f"{label} 확인 필요"
+    return f"{label} {format_cashflow_amount(value, row)}"
+
+
 def join_facts(*facts):
     clean = [fact for fact in facts if fact and "N/A" not in fact]
     return " · ".join(clean[:2]) if clean else "수치 근거 확인 필요"
@@ -1119,7 +1149,7 @@ def signal_fact_lines(summary):
     if not parts:
         parts = ["수치 근거 확인 필요"]
     while len(parts) < 2:
-        parts.append("추가 수치 확인 필요")
+        parts.append("보조 지표 미확인")
     return parts[:2]
 
 
@@ -1252,10 +1282,10 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
                 f"배당성향: {format_metric(row.get('payout_ratio'), '%')}",
                 f"배당삭감여부: {'있음' if str(row.get('dividend_cut_flag')).strip().lower() in {'true', '1', 'yes'} else '확인 안 됨/없음'}",
             ]),
-            signal_item("현금이 받치나", "양호" if fcf is not None and fcf > 0 else "확인", "good" if fcf is not None and fcf > 0 else "watch", join_facts(metric_fact(row, "free_cashflow", "FCF", "억"), metric_fact(row, "operating_cashflow", "영업현금", "억")), [
-                f"FCF: {format_metric(row.get('free_cashflow'), '억')}",
-                f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}",
-                f"순현금: {format_metric(row.get('net_cash'), '억')}",
+            signal_item("배당 여력은", "양호" if fcf is not None and fcf > 0 else "확인", "good" if fcf is not None and fcf > 0 else "watch", join_facts(cashflow_fact(row, "free_cashflow", "FCF"), cashflow_fact(row, "operating_cashflow", "영업현금")), [
+                f"FCF: {format_cashflow_amount(row.get('free_cashflow'), row)}",
+                f"영업현금흐름: {format_cashflow_amount(row.get('operating_cashflow'), row)}",
+                f"순현금: {format_cashflow_amount(row.get('net_cash'), row)}",
             ]),
         ]
     if lens == "🔥 모멘텀":
