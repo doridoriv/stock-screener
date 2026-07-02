@@ -748,7 +748,7 @@ def mobile_cash_generation_score(row):
 
 
 def mobile_dividend_score(row):
-    score = 20
+    score = 0
     dividend_yield = clean_number(row.get("dividend_yield"))
     payout_ratio = clean_number(row.get("payout_ratio"))
     dividend_per_share = clean_number(row.get("dividend_per_share"))
@@ -760,48 +760,60 @@ def mobile_dividend_score(row):
     net_cash = clean_number(row.get("net_cash"))
     debt = clean_number(row.get("debt_ratio"))
 
+    yield_cap = 100
     if dividend_yield is not None:
         if 2.5 <= dividend_yield <= 7:
+            score += 45
+        elif 2 <= dividend_yield < 2.5:
+            score += 36
+        elif 1.5 <= dividend_yield < 2:
             score += 28
-        elif 1 <= dividend_yield < 2.5:
-            score += 16
-        elif dividend_yield > 7:
+            yield_cap = 75
+        elif 1 <= dividend_yield < 1.5:
+            score += 20
+            yield_cap = 65
+        elif 0 < dividend_yield < 1:
             score += 10
+            yield_cap = 55
+        elif dividend_yield > 7:
+            score += 30
         elif dividend_yield <= 0:
-            score -= 18
+            yield_cap = 40
     else:
-        score -= 10
+        yield_cap = 40
 
     if payout_ratio is not None:
         if 20 <= payout_ratio <= 70:
-            score += 18
+            score += 20
         elif 0 < payout_ratio < 20 or 70 < payout_ratio <= 100:
-            score += 8
+            score += 10
         elif payout_ratio > 100:
-            score -= 18
+            score -= 12
 
     if dividend_per_share is not None:
-        score += 8 if dividend_per_share > 0 else -8
+        score += 4 if dividend_per_share > 0 else -4
     if dividend_growth is not None:
-        score += 10 if dividend_growth > 0 else -8
+        score += 8 if dividend_growth > 0 else -6
     if consecutive_years is not None:
         if consecutive_years >= 5:
-            score += 12
+            score += 8
         elif consecutive_years >= 2:
-            score += 6
+            score += 4
     if str(dividend_cut).strip().lower() in {"true", "1", "yes"}:
-        score -= 18
+        score -= 14
 
     if fcf is not None:
-        score += 10 if fcf > 0 else -12
+        score += 5 if fcf > 0 else -8
     if operating_cashflow is not None:
-        score += 8 if operating_cashflow > 0 else -8
+        score += 5 if operating_cashflow > 0 else -6
     if net_cash is not None:
-        score += 6 if net_cash > 0 else -4
+        score += 3 if net_cash > 0 else -2
     if debt is not None and debt >= 200:
-        score -= 10
+        score -= 5
+    elif debt is not None and debt <= 80:
+        score += 2
 
-    return bounded(score, 0, 100)
+    return bounded(score, 0, yield_cap)
 
 
 def mobile_stability_score(row):
@@ -853,7 +865,7 @@ def mobile_lens_score(row, lens):
     elif lens == "💸 현금창출":
         score = bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
     elif lens == "🏦 배당":
-        score = bounded(mobile_dividend_score(row) * 0.78 + mobile_stability_score(row) * 0.22)
+        score = mobile_dividend_score(row)
     elif lens == "🔥 모멘텀":
         score = bounded((mobile_momentum_score(row) / 35) * 85 + mobile_timing_score(row) * 0.75)
     elif lens == "🛡 안정성":
