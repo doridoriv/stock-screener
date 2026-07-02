@@ -861,6 +861,10 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         if not force_scrape and os.path.exists(cache_file):
             df_cached = pd.read_csv(cache_file)
             if len(df_cached) >= top_n:
+                df_normalized = normalize_dividend_yield_metrics(df_cached)
+                if save_cache and not df_normalized.equals(df_cached):
+                    df_normalized.to_csv(cache_file, index=False, encoding="utf-8-sig")
+                df_cached = df_normalized
                 df_cached = sort_by_market_cap(df_cached).head(top_n)
                 app_queue.put({"type": "data", "data": df_cached.to_dict(orient='records')})
                 app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 캐시 데이터 로드 완료!"})
