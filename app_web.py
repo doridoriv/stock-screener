@@ -1241,19 +1241,19 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         ]
     if lens == "🏦 배당":
         return [
-            signal_item("배당 매력은", "높음" if dividend_yield is not None and dividend_yield >= 2.5 else "보통" if dividend_yield is not None and dividend_yield > 0 else "확인 필요", "good" if dividend_yield is not None and dividend_yield >= 2.5 else "watch" if dividend_yield is not None and dividend_yield > 0 else "risk", join_facts(metric_fact(row, "dividend_yield", "수익률", "%"), metric_fact(row, "dividend_per_share", "주당배당")), [
-                f"배당수익률: {format_metric(row.get('dividend_yield'), '%')}",
-                f"주당배당금: {format_metric(row.get('dividend_per_share'))}",
-                f"배당총액: {format_metric(row.get('dividend_total'), '억')}",
+            signal_item("배당 매력은", "높음" if dividend_yield is not None and dividend_yield >= 2.5 else "보통" if dividend_yield is not None and dividend_yield > 0 else "확인 필요", "good" if dividend_yield is not None and dividend_yield >= 2.5 else "watch" if dividend_yield is not None and dividend_yield > 0 else "risk", join_facts(metric_fact(row, "dividend_yield", "연배당률", "%"), metric_fact(row, "dividend_growth_3y", "성장률", "%")), [
+                f"연배당률: {format_metric(row.get('dividend_yield'), '%')}",
+                f"배당성장률: {format_metric(row.get('dividend_growth_3y'), '%')}",
+                f"데이터출처: {row.get('dividend_source') or row.get('dividend_history_source') or 'N/A'}",
             ]),
-            signal_item("무리 없는가", "적정" if payout_ratio is not None and 20 <= payout_ratio <= 70 else "확인" if payout_ratio is not None and payout_ratio <= 100 else "주의", "good" if payout_ratio is not None and 20 <= payout_ratio <= 70 else "watch" if payout_ratio is not None and payout_ratio <= 100 else "risk", join_facts(metric_fact(row, "payout_ratio", "성향", "%"), metric_fact(row, "free_cashflow", "FCF", "억")), [
+            signal_item("지속성은", "양호" if dividend >= 70 else "보통" if dividend >= 45 else "확인", "good" if dividend >= 70 else "watch" if dividend >= 45 else "risk", join_facts(metric_fact(row, "dividend_consecutive_years", "연속", "년"), metric_fact(row, "payout_ratio", "성향", "%")), [
+                f"연속배당연수: {format_metric(row.get('dividend_consecutive_years'), '년', decimals=0)}",
                 f"배당성향: {format_metric(row.get('payout_ratio'), '%')}",
+                f"배당삭감여부: {'있음' if str(row.get('dividend_cut_flag')).strip().lower() in {'true', '1', 'yes'} else '확인 안 됨/없음'}",
+            ]),
+            signal_item("현금이 받치나", "양호" if fcf is not None and fcf > 0 else "확인", "good" if fcf is not None and fcf > 0 else "watch", join_facts(metric_fact(row, "free_cashflow", "FCF", "억"), metric_fact(row, "operating_cashflow", "영업현금", "억")), [
                 f"FCF: {format_metric(row.get('free_cashflow'), '억')}",
                 f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}",
-            ]),
-            signal_item("지속 가능한가", "양호" if dividend >= 70 else "보통" if dividend >= 45 else "확인", "good" if dividend >= 70 else "watch" if dividend >= 45 else "risk", join_facts(metric_fact(row, "dividend_growth_3y", "성장", "%"), metric_fact(row, "dividend_consecutive_years", "연속", "년")), [
-                f"배당성장률: {format_metric(row.get('dividend_growth_3y'), '%')}",
-                f"연속배당연수: {format_metric(row.get('dividend_consecutive_years'), '년', decimals=0)}",
                 f"순현금: {format_metric(row.get('net_cash'), '억')}",
             ]),
         ]

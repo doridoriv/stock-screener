@@ -240,6 +240,44 @@ def _is_missing_value(value) -> bool:
     return str(value).strip() in ["", "-", "None", "none", "nan", "NaN", "N/A"]
 
 
+def _to_float_or_none(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _normalize_yield_percent(value):
+    number = _to_float_or_none(value)
+    if number is None or number <= 0:
+        return np.nan
+    return round(number * 100, 2) if number < 0.2 else round(number, 2)
+
+
+def _dividend_yield_from_info(info: dict):
+    dividend_rate = _to_float_or_none(info.get("dividendRate") or info.get("trailingAnnualDividendRate"))
+    price = _to_float_or_none(
+        info.get("currentPrice")
+        or info.get("regularMarketPrice")
+        or info.get("previousClose")
+    )
+    if dividend_rate and dividend_rate > 0 and price and price > 0:
+        return round((dividend_rate / price) * 100, 2)
+
+    trailing_yield = _to_float_or_none(info.get("trailingAnnualDividendYield"))
+    if trailing_yield and trailing_yield > 0:
+        return round(trailing_yield * 100, 2) if trailing_yield <= 1 else round(trailing_yield, 2)
+
+    return _normalize_yield_percent(info.get("dividendYield"))
+
+
 def _needs_cashflow_boost(data: dict) -> bool:
     return any(_is_missing_value(data.get(field)) for field in ["free_cashflow", "operating_cashflow", "cash"])
 
@@ -294,6 +332,32 @@ def add_peer_comparison_metrics(df: pd.DataFrame) -> pd.DataFrame:
         np.nan,
     )
     return out.drop(columns=["_peer_group"], errors="ignore")
+
+
+def normalize_dividend_yield_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or "dividend_yield" not in df.columns:
+        return df
+    out = df.copy()
+    current = pd.to_numeric(out.get("dividend_yield"), errors="coerce")
+
+    if "dividend_per_share" in out.columns and "price" in out.columns:
+        dividend_per_share = pd.to_numeric(out["dividend_per_share"], errors="coerce")
+        price = pd.to_numeric(out["price"], errors="coerce")
+        calculated = (dividend_per_share / price) * 100
+        calculated = calculated.where((dividend_per_share > 0) & (price > 0))
+        needs_calculated = calculated.notna() & (
+            current.isna()
+            | (current <= 0)
+            | (current > 20)
+            | ((current > calculated * 3) & ((current - calculated).abs() > 1))
+        )
+        out.loc[needs_calculated, "dividend_yield"] = calculated.loc[needs_calculated].round(2)
+        current = pd.to_numeric(out.get("dividend_yield"), errors="coerce")
+
+    unit_bug = current.gt(20) & current.le(1000)
+    out.loc[unit_bug, "dividend_yield"] = (current.loc[unit_bug] / 100).round(2)
+    return out
+
 
 # ==========================================
 # 3. 안전한 HTTP GET 요청 처리 (차단 방지 모드)
@@ -580,9 +644,9 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         if info_rev_growth is not None:
             res_dict["revenue_growth"] = round(float(info_rev_growth) * 100, 2)
 
-        dividend_yield = info.get("dividendYield")
-        if dividend_yield is not None:
-            res_dict["dividend_yield"] = round(float(dividend_yield) * 100, 2)
+        dividend_yield = _dividend_yield_from_info(info)
+        if pd.notna(dividend_yield):
+            res_dict["dividend_yield"] = dividend_yield
             res_dict["dividend_source"] = "yfinance"
         payout_ratio = info.get("payoutRatio")
         if payout_ratio is not None:
@@ -1026,6 +1090,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 df[field] = left.where(left.fillna("").astype(str).str.strip() != "", right)
                 df = df.drop(columns=[left_col, right_col], errors="ignore")
         df = supplemental_data.merge_supplemental_metrics(df, market_text)
+        df = normalize_dividend_yield_metrics(df)
         df = add_peer_comparison_metrics(df)
         
         app_queue.put({"type": "progress", "value": 85, "text": "가치 및 성장성 스코어링 모형 구동..."})
