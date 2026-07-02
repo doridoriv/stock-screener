@@ -79,6 +79,18 @@ MOBILE_LENS_META = {
             ("부채비율", "현금창출을 유지할 재무 체력이 있는지 봅니다."),
         ],
     },
+    "🏦 배당": {
+        "short": "배당",
+        "score_label": "배당점수",
+        "title": "배당 후보",
+        "description": "배당수익률과 배당 지속 가능성을 함께 봅니다.",
+        "criteria": [
+            ("배당수익률", "현재 가격 대비 배당 매력이 있는지 봅니다."),
+            ("배당성향", "이익 대비 배당이 무리하지 않은지 봅니다."),
+            ("배당이력", "배당 성장과 연속성이 있는지 봅니다."),
+            ("현금/부채", "배당을 유지할 현금 체력이 있는지 봅니다."),
+        ],
+    },
     "🔥 모멘텀": {
         "short": "모멘텀",
         "score_label": "모멘텀점수",
@@ -735,6 +747,63 @@ def mobile_cash_generation_score(row):
     return bounded(score, 0, 100)
 
 
+def mobile_dividend_score(row):
+    score = 20
+    dividend_yield = clean_number(row.get("dividend_yield"))
+    payout_ratio = clean_number(row.get("payout_ratio"))
+    dividend_per_share = clean_number(row.get("dividend_per_share"))
+    dividend_growth = clean_number(row.get("dividend_growth_3y"))
+    consecutive_years = clean_number(row.get("dividend_consecutive_years"))
+    dividend_cut = row.get("dividend_cut_flag")
+    fcf = clean_number(row.get("free_cashflow"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    net_cash = clean_number(row.get("net_cash"))
+    debt = clean_number(row.get("debt_ratio"))
+
+    if dividend_yield is not None:
+        if 2.5 <= dividend_yield <= 7:
+            score += 28
+        elif 1 <= dividend_yield < 2.5:
+            score += 16
+        elif dividend_yield > 7:
+            score += 10
+        elif dividend_yield <= 0:
+            score -= 18
+    else:
+        score -= 10
+
+    if payout_ratio is not None:
+        if 20 <= payout_ratio <= 70:
+            score += 18
+        elif 0 < payout_ratio < 20 or 70 < payout_ratio <= 100:
+            score += 8
+        elif payout_ratio > 100:
+            score -= 18
+
+    if dividend_per_share is not None:
+        score += 8 if dividend_per_share > 0 else -8
+    if dividend_growth is not None:
+        score += 10 if dividend_growth > 0 else -8
+    if consecutive_years is not None:
+        if consecutive_years >= 5:
+            score += 12
+        elif consecutive_years >= 2:
+            score += 6
+    if str(dividend_cut).strip().lower() in {"true", "1", "yes"}:
+        score -= 18
+
+    if fcf is not None:
+        score += 10 if fcf > 0 else -12
+    if operating_cashflow is not None:
+        score += 8 if operating_cashflow > 0 else -8
+    if net_cash is not None:
+        score += 6 if net_cash > 0 else -4
+    if debt is not None and debt >= 200:
+        score -= 10
+
+    return bounded(score, 0, 100)
+
+
 def mobile_stability_score(row):
     confidence, _, _, _, _ = mobile_confidence(row)
     debt = clean_number(row.get("debt_ratio"))
@@ -783,6 +852,8 @@ def mobile_lens_score(row, lens):
         score = mobile_growth_score(row)
     elif lens == "💸 현금창출":
         score = bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
+    elif lens == "🏦 배당":
+        score = bounded(mobile_dividend_score(row) * 0.78 + mobile_stability_score(row) * 0.22)
     elif lens == "🔥 모멘텀":
         score = bounded((mobile_momentum_score(row) / 35) * 85 + mobile_timing_score(row) * 0.75)
     elif lens == "🛡 안정성":
@@ -842,6 +913,30 @@ def mobile_stability_reasons(row):
         reasons.append("본업 현금 유입")
     if fcf is not None and fcf > 0:
         reasons.append("FCF 플러스")
+    return reasons
+
+
+def mobile_dividend_reasons(row):
+    reasons = []
+    dividend_yield = clean_number(row.get("dividend_yield"))
+    payout_ratio = clean_number(row.get("payout_ratio"))
+    dividend_growth = clean_number(row.get("dividend_growth_3y"))
+    consecutive_years = clean_number(row.get("dividend_consecutive_years"))
+    fcf = clean_number(row.get("free_cashflow"))
+    net_cash = clean_number(row.get("net_cash"))
+
+    if dividend_yield is not None and dividend_yield >= 2.5:
+        reasons.append("배당수익률 매력")
+    if payout_ratio is not None and 20 <= payout_ratio <= 70:
+        reasons.append("배당성향 적정")
+    if dividend_growth is not None and dividend_growth > 0:
+        reasons.append("배당 성장")
+    if consecutive_years is not None and consecutive_years >= 3:
+        reasons.append("연속 배당")
+    if fcf is not None and fcf > 0:
+        reasons.append("FCF로 배당 여력")
+    if net_cash is not None and net_cash > 0:
+        reasons.append("순현금 여력")
     return reasons
 
 
@@ -955,6 +1050,8 @@ def mobile_lens_reasons(row, lens):
         reasons = mobile_growth_reasons(row)
     elif lens == "💸 현금창출":
         reasons = mobile_cash_reasons(row) or ["현금흐름 데이터 보강 필요"]
+    elif lens == "🏦 배당":
+        reasons = mobile_dividend_reasons(row) or ["배당 데이터 보강 필요"]
     elif lens == "🔥 모멘텀":
         reasons = mobile_momentum_reasons(row)
     elif lens == "🛡 안정성":
@@ -1028,6 +1125,7 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
     cheapness = mobile_cheapness_score(row)
     growth = mobile_growth_score(row)
     cash_generation = mobile_cash_generation_score(row)
+    dividend = mobile_dividend_score(row)
     momentum = mobile_momentum_score(row)
     stability = mobile_stability_score(row)
     risk = mobile_risk_penalty(row)
@@ -1035,6 +1133,8 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
     debt = clean_number(row.get("debt_ratio"))
     fcf = clean_number(row.get("free_cashflow"))
     operating_cashflow = clean_number(row.get("operating_cashflow"))
+    dividend_yield = clean_number(row.get("dividend_yield"))
+    payout_ratio = clean_number(row.get("payout_ratio"))
     rsi = clean_number(row.get("rsi"))
 
     if quality >= 26:
@@ -1126,6 +1226,24 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
             signal_item("현금이 들어오나", "플러스" if operating_cashflow is not None and operating_cashflow > 0 else "확인 필요", "good" if operating_cashflow is not None and operating_cashflow > 0 else "risk", metric_fact(row, "operating_cashflow", "영업현금", "억"), [f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}"]),
             signal_item("FCF가 남나", "남음" if fcf is not None and fcf > 0 else "부족", "good" if fcf is not None and fcf > 0 else "risk", metric_fact(row, "free_cashflow", "FCF", "억"), [f"FCF: {format_metric(row.get('free_cashflow'), '억')}", "FCF는 투자 후 남는 현금입니다."]),
             signal_item("부채 부담은", "낮음" if debt is not None and debt <= 80 else "확인" if debt is not None and debt < 200 else "높음", "good" if debt is not None and debt <= 80 else "watch" if debt is not None and debt < 200 else "risk", join_facts(metric_fact(row, "debt_ratio", "부채", "%"), metric_fact(row, "net_cash", "순현금", "억")), caution_item["details"]),
+        ]
+    if lens == "🏦 배당":
+        return [
+            signal_item("배당 매력은", "높음" if dividend_yield is not None and dividend_yield >= 2.5 else "보통" if dividend_yield is not None and dividend_yield > 0 else "확인 필요", "good" if dividend_yield is not None and dividend_yield >= 2.5 else "watch" if dividend_yield is not None and dividend_yield > 0 else "risk", join_facts(metric_fact(row, "dividend_yield", "수익률", "%"), metric_fact(row, "dividend_per_share", "주당배당")), [
+                f"배당수익률: {format_metric(row.get('dividend_yield'), '%')}",
+                f"주당배당금: {format_metric(row.get('dividend_per_share'))}",
+                f"배당총액: {format_metric(row.get('dividend_total'), '억')}",
+            ]),
+            signal_item("무리 없는가", "적정" if payout_ratio is not None and 20 <= payout_ratio <= 70 else "확인" if payout_ratio is not None and payout_ratio <= 100 else "주의", "good" if payout_ratio is not None and 20 <= payout_ratio <= 70 else "watch" if payout_ratio is not None and payout_ratio <= 100 else "risk", join_facts(metric_fact(row, "payout_ratio", "성향", "%"), metric_fact(row, "free_cashflow", "FCF", "억")), [
+                f"배당성향: {format_metric(row.get('payout_ratio'), '%')}",
+                f"FCF: {format_metric(row.get('free_cashflow'), '억')}",
+                f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}",
+            ]),
+            signal_item("지속 가능한가", "양호" if dividend >= 70 else "보통" if dividend >= 45 else "확인", "good" if dividend >= 70 else "watch" if dividend >= 45 else "risk", join_facts(metric_fact(row, "dividend_growth_3y", "성장", "%"), metric_fact(row, "dividend_consecutive_years", "연속", "년")), [
+                f"배당성장률: {format_metric(row.get('dividend_growth_3y'), '%')}",
+                f"연속배당연수: {format_metric(row.get('dividend_consecutive_years'), '년', decimals=0)}",
+                f"순현금: {format_metric(row.get('net_cash'), '억')}",
+            ]),
         ]
     if lens == "🔥 모멘텀":
         return [
