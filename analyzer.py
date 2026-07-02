@@ -345,12 +345,7 @@ def normalize_dividend_yield_metrics(df: pd.DataFrame) -> pd.DataFrame:
         price = pd.to_numeric(out["price"], errors="coerce")
         calculated = (dividend_per_share / price) * 100
         calculated = calculated.where((dividend_per_share > 0) & (price > 0))
-        needs_calculated = calculated.notna() & (
-            current.isna()
-            | (current <= 0)
-            | (current > 20)
-            | ((current > calculated * 3) & ((current - calculated).abs() > 1))
-        )
+        needs_calculated = calculated.notna()
         out.loc[needs_calculated, "dividend_yield"] = calculated.loc[needs_calculated].round(2)
         current = pd.to_numeric(out.get("dividend_yield"), errors="coerce")
 
