@@ -832,6 +832,10 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "market_cap": int(r["Marcap"]/100000000),
                     "sector": krx_info.get("sector") or r.get("Sector") or r.get("Industry") or "",
                     "industry": krx_info.get("industry") or r.get("Industry") or krx_info.get("sector") or "",
+                    "listing_department": krx_info.get("listing_department", ""),
+                    "products": krx_info.get("products", ""),
+                    "krx_market": krx_info.get("krx_market", ""),
+                    "security_group": krx_info.get("security_group", ""),
                     "krx_source": krx_info.get("krx_source", "")
                 })
         else:

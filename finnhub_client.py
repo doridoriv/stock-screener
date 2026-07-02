@@ -5,9 +5,12 @@ from secret_utils import get_secret
 
 
 FINNHUB_BASE = "https://finnhub.io/api/v1"
+_FORBIDDEN_PATHS = set()
 
 
 def _get(path: str, params: dict) -> object:
+    if path in _FORBIDDEN_PATHS:
+        return None
     api_key = get_secret("FINNHUB_API_KEY")
     if not api_key:
         return None
@@ -16,6 +19,8 @@ def _get(path: str, params: dict) -> object:
     try:
         response = requests.get(FINNHUB_BASE + path, params=query, timeout=REQUEST_TIMEOUT)
         if response.status_code != 200:
+            if response.status_code in {401, 403}:
+                _FORBIDDEN_PATHS.add(path)
             return None
         return response.json()
     except Exception:
