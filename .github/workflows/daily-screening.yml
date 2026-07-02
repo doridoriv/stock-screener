@@ -73,7 +73,7 @@ jobs:
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SCREENING_MARKETS="${{ inputs.markets }}" SCREENING_TOP_N="${{ inputs.top_n }}" SCREENING_SAVE_CACHE="${{ inputs.save_cache }}" python cron_job.py
           else
-            SCREENING_MARKETS=ALL python cron_job.py
+            SCREENING_MARKETS=ALL SCREENING_FORCE_SCRAPE=false python cron_job.py
           fi
 
       - name: Commit updated cache
