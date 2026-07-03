@@ -32,7 +32,7 @@ MOBILE_LENS_META = {
         ],
     },
     "🏢 좋은 회사": {
-        "short": "좋은 회사",
+        "short": "좋은회사",
         "score_label": "품질점수",
         "title": "좋은 회사",
         "description": "돈을 꾸준히 잘 버는 회사를 우선 표시합니다.",
@@ -1763,6 +1763,79 @@ def handle_market_choice_change():
     load_cached_market_data()
 
 
+def select_market_choice(label):
+    if label == st.session_state.market_choice:
+        return
+    st.session_state.market_choice = label
+    handle_market_choice_change()
+    st.session_state.mobile_visible_count = 5
+    st.session_state.mobile_selected_symbol = None
+    st.session_state.mobile_evidence_symbol = None
+    st.rerun()
+
+
+def select_table_view_mode(label):
+    if label == st.session_state.table_view_mode:
+        return
+    st.session_state.table_view_mode = label
+    st.session_state.show_large_table = False
+    st.rerun()
+
+
+def select_mobile_lens(lens):
+    if lens == st.session_state.mobile_investment_lens:
+        return
+    st.session_state.mobile_investment_lens = lens
+    st.session_state.last_mobile_investment_lens = lens
+    st.session_state.mobile_visible_count = 5
+    st.session_state.mobile_selected_symbol = None
+    st.session_state.mobile_evidence_symbol = None
+    st.rerun()
+
+
+def render_choice_buttons(options, current_value, key_prefix, columns, on_select, label_fn=lambda value: value):
+    with st.container(key=f"{key_prefix}_wrap"):
+        cols = st.columns(columns, gap="small")
+        for idx, option in enumerate(options):
+            is_active = option == current_value
+            button_key = f"{key_prefix}_{'active_' if is_active else ''}{idx}"
+            with cols[idx % columns]:
+                if st.button(label_fn(option), key=button_key, width="stretch"):
+                    on_select(option)
+
+
+def render_top_choice_panel():
+    with st.container(key="top_choice_panel"):
+        st.markdown('<div class="top-choice-eyebrow">분석 조건 선택</div>', unsafe_allow_html=True)
+        st.markdown('<div class="top-choice-label">시장</div>', unsafe_allow_html=True)
+        render_choice_buttons(
+            list(MARKET_LABEL_TO_VALUE.keys()),
+            st.session_state.market_choice,
+            "top_market_choice",
+            3,
+            select_market_choice,
+        )
+
+        st.markdown('<div class="top-choice-label">보기 방식</div>', unsafe_allow_html=True)
+        render_choice_buttons(
+            ["모바일 보기", "PC 보기"],
+            st.session_state.table_view_mode,
+            "top_view_choice",
+            2,
+            select_table_view_mode,
+        )
+
+        st.markdown('<div class="top-choice-label">투자 렌즈</div>', unsafe_allow_html=True)
+        render_choice_buttons(
+            MOBILE_LENS_OPTIONS,
+            st.session_state.mobile_investment_lens,
+            "top_lens_choice",
+            len(MOBILE_LENS_OPTIONS),
+            select_mobile_lens,
+            label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
+        )
+
+
 # 스타트업 시 기본 캐시 자동 로딩
 if "data" not in st.session_state:
     handle_market_change()
@@ -2317,6 +2390,89 @@ st.markdown("""
             color: #111827;
             font-weight: 750;
         }
+        [class*="st-key-top_choice_panel"] {
+            border: 1px solid rgba(203, 213, 225, 0.95);
+            border-radius: 10px;
+            padding: 12px 14px 14px 14px;
+            margin: 10px 0 10px 0;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+        }
+        .top-choice-eyebrow {
+            color: #111827;
+            font-size: 1rem;
+            font-weight: 900;
+            line-height: 1.2;
+            margin-bottom: 2px;
+        }
+        .top-choice-label {
+            color: #334155;
+            font-size: 0.86rem;
+            font-weight: 900;
+            margin: 10px 0 5px 2px;
+        }
+        [class*="st-key-top_market_choice_wrap"] [data-testid="stHorizontalBlock"],
+        [class*="st-key-top_view_choice_wrap"] [data-testid="stHorizontalBlock"],
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            gap: 6px !important;
+            align-items: center !important;
+            width: 100% !important;
+            flex-wrap: nowrap !important;
+            overflow: hidden !important;
+        }
+        [class*="st-key-top_market_choice_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+        [class*="st-key-top_view_choice_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+        }
+        [class*="st-key-top_market_choice_wrap"] [data-testid="stColumn"],
+        [class*="st-key-top_view_choice_wrap"] [data-testid="stColumn"],
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stColumn"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: initial !important;
+            max-width: none !important;
+            padding: 0 !important;
+        }
+        [class*="st-key-top_market_choice_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-top_view_choice_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-top_market_choice_wrap"] [data-testid="stButton"],
+        [class*="st-key-top_view_choice_wrap"] [data-testid="stButton"],
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stButton"] {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [class*="st-key-top_market_choice_"] button,
+        [class*="st-key-top_view_choice_"] button,
+        [class*="st-key-top_lens_choice_"] button {
+            min-height: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid rgba(203, 213, 225, 0.95);
+            background: #ffffff;
+            color: #0f172a;
+            font-size: 0.82rem;
+            font-weight: 900;
+            padding: 0 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        }
+        [class*="st-key-top_market_choice_active_"] button,
+        [class*="st-key-top_view_choice_active_"] button,
+        [class*="st-key-top_lens_choice_active_"] button {
+            background: #111827 !important;
+            color: #ffffff !important;
+            border-color: #111827 !important;
+            box-shadow: 0 8px 18px rgba(17, 24, 39, 0.2);
+        }
         [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
             grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -2604,6 +2760,17 @@ st.markdown("""
         }
         @media (max-width: 720px) {
             .block-container { padding-bottom: 5rem; }
+            [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            }
+            [class*="st-key-top_market_choice_"] button,
+            [class*="st-key-top_view_choice_"] button,
+            [class*="st-key-top_lens_choice_"] button {
+                min-height: 38px;
+                height: 38px;
+                font-size: 0.74rem;
+                padding: 0 3px;
+            }
         }
     </style>
 """, unsafe_allow_html=True)
@@ -2622,14 +2789,7 @@ with st.sidebar:
 # ==========================================
 st.header(f"🎯 {get_market_text()} 분석")
 st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 좋은 회사인데 왜 안 오르지?")
-
-st.radio(
-    "시장",
-    list(MARKET_LABEL_TO_VALUE.keys()),
-    key="market_choice",
-    horizontal=True,
-    on_change=handle_market_choice_change,
-)
+render_top_choice_panel()
 
 # 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
 st.subheader("1단계: 시장환경")
@@ -2967,33 +3127,13 @@ if st.session_state.data:
     # --- [최종 화면 렌더링] ---
     # NaN/None 값을 "N/A" 혹은 "-"로 정렬 및 보기 편하도록 포맷팅 지정
     formatted_styled_df = styled_df.format(na_rep="N/A", precision=2)
-    view_col, table_action_col = st.columns([6, 1], vertical_alignment="bottom")
-    with view_col:
-        st.radio(
-            "보기 방식",
-            ["모바일 보기", "PC 보기"],
-            key="table_view_mode",
-            horizontal=True,
-        )
-        st.caption("모바일은 카드형 후보, PC는 전체표")
-    with table_action_col:
-        if st.session_state.table_view_mode == "PC 보기" and st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
-            st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
+    if st.session_state.table_view_mode == "PC 보기":
+        table_action_col = st.columns([6, 1], vertical_alignment="bottom")[1]
+        with table_action_col:
+            if st.button("⛶ 표 크게 보기", key="toggle_large_table", width="stretch"):
+                st.session_state.show_large_table = not st.session_state.get("show_large_table", False)
 
     if st.session_state.table_view_mode == "모바일 보기":
-        lens_index = MOBILE_LENS_OPTIONS.index(st.session_state.mobile_investment_lens) if st.session_state.mobile_investment_lens in MOBILE_LENS_OPTIONS else 0
-        st.selectbox(
-            "투자 렌즈",
-            MOBILE_LENS_OPTIONS,
-            index=lens_index,
-            key="mobile_investment_lens",
-        )
-        if st.session_state.last_mobile_investment_lens != st.session_state.mobile_investment_lens:
-            st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
-            st.session_state.mobile_visible_count = 5
-            st.session_state.mobile_selected_symbol = None
-            st.session_state.mobile_evidence_symbol = None
-
         current_lens = st.session_state.mobile_investment_lens
         lens_meta = MOBILE_LENS_META.get(current_lens, MOBILE_LENS_META["🎯 종합평가"])
         render_mobile_lens_panel(current_lens)
