@@ -1836,6 +1836,173 @@ def render_top_choice_panel():
         )
 
 
+def render_market_environment_panel():
+    st.subheader("2단계: 시장환경 점검")
+    try:
+        market_data = get_cached_market_panel()
+
+        state_color = "🔴 위험회피 (Risk-Off)"
+        if market_data["market_state"] == "위험선호":
+            state_color = "🟢 위험선호 (Risk-On)"
+        elif market_data["market_state"] == "중립":
+            state_color = "🟡 중립 (Neutral)"
+
+        col_m1, col_m2 = st.columns([1, 4])
+        with col_m1:
+            st.metric(
+                label="시장환경 점수",
+                value=f"{market_data['market_score']}점",
+                delta=market_data.get("score_state", market_data["market_state"])
+            )
+        with col_m2:
+            source_text = market_data.get("collected_at", "미지정")
+            headline, positive_summary, negative_summary = split_market_summary(market_data.get("summary", ""))
+            summary_lines = [f"**상태:** {state_color}"]
+            if headline:
+                summary_lines.append(f"**요약:** {headline}")
+            if positive_summary:
+                summary_lines.append(f"**우호 요인:** {positive_summary}")
+            if negative_summary:
+                summary_lines.append(f"**부담 요인:** {negative_summary}")
+            summary_lines.append(f"**시장환경 수집시각:** `{source_text}`")
+            st.info(
+                "  \n".join(summary_lines)
+            )
+            st.markdown(
+                """
+                <div class="market-score-guide">
+                    <span>80+ 매우우호</span><span>65+ 우호</span><b>50 평균</b><span>35- 부담</span><span>20- 매우부담</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        def format_market_value(label, value):
+            if value is None or pd.isna(value):
+                return "-"
+            if label == "미국10년물":
+                return f"{float(value):.2f}%"
+            if label == "달러인덱스":
+                return f"{float(value):.1f}"
+            if float(value) >= 100:
+                return f"{float(value):,.1f}"
+            return f"{float(value):.2f}"
+
+        def format_market_pct(value):
+            if value is None or pd.isna(value):
+                return "-"
+            return f"{float(value):+.2f}%"
+
+        def market_meaning(label, score):
+            if score is None or pd.isna(score):
+                return "판단 보류"
+            favorable = float(score) >= 65
+            neutral = 50 <= float(score) < 65
+            if label == "나스닥":
+                return "성장주 위험선호 양호" if favorable else "성장주 방향성 제한" if neutral else "성장주 투자심리 부담"
+            if label == "반도체":
+                return "반도체 종목에 우호적" if favorable else "반도체 모멘텀 중립" if neutral else "반도체 종목에 부담"
+            if label == "S&P500":
+                return "미국 대형주 흐름 양호" if favorable else "대형주 흐름 중립" if neutral else "대형주 시장 체력 약함"
+            if label == "금융":
+                return "금융주 수급 우호" if favorable else "금융주 방향성 중립" if neutral else "금융주 수급 부담"
+            if label == "장기채":
+                return "금리 부담 완화 신호" if favorable else "금리 부담 중립" if neutral else "금리 상승 부담"
+            if label == "달러인덱스":
+                return "달러 약세로 수급 부담 완화" if favorable else "달러 영향 중립" if neutral else "달러 강세로 외국인 수급 부담"
+            if label == "미국10년물":
+                return "고PER 할인 부담 완화" if favorable else "밸류에이션 부담 중립" if neutral else "고PER 종목 할인 요인"
+            return "시장환경 참고 지표"
+
+        def evidence_display_row(row):
+            label = row.get("label")
+            score = row.get("risk_score")
+            weight = row.get("weight") or 0
+            total_weight = market_data.get("total_weight") or 100
+            score_impact = row.get("score_impact")
+            if score_impact is None and score is not None:
+                score_impact = round((float(score) - 50) * float(weight) / float(total_weight), 1)
+            return {
+                "항목": label,
+                "현재값": row.get("latest_text") or format_market_value(label, row.get("latest")),
+                "20일": row.get("ret20_text") or format_market_pct(row.get("ret20")),
+                "60일": row.get("ret60_text") or format_market_pct(row.get("ret60")),
+                "평가": row.get("effect") or "-",
+                "점수영향": f"{score_impact:+.1f}" if score_impact is not None else "-",
+                "의미": row.get("meaning") or market_meaning(label, score),
+            }
+
+        evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
+        if evidence_rows:
+            evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
+
+            def color_market_evidence(val):
+                text = str(val)
+                if text in ["우호", "매우 우호"] or text.startswith("+"):
+                    return "color: #FF4B4B; font-weight: bold;"
+                if text in ["부담", "매우 부담", "비우호"] or text.startswith("-"):
+                    return "color: #2563EB; font-weight: bold;"
+                return "color: #64748B;"
+
+            st.caption("시장환경 근거표")
+            if st.session_state.table_view_mode == "모바일 보기":
+                evidence_cards_html = ""
+                for _, item in evidence_df.iterrows():
+                    impact_text = str(item.get("점수영향", "-"))
+                    impact_class = "positive" if impact_text.startswith("+") else "negative" if impact_text.startswith("-") else "neutral"
+                    evidence_cards_html += f"""
+                    <div class="mobile-evidence-card">
+                        <div class="mobile-evidence-line mobile-evidence-line-main">
+                            <b>{escape_html(item.get("항목", "시장환경"))}</b>
+                            <span>{escape_html(item.get("의미", ""))}</span>
+                        </div>
+                        <div class="mobile-evidence-line mobile-evidence-line-data">
+                            <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
+                            <em>현재 {escape_html(item.get("현재값", "-"))}</em>
+                            <em>20일 {escape_html(item.get("20일", "-"))}</em>
+                            <em>60일 {escape_html(item.get("60일", "-"))}</em>
+                        </div>
+                    </div>
+                    """
+                st.markdown(
+                    f"""
+                    <div class="mobile-market-evidence-box">
+                        {evidence_cards_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                evidence_style = evidence_df.style
+                evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
+                evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
+                st.dataframe(
+                    evidence_style,
+                    width="stretch",
+                    hide_index=True,
+                )
+        else:
+            st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
+
+        cache_status = get_cache_status()
+        if cache_status:
+            st.markdown(
+                f"""
+                <div class="cache-status-card">
+                    <div><b>최근 데이터 기준일</b> {escape_html(cache_status['data_date'])}</div>
+                    <div><b>가격 기준</b> {escape_html(cache_status['price_basis'])}</div>
+                    <div><b>수집 시각</b> {escape_html(cache_status['price_time'])}</div>
+                    <div><b>캐시 동기화</b> {escape_html(cache_status['file_time'])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        return market_data
+    except Exception as e:
+        st.error(f"시장 분석 패널 로드 오류: {e}")
+        return {}
+
+
 # 스타트업 시 기본 캐시 자동 로딩
 if "data" not in st.session_state:
     handle_market_change()
@@ -2782,181 +2949,17 @@ with st.sidebar:
     st.title("📊 장기 투자 스크리너")
     st.caption("2046년 은퇴를 향한 우상향 마라톤")
     st.divider()
-    st.info("💡 데이터 수집은 GitHub Actions 스케줄 또는 Run workflow에서만 실행됩니다. 앱에서는 저장된 캐시를 읽습니다.")
+    st.info("💡 데이터 수집은 GitHub Actions 정기 스케줄에서만 실행됩니다. 앱에서는 저장된 캐시를 읽습니다.")
 
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
 st.header(f"🎯 {get_market_text()} 분석")
-st.caption("1단계 시장환경 → 2단계 좋은 회사 후보 → 3단계 좋은 회사인데 왜 안 오르지?")
+st.caption("1단계 좋은 회사 후보 → 2단계 시장환경 점검 → 3단계 좋은 회사인데 왜 안 오르지?")
 render_top_choice_panel()
 
-# 메인 화면 상단에 시장 분위기 (Market Sentiment) 패널 표시 (요구사항 #4번 구현)
-st.subheader("1단계: 시장환경")
-try:
-    market_data = get_cached_market_panel()
-    
-    state_color = "🔴 위험회피 (Risk-Off)"
-    if market_data["market_state"] == "위험선호":
-        state_color = "🟢 위험선호 (Risk-On)"
-    elif market_data["market_state"] == "중립":
-        state_color = "🟡 중립 (Neutral)"
-         
-    col_m1, col_m2 = st.columns([1, 4])
-    with col_m1:
-        st.metric(
-            label="시장환경 점수",
-            value=f"{market_data['market_score']}점",
-            delta=market_data.get("score_state", market_data["market_state"])
-        )
-    with col_m2:
-        source_text = market_data.get("collected_at", "미지정")
-        headline, positive_summary, negative_summary = split_market_summary(market_data.get("summary", ""))
-        summary_lines = [f"**상태:** {state_color}"]
-        if headline:
-            summary_lines.append(f"**요약:** {headline}")
-        if positive_summary:
-            summary_lines.append(f"**우호 요인:** {positive_summary}")
-        if negative_summary:
-            summary_lines.append(f"**부담 요인:** {negative_summary}")
-        summary_lines.append(f"**시장환경 수집시각:** `{source_text}`")
-        st.info(
-            "  \n".join(summary_lines)
-        )
-        st.markdown(
-            """
-            <div class="market-score-guide">
-                <span>80+ 매우우호</span><span>65+ 우호</span><b>50 평균</b><span>35- 부담</span><span>20- 매우부담</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    def format_market_value(label, value):
-        if value is None or pd.isna(value):
-            return "-"
-        if label == "미국10년물":
-            return f"{float(value):.2f}%"
-        if label == "달러인덱스":
-            return f"{float(value):.1f}"
-        if float(value) >= 100:
-            return f"{float(value):,.1f}"
-        return f"{float(value):.2f}"
-
-    def format_market_pct(value):
-        if value is None or pd.isna(value):
-            return "-"
-        return f"{float(value):+.2f}%"
-
-    def market_meaning(label, score):
-        if score is None or pd.isna(score):
-            return "판단 보류"
-        favorable = float(score) >= 65
-        neutral = 50 <= float(score) < 65
-        if label == "나스닥":
-            return "성장주 위험선호 양호" if favorable else "성장주 방향성 제한" if neutral else "성장주 투자심리 부담"
-        if label == "반도체":
-            return "반도체 종목에 우호적" if favorable else "반도체 모멘텀 중립" if neutral else "반도체 종목에 부담"
-        if label == "S&P500":
-            return "미국 대형주 흐름 양호" if favorable else "대형주 흐름 중립" if neutral else "대형주 시장 체력 약함"
-        if label == "금융":
-            return "금융주 수급 우호" if favorable else "금융주 방향성 중립" if neutral else "금융주 수급 부담"
-        if label == "장기채":
-            return "금리 부담 완화 신호" if favorable else "금리 부담 중립" if neutral else "금리 상승 부담"
-        if label == "달러인덱스":
-            return "달러 약세로 수급 부담 완화" if favorable else "달러 영향 중립" if neutral else "달러 강세로 외국인 수급 부담"
-        if label == "미국10년물":
-            return "고PER 할인 부담 완화" if favorable else "밸류에이션 부담 중립" if neutral else "고PER 종목 할인 요인"
-        return "시장환경 참고 지표"
-
-    def evidence_display_row(row):
-        label = row.get("label")
-        score = row.get("risk_score")
-        weight = row.get("weight") or 0
-        total_weight = market_data.get("total_weight") or 100
-        score_impact = row.get("score_impact")
-        if score_impact is None and score is not None:
-            score_impact = round((float(score) - 50) * float(weight) / float(total_weight), 1)
-        return {
-            "항목": label,
-            "현재값": row.get("latest_text") or format_market_value(label, row.get("latest")),
-            "20일": row.get("ret20_text") or format_market_pct(row.get("ret20")),
-            "60일": row.get("ret60_text") or format_market_pct(row.get("ret60")),
-            "평가": row.get("effect") or "-",
-            "점수영향": f"{score_impact:+.1f}" if score_impact is not None else "-",
-            "의미": row.get("meaning") or market_meaning(label, score),
-        }
-
-    evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
-    if evidence_rows:
-        evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
-        def color_market_evidence(val):
-            text = str(val)
-            if text in ["우호", "매우 우호"] or text.startswith("+"):
-                return "color: #FF4B4B; font-weight: bold;"
-            if text in ["부담", "매우 부담", "비우호"] or text.startswith("-"):
-                return "color: #2563EB; font-weight: bold;"
-            return "color: #64748B;"
-
-        st.caption("시장환경 근거표")
-        if st.session_state.table_view_mode == "모바일 보기":
-            evidence_cards_html = ""
-            for _, item in evidence_df.iterrows():
-                impact_text = str(item.get("점수영향", "-"))
-                impact_class = "positive" if impact_text.startswith("+") else "negative" if impact_text.startswith("-") else "neutral"
-                evidence_cards_html += f"""
-                <div class="mobile-evidence-card">
-                    <div class="mobile-evidence-line mobile-evidence-line-main">
-                        <b>{escape_html(item.get("항목", "시장환경"))}</b>
-                        <span>{escape_html(item.get("의미", ""))}</span>
-                    </div>
-                    <div class="mobile-evidence-line mobile-evidence-line-data">
-                        <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
-                        <em>현재 {escape_html(item.get("현재값", "-"))}</em>
-                        <em>20일 {escape_html(item.get("20일", "-"))}</em>
-                        <em>60일 {escape_html(item.get("60일", "-"))}</em>
-                    </div>
-                </div>
-                """
-            st.markdown(
-                f"""
-                <div class="mobile-market-evidence-box">
-                    {evidence_cards_html}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        else:
-            evidence_style = evidence_df.style
-            evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
-            evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
-            st.dataframe(
-                evidence_style,
-                width="stretch",
-                hide_index=True,
-            )
-    else:
-        st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
-         
-    # 데이터 신선도 및 가격 기준 표시
-    cache_status = get_cache_status()
-    if cache_status:
-        st.markdown(
-            f"""
-            <div class="cache-status-card">
-                <div><b>최근 데이터 기준일</b> {escape_html(cache_status['data_date'])}</div>
-                <div><b>가격 기준</b> {escape_html(cache_status['price_basis'])}</div>
-                <div><b>수집 시각</b> {escape_html(cache_status['price_time'])}</div>
-                <div><b>캐시 동기화</b> {escape_html(cache_status['file_time'])}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-except Exception as e:
-    st.error(f"시장 분석 패널 로드 오류: {e}")
-
 st.divider()
-st.subheader("2단계: 좋은 회사 후보 찾기")
+st.subheader("1단계: 좋은 회사 후보 찾기")
 
 if st.session_state.data:
     df = analyzer.normalize_dividend_yield_metrics(pd.DataFrame(st.session_state.data))
@@ -3245,6 +3248,9 @@ if st.session_state.data:
             st.caption("확대 보기")
             st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
+    st.divider()
+    market_data = render_market_environment_panel()
+
     if st.session_state.table_view_mode == "PC 보기":
         st.divider()
         st.subheader("3단계: 좋은 회사인데 왜 안 오르지?")
@@ -3312,4 +3318,4 @@ if st.session_state.data:
         )
 
 else:
-    st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions의 Run workflow로 수집을 실행한 뒤 앱을 다시 열어주세요.")
+    st.info("💡 저장된 캐시 데이터가 없습니다. GitHub Actions 정기 스케줄이 수집을 완료한 뒤 앱을 다시 열어주세요.")
