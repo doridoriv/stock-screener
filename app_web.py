@@ -25,10 +25,10 @@ MOBILE_LENS_META = {
         "title": "종합평가 후보",
         "description": "좋은 회사와 좋은 가격을 함께 고려해 장기 투자 후보를 우선 표시합니다.",
         "criteria": [
-            ("ROE", "자본을 얼마나 효율적으로 쓰는지 봅니다."),
-            ("PER/PBR", "이익과 자산 대비 가격이 부담 없는지 봅니다."),
-            ("성장률", "매출과 이익이 함께 늘고 있는지 봅니다."),
-            ("리스크", "부채와 데이터 부족, 과열 여부를 함께 봅니다."),
+            ("품질", "ROE와 이익 성장으로 좋은 회사인지 봅니다."),
+            ("가격", "PER/PBR과 고점 대비 위치를 함께 봅니다."),
+            ("성장", "매출, 영업이익, EPS가 같이 늘고 있는지 봅니다."),
+            ("리스크", "부채, 현금흐름, 과열 여부를 함께 봅니다."),
         ],
     },
     "🏢 좋은 회사": {
@@ -38,9 +38,9 @@ MOBILE_LENS_META = {
         "description": "돈을 꾸준히 잘 버는 회사를 우선 표시합니다.",
         "criteria": [
             ("ROE", "자본을 얼마나 효율적으로 쓰는지 봅니다."),
-            ("영업이익성장률", "본업 이익이 실제로 늘고 있는지 봅니다."),
-            ("매출성장률", "외형 성장이 이어지는지 봅니다."),
-            ("현금흐름", "FCF와 영업현금흐름이 플러스인지 봅니다."),
+            ("영업률", "본업에서 이익을 남기는 힘을 봅니다."),
+            ("성장", "매출과 영업이익이 함께 늘고 있는지 봅니다."),
+            ("재무체력", "부채와 현금흐름이 품질을 받치는지 봅니다."),
         ],
     },
     "💰 저평가": {
@@ -51,8 +51,8 @@ MOBILE_LENS_META = {
         "criteria": [
             ("PER", "이익 대비 주가가 낮은지 봅니다."),
             ("PBR", "자산 대비 주가가 낮은지 봅니다."),
-            ("PEG", "성장률 대비 가격이 싼지 봅니다."),
-            ("고점대비", "최근 고점에서 얼마나 내려왔는지 봅니다."),
+            ("업종괴리", "같은 업종 평균보다 싼지 봅니다."),
+            ("가격위치", "고점 대비 얼마나 내려왔는지 봅니다."),
         ],
     },
     "📈 성장": {
@@ -62,9 +62,9 @@ MOBILE_LENS_META = {
         "description": "실적이 빠르게 증가하는 회사를 우선 표시합니다.",
         "criteria": [
             ("매출성장률", "외형이 커지고 있는지 봅니다."),
-            ("영업이익성장률", "성장이 이익으로 이어지는지 봅니다."),
-            ("EPS성장률", "주당 이익이 늘고 있는지 봅니다."),
-            ("CAGR", "중장기 성장 추세를 봅니다."),
+            ("영업익성장", "성장이 이익으로 이어지는지 봅니다."),
+            ("EPS성장", "주당 이익이 늘고 있는지 봅니다."),
+            ("지속성", "CAGR과 수익성으로 성장의 질을 봅니다."),
         ],
     },
     "💸 현금창출": {
@@ -73,10 +73,10 @@ MOBILE_LENS_META = {
         "title": "현금창출 후보",
         "description": "FCF와 영업현금흐름 등 실제 현금을 만들어내는 회사를 우선 표시합니다.",
         "criteria": [
-            ("FCF", "투자 후 남는 현금이 있는지 봅니다."),
             ("영업현금흐름", "본업에서 현금이 들어오는지 봅니다."),
-            ("순현금", "차입 부담보다 현금 여력이 큰지 봅니다."),
-            ("부채비율", "현금창출을 유지할 재무 체력이 있는지 봅니다."),
+            ("FCF", "투자 후 남는 현금이 있는지 봅니다."),
+            ("현금여력", "순현금과 현금 보유가 충분한지 봅니다."),
+            ("부채부담", "현금창출을 빚이 갉아먹는지 봅니다."),
         ],
     },
     "🏦 배당": {
@@ -85,10 +85,10 @@ MOBILE_LENS_META = {
         "title": "배당 후보",
         "description": "배당수익률과 배당 지속 가능성을 함께 봅니다.",
         "criteria": [
-            ("배당수익률", "현재 가격 대비 배당 매력이 있는지 봅니다."),
+            ("연배당률", "현재 가격 대비 배당 매력이 있는지 봅니다."),
             ("배당성향", "이익 대비 배당이 무리하지 않은지 봅니다."),
-            ("배당이력", "배당 성장과 연속성이 있는지 봅니다."),
-            ("현금/부채", "배당을 유지할 현금 체력이 있는지 봅니다."),
+            ("지속성", "연속 배당과 삭감 여부를 봅니다."),
+            ("배당여력", "FCF와 영업현금흐름이 배당을 받치는지 봅니다."),
         ],
     },
     "🔥 모멘텀": {
@@ -98,8 +98,8 @@ MOBILE_LENS_META = {
         "description": "최근 시장의 선택을 받는 회사를 우선 표시합니다.",
         "criteria": [
             ("200일선", "장기 추세 위에 있는지 봅니다."),
+            ("가격위치", "고점권 또는 회복 흐름인지 봅니다."),
             ("RSI", "단기 수급 온기와 과열을 함께 봅니다."),
-            ("고점근접도", "신고가 또는 고점권 흐름인지 봅니다."),
             ("주도테마", "시장 관심 업종에 속하는지 봅니다."),
         ],
     },
@@ -112,7 +112,7 @@ MOBILE_LENS_META = {
             ("부채비율", "무리한 빚이 있는지 봅니다."),
             ("순현금", "현금에서 총부채를 뺀 여력을 봅니다."),
             ("영업현금흐름", "본업 현금 창출이 안정적인지 봅니다."),
-            ("수익성", "ROE와 이익 성장의 안정성을 함께 봅니다."),
+            ("이익변동", "ROE와 이익 성장의 안정성을 함께 봅니다."),
         ],
     },
 }
@@ -1123,6 +1123,28 @@ def mobile_warning_reasons(row):
     return warnings
 
 
+def mobile_watch_reasons(row):
+    reasons = []
+    per = clean_number(row.get("per"))
+    pbr = clean_number(row.get("pbr"))
+    rsi = clean_number(row.get("rsi"))
+    peak_diff = clean_number(row.get("peak_diff"))
+    cheapness = mobile_cheapness_score(row)
+    if cheapness < 18:
+        reasons.append("저렴함 점수 낮음")
+    if per is not None and per >= 20:
+        reasons.append(f"PER {per:.1f}")
+    if pbr is not None and pbr >= 3:
+        reasons.append(f"PBR {pbr:.1f}")
+    if rsi is not None and rsi >= 70:
+        reasons.append(f"RSI {rsi:.0f} 과열")
+    if peak_diff is not None and peak_diff > -10:
+        reasons.append(f"고점대비 {peak_diff:.1f}%")
+    if not reasons:
+        reasons.append("가격 부담 또는 타이밍 확인")
+    return reasons[:3]
+
+
 def metric_fact(row, key, label, suffix="", decimals=2):
     value = clean_number(row.get(key))
     if value is None:
@@ -1266,9 +1288,19 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         ]
     if lens == "💸 현금창출":
         return [
-            signal_item("현금이 들어오나", "플러스" if operating_cashflow is not None and operating_cashflow > 0 else "확인 필요", "good" if operating_cashflow is not None and operating_cashflow > 0 else "risk", metric_fact(row, "operating_cashflow", "영업현금", "억"), [f"영업현금흐름: {format_metric(row.get('operating_cashflow'), '억')}"]),
-            signal_item("FCF가 남나", "남음" if fcf is not None and fcf > 0 else "부족", "good" if fcf is not None and fcf > 0 else "risk", metric_fact(row, "free_cashflow", "FCF", "억"), [f"FCF: {format_metric(row.get('free_cashflow'), '억')}", "FCF는 투자 후 남는 현금입니다."]),
-            signal_item("부채 부담은", "낮음" if debt is not None and debt <= 80 else "확인" if debt is not None and debt < 200 else "높음", "good" if debt is not None and debt <= 80 else "watch" if debt is not None and debt < 200 else "risk", join_facts(metric_fact(row, "debt_ratio", "부채", "%"), metric_fact(row, "net_cash", "순현금", "억")), caution_item["details"]),
+            signal_item("영업현금은", "플러스" if operating_cashflow is not None and operating_cashflow > 0 else "확인 필요", "good" if operating_cashflow is not None and operating_cashflow > 0 else "risk", cashflow_fact(row, "operating_cashflow", "영업현금"), [
+                f"영업현금흐름: {format_cashflow_amount(row.get('operating_cashflow'), row)}",
+                "본업에서 실제 현금이 들어오는지 보는 핵심 지표입니다.",
+            ]),
+            signal_item("FCF는", "남음" if fcf is not None and fcf > 0 else "부족", "good" if fcf is not None and fcf > 0 else "risk", cashflow_fact(row, "free_cashflow", "FCF"), [
+                f"FCF: {format_cashflow_amount(row.get('free_cashflow'), row)}",
+                "투자 후에도 남는 현금입니다.",
+            ]),
+            signal_item("현금여력은", "충분" if clean_number(row.get("net_cash")) is not None and clean_number(row.get("net_cash")) > 0 else "확인", "good" if clean_number(row.get("net_cash")) is not None and clean_number(row.get("net_cash")) > 0 else "watch", join_facts(cashflow_fact(row, "net_cash", "순현금"), metric_fact(row, "debt_ratio", "부채", "%")), [
+                f"순현금: {format_cashflow_amount(row.get('net_cash'), row)}",
+                f"부채비율: {format_metric(row.get('debt_ratio'), '%')}",
+                "현금창출을 부채 부담이 갉아먹는지 확인합니다.",
+            ]),
         ]
     if lens == "🏦 배당":
         return [
@@ -1919,6 +1951,9 @@ def render_market_environment_panel():
             score = row.get("risk_score")
             weight = row.get("weight") or 0
             total_weight = market_data.get("total_weight") or 100
+            influence = 0
+            if total_weight:
+                influence = round(float(weight) / float(total_weight) * 100)
             score_impact = row.get("score_impact")
             if score_impact is None and score is not None:
                 score_impact = round((float(score) - 50) * float(weight) / float(total_weight), 1)
@@ -1929,12 +1964,32 @@ def render_market_environment_panel():
                 "60일": row.get("ret60_text") or format_market_pct(row.get("ret60")),
                 "평가": row.get("effect") or "-",
                 "점수영향": f"{score_impact:+.1f}" if score_impact is not None else "-",
+                "영향도": f"{influence:.0f}%",
                 "의미": row.get("meaning") or market_meaning(label, score),
             }
 
         evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
         if evidence_rows:
             evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
+            driver_df = evidence_df.copy()
+            driver_df["_abs_impact"] = driver_df["점수영향"].astype(str).str.replace("+", "", regex=False).str.replace("점", "", regex=False)
+            driver_df["_abs_impact"] = pd.to_numeric(driver_df["_abs_impact"], errors="coerce").abs().fillna(0)
+            top_drivers = driver_df.sort_values("_abs_impact", ascending=False).head(4)
+            driver_html = "".join(
+                [
+                    f"<span><b>{escape_html(item['항목'])}</b> {escape_html(item['점수영향'])}점 · 영향도 {escape_html(item['영향도'])}</span>"
+                    for _, item in top_drivers.iterrows()
+                ]
+            )
+            st.markdown(
+                f"""
+                <div class="market-driver-strip">
+                    <strong>점수 영향 상위</strong>
+                    {driver_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             def color_market_evidence(val):
                 text = str(val)
@@ -1958,6 +2013,7 @@ def render_market_environment_panel():
                         </div>
                         <div class="mobile-evidence-line mobile-evidence-line-data">
                             <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
+                            <em>영향도 {escape_html(item.get("영향도", "-"))}</em>
                             <em>현재 {escape_html(item.get("현재값", "-"))}</em>
                             <em>20일 {escape_html(item.get("20일", "-"))}</em>
                             <em>60일 {escape_html(item.get("60일", "-"))}</em>
@@ -2556,6 +2612,31 @@ st.markdown("""
         .cache-status-card b {
             color: #111827;
             font-weight: 750;
+        }
+        .market-driver-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin: 8px 0 10px 0;
+            color: #334155;
+            font-size: 0.8rem;
+        }
+        .market-driver-strip strong {
+            color: #111827;
+            font-weight: 900;
+            margin-right: 2px;
+        }
+        .market-driver-strip span {
+            border: 1px solid rgba(203, 213, 225, 0.95);
+            border-radius: 999px;
+            background: #f8fafc;
+            padding: 5px 9px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .market-driver-strip b {
+            color: #0f172a;
         }
         [class*="st-key-top_choice_panel"] {
             border: 1px solid rgba(203, 213, 225, 0.95);
@@ -3233,11 +3314,15 @@ if st.session_state.data:
                 rows = []
                 for idx, (_, row) in enumerate(excluded_mobile_df.head(20).iterrows(), start=1):
                     row_dict = row.to_dict()
+                    watch_reasons = mobile_watch_reasons(row_dict)
                     rows.append({
                         "순서": idx,
                         "종목": row_dict.get("name", row_dict.get("symbol")),
                         "후보적합도": f"{mobile_candidate_score(row_dict):.0f}",
-                        "이유": "품질은 좋지만 현재 저렴함 점수가 낮아 기본 후보에서 제외",
+                        "관찰이유": " · ".join(watch_reasons),
+                        "PER": format_metric(row_dict.get("per")),
+                        "RSI": format_metric(row_dict.get("rsi"), decimals=0),
+                        "고점대비": format_metric(row_dict.get("peak_diff"), "%"),
                     })
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
