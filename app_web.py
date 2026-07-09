@@ -1,7 +1,6 @@
 import os
 import html
 from datetime import datetime
-from urllib.parse import urlencode
 import pandas as pd
 import streamlit as st
 
@@ -224,38 +223,6 @@ def get_cache_status():
         "file_time": file_time,
         "cache_file": cache_file,
     }
-
-
-GITHUB_FEEDBACK_URL = "https://github.com/doridoriv/stock-screener/issues/new"
-
-
-def feedback_context():
-    return {
-        "market": get_market_text(),
-        "view_mode": st.session_state.table_view_mode,
-        "lens": MOBILE_LENS_META.get(st.session_state.mobile_investment_lens, {}).get("short", st.session_state.mobile_investment_lens),
-    }
-
-
-def build_feedback_issue_url(category, message):
-    context = feedback_context()
-    body = "\n".join(
-        [
-            "작성 내용",
-            "",
-            message.strip(),
-            "",
-            "화면 정보",
-            f"- 시장: {context['market']}",
-            f"- 보기 방식: {context['view_mode']}",
-            f"- 투자 렌즈: {context['lens']}",
-            f"- 작성 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}",
-            "",
-            "주의: 이 글은 공개 GitHub Issue로 등록됩니다.",
-        ]
-    )
-    params = urlencode({"title": f"[하고 싶은 말] {category}", "body": body})
-    return f"{GITHUB_FEEDBACK_URL}?{params}"
 
 
 def clean_number(value):
@@ -1901,43 +1868,6 @@ def render_top_choice_panel():
         )
 
 
-def render_feedback_panel():
-    with st.expander("하고 싶은 말", expanded=False):
-        context = feedback_context()
-        st.caption(
-            f"현재 화면: {context['market']} · {context['view_mode']} · {context['lens']}"
-        )
-        st.info("GitHub 공개 글로 등록됩니다. 민감한 내용, 개인정보, 계좌 정보는 적지 마세요.")
-        with st.form("feedback_form", clear_on_submit=False):
-            category = st.selectbox(
-                "종류",
-                ["그냥 메모", "개선점", "오류", "궁금한 점"],
-            )
-            message = st.text_area(
-                "내용",
-                placeholder="하고 싶은 말을 편하게 남겨주세요.",
-                max_chars=1200,
-                height=110,
-            )
-            submitted = st.form_submit_button("GitHub에 남기기")
-        if submitted:
-            if len(message.strip()) < 3:
-                st.warning("내용을 조금만 더 적어주세요.")
-            else:
-                issue_url = build_feedback_issue_url(category, message)
-                st.markdown(
-                    f"""
-                    <div class="feedback-issue-box">
-                        <strong>마지막 단계만 남았습니다.</strong>
-                        <span>아래 버튼을 눌러 GitHub에서 내용 확인 후 Submit new issue를 누르면 등록됩니다.</span>
-                        <a href="{escape_html(issue_url)}" target="_blank" rel="noopener noreferrer">GitHub Issue 작성 화면 열기</a>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-        st.caption("등록된 글은 GitHub Issues에서 공개로 보이며, 저장소 관리자는 GitHub에서 삭제할 수 있습니다.")
-
-
 def render_market_environment_panel():
     st.subheader("2단계: 시장환경 점검")
     try:
@@ -2708,37 +2638,6 @@ st.markdown("""
         .market-driver-strip b {
             color: #0f172a;
         }
-        .feedback-issue-box {
-            border: 1px solid rgba(96, 165, 250, 0.35);
-            border-radius: 8px;
-            padding: 12px;
-            margin: 10px 0 6px 0;
-            background: #eff6ff;
-        }
-        .feedback-issue-box strong {
-            display: block;
-            color: #1e3a8a;
-            font-size: 0.95rem;
-            font-weight: 900;
-            margin-bottom: 4px;
-        }
-        .feedback-issue-box span {
-            display: block;
-            color: #334155;
-            font-size: 0.84rem;
-            line-height: 1.45;
-            margin-bottom: 10px;
-        }
-        .feedback-issue-box a {
-            display: inline-block;
-            border-radius: 8px;
-            padding: 8px 12px;
-            background: #111827;
-            color: #ffffff !important;
-            font-size: 0.86rem;
-            font-weight: 900;
-            text-decoration: none;
-        }
         [class*="st-key-top_choice_panel"] {
             border: 1px solid rgba(203, 213, 225, 0.95);
             border-radius: 10px;
@@ -3139,7 +3038,6 @@ with st.sidebar:
 st.header(f"🎯 {get_market_text()} 분석")
 st.caption("1단계 좋은 회사 후보 → 2단계 시장환경 점검 → 3단계 좋은 회사인데 왜 안 오르지?")
 render_top_choice_panel()
-render_feedback_panel()
 
 st.divider()
 st.subheader("1단계: 좋은 회사 후보 찾기")
