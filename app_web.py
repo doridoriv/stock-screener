@@ -1,8 +1,8 @@
 import os
 import html
 from datetime import datetime
+from urllib.parse import urlencode
 import pandas as pd
-import requests
 import streamlit as st
 
 import analyzer
@@ -226,44 +226,7 @@ def get_cache_status():
     }
 
 
-def get_secret_value(*names):
-    for name in names:
-        try:
-            value = st.secrets.get(name)
-        except Exception:
-            value = None
-        if value:
-            return str(value)
-    return None
-
-
-def feedback_config():
-    url = get_secret_value("FEEDBACK_SUPABASE_URL", "SUPABASE_URL")
-    key = get_secret_value("FEEDBACK_SUPABASE_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_KEY")
-    admin_password = get_secret_value("FEEDBACK_ADMIN_PASSWORD", "ADMIN_PASSWORD")
-    if url:
-        url = url.rstrip("/")
-    return {
-        "url": url,
-        "key": key,
-        "admin_password": admin_password,
-        "ready": bool(url and key),
-    }
-
-
-def feedback_headers(config, prefer=None):
-    headers = {
-        "apikey": config["key"],
-        "Authorization": f"Bearer {config['key']}",
-        "Content-Type": "application/json",
-    }
-    if prefer:
-        headers["Prefer"] = prefer
-    return headers
-
-
-def feedback_endpoint(config):
-    return f"{config['url']}/rest/v1/feedback_messages"
+GITHUB_FEEDBACK_URL = "https://github.com/doridoriv/stock-screener/issues/new"
 
 
 def feedback_context():
@@ -274,82 +237,25 @@ def feedback_context():
     }
 
 
-@st.cache_data(ttl=60)
-def load_public_feedback(url, key, limit=10):
-    config = {"url": url.rstrip("/"), "key": key}
-    params = {
-        "select": "id,created_at,visibility,category,message,market,view_mode,lens",
-        "visibility": "eq.public",
-        "is_deleted": "eq.false",
-        "order": "created_at.desc",
-        "limit": str(limit),
-    }
-    response = requests.get(
-        feedback_endpoint(config),
-        headers=feedback_headers(config),
-        params=params,
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def load_admin_feedback(config, limit=50):
-    params = {
-        "select": "id,created_at,visibility,category,message,market,view_mode,lens,is_deleted",
-        "is_deleted": "eq.false",
-        "order": "created_at.desc",
-        "limit": str(limit),
-    }
-    response = requests.get(
-        feedback_endpoint(config),
-        headers=feedback_headers(config),
-        params=params,
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def submit_feedback(config, visibility, category, message):
+def build_feedback_issue_url(category, message):
     context = feedback_context()
-    payload = {
-        "visibility": visibility,
-        "category": category,
-        "message": message.strip(),
-        **context,
-        "is_deleted": False,
-    }
-    response = requests.post(
-        feedback_endpoint(config),
-        headers=feedback_headers(config, prefer="return=representation"),
-        json=payload,
-        timeout=10,
+    body = "\n".join(
+        [
+            "작성 내용",
+            "",
+            message.strip(),
+            "",
+            "화면 정보",
+            f"- 시장: {context['market']}",
+            f"- 보기 방식: {context['view_mode']}",
+            f"- 투자 렌즈: {context['lens']}",
+            f"- 작성 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S KST')}",
+            "",
+            "주의: 이 글은 공개 GitHub Issue로 등록됩니다.",
+        ]
     )
-    response.raise_for_status()
-    load_public_feedback.clear()
-    return response.json()
-
-
-def delete_feedback(config, feedback_id):
-    response = requests.patch(
-        f"{feedback_endpoint(config)}?id=eq.{feedback_id}",
-        headers=feedback_headers(config, prefer="return=minimal"),
-        json={"is_deleted": True},
-        timeout=10,
-    )
-    response.raise_for_status()
-    load_public_feedback.clear()
-
-
-def format_feedback_time(value):
-    if not value:
-        return ""
-    try:
-        parsed = pd.to_datetime(value)
-        return parsed.tz_convert("Asia/Seoul").strftime("%m-%d %H:%M") if parsed.tzinfo else parsed.strftime("%m-%d %H:%M")
-    except Exception:
-        return str(value)[:16]
+    params = urlencode({"title": f"[하고 싶은 말] {category}", "body": body})
+    return f"{GITHUB_FEEDBACK_URL}?{params}"
 
 
 def clean_number(value):
@@ -1996,21 +1902,13 @@ def render_top_choice_panel():
 
 
 def render_feedback_panel():
-    config = feedback_config()
-    if not config["ready"]:
-        return
     with st.expander("하고 싶은 말", expanded=False):
         context = feedback_context()
         st.caption(
             f"현재 화면: {context['market']} · {context['view_mode']} · {context['lens']}"
         )
-        with st.form("feedback_form", clear_on_submit=True):
-            visibility_label = st.radio(
-                "공개 여부",
-                ["공개", "비공개"],
-                horizontal=True,
-                help="공개 글은 누구나 볼 수 있고, 비공개 글은 관리자만 볼 수 있습니다.",
-            )
+        st.info("GitHub 공개 글로 등록됩니다. 민감한 내용, 개인정보, 계좌 정보는 적지 마세요.")
+        with st.form("feedback_form", clear_on_submit=False):
             category = st.selectbox(
                 "종류",
                 ["그냥 메모", "개선점", "오류", "궁금한 점"],
@@ -2021,94 +1919,23 @@ def render_feedback_panel():
                 max_chars=1200,
                 height=110,
             )
-            submitted = st.form_submit_button("남기기")
+            submitted = st.form_submit_button("GitHub에 남기기")
         if submitted:
             if len(message.strip()) < 3:
                 st.warning("내용을 조금만 더 적어주세요.")
             else:
-                try:
-                    submit_feedback(
-                        config,
-                        "public" if visibility_label == "공개" else "private",
-                        category,
-                        message,
-                    )
-                    st.success("남겨줘서 고마워요. 확인해볼게요.")
-                except Exception as exc:
-                    st.error(f"저장하지 못했습니다: {exc}")
-
-        st.markdown("**공개된 말**")
-        try:
-            public_items = load_public_feedback(config["url"], config["key"], limit=10)
-        except Exception as exc:
-            st.caption(f"공개 글을 불러오지 못했습니다: {exc}")
-            public_items = []
-        if public_items:
-            for item in public_items:
-                meta = " · ".join(
-                    [
-                        item.get("category") or "메모",
-                        item.get("market") or "시장",
-                        item.get("lens") or "렌즈",
-                        format_feedback_time(item.get("created_at")),
-                    ]
-                )
+                issue_url = build_feedback_issue_url(category, message)
                 st.markdown(
                     f"""
-                    <div class="feedback-public-card">
-                        <div>{escape_html(item.get("message", ""))}</div>
-                        <span>{escape_html(meta)}</span>
+                    <div class="feedback-issue-box">
+                        <strong>마지막 단계만 남았습니다.</strong>
+                        <span>아래 버튼을 눌러 GitHub에서 내용 확인 후 Submit new issue를 누르면 등록됩니다.</span>
+                        <a href="{escape_html(issue_url)}" target="_blank" rel="noopener noreferrer">GitHub Issue 작성 화면 열기</a>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
-        else:
-            st.caption("아직 공개된 글이 없습니다.")
-
-        admin_password = st.text_input("관리자", type="password", placeholder="관리자 비밀번호")
-        if admin_password:
-            if not config["admin_password"] or admin_password != config["admin_password"]:
-                st.warning("관리자 비밀번호가 맞지 않습니다.")
-            else:
-                try:
-                    admin_items = load_admin_feedback(config)
-                except Exception as exc:
-                    st.error(f"관리자 목록을 불러오지 못했습니다: {exc}")
-                    admin_items = []
-                if admin_items:
-                    st.markdown("**관리자 목록**")
-                    for item in admin_items:
-                        visibility = "공개" if item.get("visibility") == "public" else "비공개"
-                        meta = " · ".join(
-                            [
-                                visibility,
-                                item.get("category") or "메모",
-                                item.get("market") or "시장",
-                                item.get("lens") or "렌즈",
-                                format_feedback_time(item.get("created_at")),
-                            ]
-                        )
-                        row_cols = st.columns([6, 1], vertical_alignment="center")
-                        with row_cols[0]:
-                            st.markdown(
-                                f"""
-                                <div class="feedback-admin-card">
-                                    <div>{escape_html(item.get("message", ""))}</div>
-                                    <span>{escape_html(meta)}</span>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
-                            )
-                        with row_cols[1]:
-                            if st.button("삭제", key=f"delete_feedback_{item.get('id')}", width="stretch"):
-                                try:
-                                    delete_feedback(config, item.get("id"))
-                                    st.success("삭제했습니다.")
-                                    st.rerun()
-                                except Exception as exc:
-                                    st.error(f"삭제하지 못했습니다: {exc}")
-                else:
-                    st.caption("관리자 목록에 표시할 글이 없습니다.")
+        st.caption("등록된 글은 GitHub Issues에서 공개로 보이며, 저장소 관리자는 GitHub에서 삭제할 수 있습니다.")
 
 
 def render_market_environment_panel():
@@ -2881,31 +2708,36 @@ st.markdown("""
         .market-driver-strip b {
             color: #0f172a;
         }
-        .feedback-public-card,
-        .feedback-admin-card {
-            border: 1px solid rgba(226, 232, 240, 0.95);
+        .feedback-issue-box {
+            border: 1px solid rgba(96, 165, 250, 0.35);
             border-radius: 8px;
-            padding: 10px 12px;
-            margin: 8px 0;
-            background: #ffffff;
+            padding: 12px;
+            margin: 10px 0 6px 0;
+            background: #eff6ff;
         }
-        .feedback-admin-card {
-            background: #f8fafc;
-        }
-        .feedback-public-card div,
-        .feedback-admin-card div {
-            color: #0f172a;
-            font-size: 0.9rem;
-            line-height: 1.45;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .feedback-public-card span,
-        .feedback-admin-card span {
+        .feedback-issue-box strong {
             display: block;
-            color: #64748b;
-            font-size: 0.76rem;
-            margin-top: 7px;
+            color: #1e3a8a;
+            font-size: 0.95rem;
+            font-weight: 900;
+            margin-bottom: 4px;
+        }
+        .feedback-issue-box span {
+            display: block;
+            color: #334155;
+            font-size: 0.84rem;
+            line-height: 1.45;
+            margin-bottom: 10px;
+        }
+        .feedback-issue-box a {
+            display: inline-block;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #111827;
+            color: #ffffff !important;
+            font-size: 0.86rem;
+            font-weight: 900;
+            text-decoration: none;
         }
         [class*="st-key-top_choice_panel"] {
             border: 1px solid rgba(203, 213, 225, 0.95);
