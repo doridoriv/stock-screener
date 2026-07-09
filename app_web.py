@@ -1997,15 +1997,9 @@ def render_top_choice_panel():
 
 def render_feedback_panel():
     config = feedback_config()
+    if not config["ready"]:
+        return
     with st.expander("하고 싶은 말", expanded=False):
-        if not config["ready"]:
-            st.caption("의견함은 준비 중입니다. Supabase 설정을 넣으면 공개/비공개 작성과 관리자 삭제가 열립니다.")
-            st.code(
-                "FEEDBACK_SUPABASE_URL\nFEEDBACK_SUPABASE_KEY\nFEEDBACK_ADMIN_PASSWORD",
-                language="text",
-            )
-            return
-
         context = feedback_context()
         st.caption(
             f"현재 화면: {context['market']} · {context['view_mode']} · {context['lens']}"
