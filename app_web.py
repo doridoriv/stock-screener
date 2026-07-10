@@ -1872,30 +1872,26 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
         )
     rank_tone = "hot" if list_index <= 3 else "base"
 
-    st.markdown(
-        f"""
-        <div class="mobile-candidate-card">
-            <div class="mobile-candidate-head">
-                <div class="mobile-candidate-name">
-                    <span class="mobile-rank-badge {rank_tone}">{list_index}</span>
-                    <div><b>{name}</b><small>{symbol} · {sector}</small></div>
-                </div>
-                <span class="mobile-grade-pill">{grade}</span>
-            </div>
-            <div class="mobile-price-row">
-                <b>{price}</b><span>{change_text}</span>
-            </div>
-            <div class="mobile-signal-grid">{signal_html}</div>
-            <div class="mobile-score-row">
-                <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>
-                <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
-            </div>
-            {secondary_html}
-            <div class="mobile-chip-row">{chip_html}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    card_html = (
+        f'<div class="mobile-candidate-card">'
+        f'<div class="mobile-candidate-head">'
+        f'<div class="mobile-candidate-name">'
+        f'<span class="mobile-rank-badge {rank_tone}">{list_index}</span>'
+        f"<div><b>{name}</b><small>{symbol} · {sector}</small></div>"
+        f"</div>"
+        f'<span class="mobile-grade-pill">{grade}</span>'
+        f"</div>"
+        f'<div class="mobile-price-row"><b>{price}</b><span>{change_text}</span></div>'
+        f'<div class="mobile-signal-grid">{signal_html}</div>'
+        f'<div class="mobile-score-row">'
+        f'<span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>'
+        f"<span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>"
+        f"</div>"
+        f"{secondary_html}"
+        f'<div class="mobile-chip-row">{chip_html}</div>'
+        f"</div>"
     )
+    st.markdown(card_html, unsafe_allow_html=True)
 
 
 def render_mobile_metric(label, value_text, explanation):
