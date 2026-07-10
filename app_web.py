@@ -118,24 +118,53 @@ MOBILE_LENS_META = {
     },
 }
 
-MOBILE_LENS_OPTIONS = list(MOBILE_LENS_META.keys())
+MOBILE_PRIMARY_LENS_OPTIONS = list(MOBILE_LENS_META.keys())
 
-MOBILE_SECONDARY_LENS_META = {
+MOBILE_SITUATION_LENS_META = {
     "오늘 새로 뜬 종목": {
         "short": "오늘 새로 뜬 종목",
-        "description": "점수와 순위가 최근 빠르게 좋아진 종목",
+        "score_label": "변화점수",
+        "title": "오늘 새로 뜬 종목",
+        "description": "점수와 순위가 최근 빠르게 좋아진 종목을 봅니다.",
+        "criteria": [
+            ("점수 변화", "전일 대비 종합점수가 좋아졌는지 봅니다."),
+            ("순위 변화", "전일 대비 순위가 크게 올라왔는지 봅니다."),
+            ("신규 진입", "상위 20% 구간에 새로 들어왔는지 봅니다."),
+            ("기술 변화", "RSI와 기술점수가 개선됐는지 봅니다."),
+        ],
+        "empty": "오늘 새로 조건에 진입한 종목이 없습니다.",
     },
     "아직 덜 오른 종목": {
         "short": "아직 덜 오른 종목",
-        "description": "기업 평가는 좋지만 주가 반영은 낮은 종목",
+        "score_label": "미반영점수",
+        "title": "아직 덜 오른 종목",
+        "description": "기업 평가는 좋지만 주가 반영은 낮은 종목을 봅니다.",
+        "criteria": [
+            ("기업 평가", "좋은회사 점수와 종합점수가 충분히 높은지 봅니다."),
+            ("가격 반영", "20일/60일 수익률이 제한적인지 봅니다."),
+            ("가격 위치", "고점 대비 조정과 RSI 중립 구간을 봅니다."),
+            ("밸류에이션", "PER과 PBR 부담이 과하지 않은지 봅니다."),
+        ],
+        "empty": "현재 기준에 맞는 덜 오른 우량 후보가 없습니다.",
     },
     "왜 안 오르지": {
         "short": "왜 안 오르지",
-        "description": "좋은 조건에도 주가가 부진한 이유를 분석",
+        "score_label": "원인점수",
+        "title": "왜 안 오르지",
+        "description": "좋은 조건에도 주가가 부진한 이유를 분석합니다.",
+        "criteria": [
+            ("좋은 회사", "기업 평가가 높은데 주가가 부진한 종목만 봅니다."),
+            ("가격 부담", "PER/PBR 또는 가치점수 부담을 봅니다."),
+            ("실적 둔화", "매출과 영업이익 성장 둔화를 봅니다."),
+            ("기술/재무", "RSI, 이동평균, 현금흐름과 부채 부담을 봅니다."),
+        ],
+        "empty": "현재 기준에 맞는 부진 원인 후보가 없습니다.",
     },
 }
 
-MOBILE_SECONDARY_LENS_OPTIONS = list(MOBILE_SECONDARY_LENS_META.keys())
+MOBILE_LENS_META.update(MOBILE_SITUATION_LENS_META)
+MOBILE_SITUATION_LENS_OPTIONS = list(MOBILE_SITUATION_LENS_META.keys())
+MOBILE_LENS_OPTIONS = MOBILE_PRIMARY_LENS_OPTIONS + MOBILE_SITUATION_LENS_OPTIONS
 
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
@@ -161,6 +190,9 @@ elif st.session_state.table_view_mode == "핵심만":
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
 
+if "mobile_count_choice" not in st.session_state:
+    st.session_state.mobile_count_choice = "5개"
+
 if "mobile_selected_symbol" not in st.session_state:
     st.session_state.mobile_selected_symbol = None
 
@@ -174,11 +206,6 @@ if "mobile_investment_lens" not in st.session_state:
     st.session_state.mobile_investment_lens = "🎯 종합평가"
 elif st.session_state.mobile_investment_lens not in MOBILE_LENS_OPTIONS:
     st.session_state.mobile_investment_lens = "🎯 종합평가"
-
-if "mobile_secondary_lens" not in st.session_state:
-    st.session_state.mobile_secondary_lens = None
-elif st.session_state.mobile_secondary_lens not in MOBILE_SECONDARY_LENS_OPTIONS:
-    st.session_state.mobile_secondary_lens = None
 
 if "last_mobile_investment_lens" not in st.session_state:
     st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
@@ -484,8 +511,12 @@ def secondary_chip(label, value):
     return f"{label} {value}"
 
 
-def mobile_secondary_analysis(row, secondary_lens, history_context, total_count):
-    if not secondary_lens:
+def is_mobile_situation_lens(lens):
+    return lens in MOBILE_SITUATION_LENS_OPTIONS
+
+
+def mobile_situation_lens_analysis(row, lens, history_context, total_count):
+    if not is_mobile_situation_lens(lens):
         return {"selected": True, "score": 0, "chips": [], "sentence": "", "details": []}
 
     metrics = mobile_history_metrics(row, history_context, total_count)
@@ -507,7 +538,7 @@ def mobile_secondary_analysis(row, secondary_lens, history_context, total_count)
     operating_cashflow = clean_number(row.get("operating_cashflow"))
     free_cashflow = clean_number(row.get("free_cashflow"))
 
-    if secondary_lens == "오늘 새로 뜬 종목":
+    if lens == "오늘 새로 뜬 종목":
         checks = []
         chips = []
         core_improved = False
@@ -538,7 +569,7 @@ def mobile_secondary_analysis(row, secondary_lens, history_context, total_count)
             "details": chips,
         }
 
-    if secondary_lens == "아직 덜 오른 종목":
+    if lens == "아직 덜 오른 종목":
         profit_ok = (operating_income is not None and operating_income > 0) or (operating_growth is not None and operating_growth >= 0)
         debt_ok = debt is None or debt <= 200
         eligible = quality_score >= 70 and composite_score >= 65 and profit_ok and debt_ok
@@ -574,7 +605,7 @@ def mobile_secondary_analysis(row, secondary_lens, history_context, total_count)
             "details": chips,
         }
 
-    if secondary_lens == "왜 안 오르지":
+    if lens == "왜 안 오르지":
         weak_price = (
             (metrics["return_20"] is not None and metrics["return_20"] <= 0)
             or (metrics["return_60"] is not None and metrics["return_60"] <= 5)
@@ -626,8 +657,8 @@ def mobile_secondary_analysis(row, secondary_lens, history_context, total_count)
     return {"selected": True, "score": 0, "chips": [], "sentence": "", "details": []}
 
 
-def apply_mobile_secondary_lens(df, secondary_lens, market_text):
-    if df is None or df.empty or not secondary_lens:
+def apply_mobile_situation_lens(df, lens, market_text):
+    if df is None or df.empty or not is_mobile_situation_lens(lens):
         return df, {}
     history_context = load_mobile_history_context(market_text)
     total_count = len(df)
@@ -635,17 +666,17 @@ def apply_mobile_secondary_lens(df, secondary_lens, market_text):
     analyses = {}
     for _, row in df.iterrows():
         row_dict = row.to_dict()
-        analysis = mobile_secondary_analysis(row_dict, secondary_lens, history_context, total_count)
+        analysis = mobile_situation_lens_analysis(row_dict, lens, history_context, total_count)
         symbol = str(row_dict.get("symbol", ""))
         analyses[symbol] = analysis
         if analysis["selected"]:
             enriched = row.copy()
-            enriched["_secondary_score"] = analysis["score"]
+            enriched["_situation_score"] = analysis["score"]
             rows.append(enriched)
     if not rows:
         return df.head(0).copy(), analyses
     out = pd.DataFrame(rows)
-    out = out.sort_values("_secondary_score", ascending=False).drop(columns=["_secondary_score"]).reset_index(drop=True)
+    out = out.sort_values("_situation_score", ascending=False).drop(columns=["_situation_score"]).reset_index(drop=True)
     return out, analyses
 
 
@@ -1178,7 +1209,10 @@ def mobile_stability_score(row):
 
 def mobile_lens_score(row, lens):
     risk_profile = mobile_structural_risk(row)
-    if lens == "🎯 종합평가":
+    if is_mobile_situation_lens(lens):
+        history_context = load_mobile_history_context(get_market_text())
+        score = mobile_situation_lens_analysis(row, lens, history_context, FIXED_TOP_N).get("score", 0)
+    elif lens == "🎯 종합평가":
         score = mobile_candidate_score(row)
     elif lens == "🏢 좋은 회사":
         score = bounded((mobile_quality_score(row) / 35) * 70 + mobile_cash_generation_score(row) * 0.2 + mobile_stability_score(row) * 0.1)
@@ -2109,6 +2143,7 @@ def select_market_choice(label):
     st.session_state.market_choice = label
     handle_market_choice_change()
     st.session_state.mobile_visible_count = 5
+    st.session_state.mobile_count_choice = "5개"
     st.session_state.mobile_selected_symbol = None
     st.session_state.mobile_evidence_symbol = None
     st.rerun()
@@ -2128,14 +2163,7 @@ def select_mobile_lens(lens):
     st.session_state.mobile_investment_lens = lens
     st.session_state.last_mobile_investment_lens = lens
     st.session_state.mobile_visible_count = 5
-    st.session_state.mobile_selected_symbol = None
-    st.session_state.mobile_evidence_symbol = None
-    st.rerun()
-
-
-def select_mobile_secondary_lens(lens):
-    st.session_state.mobile_secondary_lens = None if lens == st.session_state.mobile_secondary_lens else lens
-    st.session_state.mobile_visible_count = 5
+    st.session_state.mobile_count_choice = "5개"
     st.session_state.mobile_selected_symbol = None
     st.session_state.mobile_evidence_symbol = None
     st.rerun()
@@ -2174,36 +2202,29 @@ def render_top_choice_panel():
         )
 
         st.markdown('<div class="top-choice-label">투자 렌즈</div>', unsafe_allow_html=True)
+        st.markdown('<div class="top-choice-help">원하는 분석 기준을 하나 선택하세요.</div>', unsafe_allow_html=True)
         render_choice_buttons(
-            MOBILE_LENS_OPTIONS,
+            MOBILE_PRIMARY_LENS_OPTIONS,
             st.session_state.mobile_investment_lens,
             "top_lens_choice",
-            len(MOBILE_LENS_OPTIONS),
+            len(MOBILE_PRIMARY_LENS_OPTIONS),
             select_mobile_lens,
             label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
         )
-
-        st.markdown('<div class="top-choice-label">투자 렌즈 Ⅱ</div>', unsafe_allow_html=True)
         render_choice_buttons(
-            MOBILE_SECONDARY_LENS_OPTIONS,
-            st.session_state.mobile_secondary_lens,
+            MOBILE_SITUATION_LENS_OPTIONS,
+            st.session_state.mobile_investment_lens,
             "top_second_lens_choice",
-            len(MOBILE_SECONDARY_LENS_OPTIONS),
-            select_mobile_secondary_lens,
-            label_fn=lambda lens: MOBILE_SECONDARY_LENS_META.get(lens, {}).get("short", lens),
+            len(MOBILE_SITUATION_LENS_OPTIONS),
+            select_mobile_lens,
+            label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
         )
-        secondary_lens = st.session_state.mobile_secondary_lens
-        if secondary_lens:
-            secondary_description = MOBILE_SECONDARY_LENS_META.get(secondary_lens, {}).get("description", "")
-            st.markdown(
-                f'<div class="top-choice-help"><b>{escape_html(secondary_lens)}</b> · {escape_html(secondary_description)}</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div class="top-choice-help">선택하지 않으면 투자 렌즈 Ⅰ 기준으로 그대로 봅니다.</div>',
-                unsafe_allow_html=True,
-            )
+        current_lens = st.session_state.mobile_investment_lens
+        current_description = MOBILE_LENS_META.get(current_lens, {}).get("description", "")
+        st.markdown(
+            f'<div class="top-choice-help"><b>{escape_html(MOBILE_LENS_META.get(current_lens, {}).get("short", current_lens))}</b> · {escape_html(current_description)}</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_market_environment_panel():
@@ -3602,13 +3623,16 @@ if st.session_state.data:
 
     if st.session_state.table_view_mode == "모바일 보기":
         current_lens = st.session_state.mobile_investment_lens
-        current_secondary_lens = st.session_state.mobile_secondary_lens
         lens_meta = MOBILE_LENS_META.get(current_lens, MOBILE_LENS_META["🎯 종합평가"])
         render_mobile_lens_panel(current_lens)
 
-        sorted_mobile_df = sort_mobile_candidates(df, current_lens)
-        mobile_df = filter_mobile_candidates_for_lens(sorted_mobile_df, current_lens)
-        mobile_df, secondary_analyses = apply_mobile_secondary_lens(mobile_df, current_secondary_lens, get_market_text())
+        if is_mobile_situation_lens(current_lens):
+            sorted_mobile_df, lens_analyses = apply_mobile_situation_lens(df, current_lens, get_market_text())
+            mobile_df = sorted_mobile_df
+        else:
+            sorted_mobile_df = sort_mobile_candidates(df, current_lens)
+            mobile_df = filter_mobile_candidates_for_lens(sorted_mobile_df, current_lens)
+            lens_analyses = {}
         if current_lens == "🎯 종합평가":
             excluded_mobile_df = sorted_mobile_df[
                 sorted_mobile_df.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1) == "⚪ 좋은 회사지만 아직 비쌈"
@@ -3616,28 +3640,26 @@ if st.session_state.data:
         else:
             excluded_mobile_df = pd.DataFrame()
         total_candidates = len(mobile_df)
-        visible_count = min(st.session_state.mobile_visible_count, total_candidates)
-        if visible_count <= 0:
-            visible_count = min(5, total_candidates)
-            st.session_state.mobile_visible_count = visible_count
+        selected_count = st.session_state.mobile_visible_count
+        visible_count = min(selected_count, total_candidates)
 
         visible_mobile_df = mobile_df.head(visible_count)
         if st.session_state.mobile_selected_symbol not in set(mobile_df["symbol"].astype(str)):
             st.session_state.mobile_selected_symbol = None
 
-        title_prefix = current_secondary_lens or lens_meta["title"]
+        title_prefix = lens_meta["title"]
         st.subheader(title_prefix)
-        if current_secondary_lens:
-            st.caption(MOBILE_SECONDARY_LENS_META.get(current_secondary_lens, {}).get("description", ""))
+        st.caption(lens_meta.get("description", ""))
 
         with st.container(key="mobile_count_wrap"):
             count_cols = st.columns(5, gap="small")
             quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
             for idx, (label, count) in enumerate(quick_options):
                 with count_cols[idx]:
-                    is_active_count = visible_count >= total_candidates if label == "전체" else visible_count == count
+                    is_active_count = st.session_state.mobile_count_choice == label
                     if st.button(label, key=f"mobile_count_{'active_' if is_active_count else ''}{idx}", width="stretch"):
-                        st.session_state.mobile_visible_count = min(count, total_candidates)
+                        st.session_state.mobile_visible_count = count
+                        st.session_state.mobile_count_choice = label
                         st.session_state.mobile_selected_symbol = None
                         st.session_state.mobile_evidence_symbol = None
                         st.rerun()
@@ -3646,13 +3668,14 @@ if st.session_state.data:
                 next_count = min(visible_count + 5, total_candidates)
                 if st.button("다음5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
                     st.session_state.mobile_visible_count = next_count
+                    st.session_state.mobile_count_choice = None
                     st.session_state.mobile_selected_symbol = None
                     st.session_state.mobile_evidence_symbol = None
                     st.rerun()
 
         st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
-        if visible_mobile_df.empty and current_secondary_lens:
-            st.info("현재 기준에 맞는 종목이 없습니다. 투자 렌즈 Ⅱ를 한 번 더 눌러 해제하거나 다른 렌즈를 선택해보세요.")
+        if visible_mobile_df.empty:
+            st.info(lens_meta.get("empty", "현재 기준에 맞는 종목이 없습니다. 다른 렌즈를 선택해보세요."))
         for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
             row_dict = row.to_dict()
             symbol = str(row_dict.get("symbol", ""))
@@ -3661,7 +3684,7 @@ if st.session_state.data:
                 list_index,
                 is_kr,
                 current_lens,
-                secondary_analyses.get(symbol) if current_secondary_lens else None,
+                lens_analyses.get(symbol) if is_mobile_situation_lens(current_lens) else None,
             )
             evidence_open = st.session_state.mobile_evidence_symbol == symbol
             evidence_label = "근거 닫기" if evidence_open else "근거 보기"
