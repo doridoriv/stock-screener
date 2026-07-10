@@ -1,5 +1,6 @@
 import os
 import html
+import glob
 from datetime import datetime
 import pandas as pd
 import streamlit as st
@@ -119,6 +120,23 @@ MOBILE_LENS_META = {
 
 MOBILE_LENS_OPTIONS = list(MOBILE_LENS_META.keys())
 
+MOBILE_SECONDARY_LENS_META = {
+    "오늘 새로 뜬 종목": {
+        "short": "오늘 새로 뜬 종목",
+        "description": "점수와 순위가 최근 빠르게 좋아진 종목",
+    },
+    "아직 덜 오른 종목": {
+        "short": "아직 덜 오른 종목",
+        "description": "기업 평가는 좋지만 주가 반영은 낮은 종목",
+    },
+    "왜 안 오르지": {
+        "short": "왜 안 오르지",
+        "description": "좋은 조건에도 주가가 부진한 이유를 분석",
+    },
+}
+
+MOBILE_SECONDARY_LENS_OPTIONS = list(MOBILE_SECONDARY_LENS_META.keys())
+
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
     cached_panel = market_analyzer.load_market_panel_cache()
@@ -156,6 +174,11 @@ if "mobile_investment_lens" not in st.session_state:
     st.session_state.mobile_investment_lens = "🎯 종합평가"
 elif st.session_state.mobile_investment_lens not in MOBILE_LENS_OPTIONS:
     st.session_state.mobile_investment_lens = "🎯 종합평가"
+
+if "mobile_secondary_lens" not in st.session_state:
+    st.session_state.mobile_secondary_lens = None
+elif st.session_state.mobile_secondary_lens not in MOBILE_SECONDARY_LENS_OPTIONS:
+    st.session_state.mobile_secondary_lens = None
 
 if "last_mobile_investment_lens" not in st.session_state:
     st.session_state.last_mobile_investment_lens = st.session_state.mobile_investment_lens
@@ -347,6 +370,283 @@ def sort_mobile_candidates(df, lens="🎯 종합평가"):
         ascending=[False, True],
     )
     return out.drop(columns=["_mobile_score_sort", "_rank_sort"]).reset_index(drop=True)
+
+
+def mobile_cache_files_for_market(market_text):
+    cache_dir = "cache"
+    prefix = f"snapshot_{market_text}_"
+    if not os.path.isdir(cache_dir):
+        return []
+    files = []
+    for path in glob.glob(os.path.join(cache_dir, f"{prefix}*.csv")):
+        name = os.path.basename(path)
+        date_part = name[-12:-4]
+        if len(date_part) == 8 and date_part.isdigit():
+            files.append((date_part, path))
+    return [path for _, path in sorted(files)]
+
+
+def mobile_price_return(current_price, past_price):
+    current_price = clean_number(current_price)
+    past_price = clean_number(past_price)
+    if current_price is None or past_price is None or past_price <= 0:
+        return None
+    return (current_price - past_price) / past_price * 100
+
+
+@st.cache_data(ttl=1800)
+def load_mobile_history_context(market_text):
+    files = mobile_cache_files_for_market(market_text)
+    current_file = analyzer.find_latest_valid_cache(market_text)
+    if not files:
+        return {"previous": {}, "price_20": {}, "price_60": {}, "current_file": current_file}
+
+    normalized_files = [os.path.normpath(path) for path in files]
+    current_file = os.path.normpath(current_file) if current_file else normalized_files[-1]
+    if current_file not in normalized_files:
+        current_file = normalized_files[-1]
+    current_index = normalized_files.index(current_file)
+    previous_file = normalized_files[current_index - 1] if current_index > 0 else None
+
+    def read_snapshot_map(path, columns):
+        if not path:
+            return {}
+        try:
+            snapshot = pd.read_csv(path, usecols=lambda col: col in columns)
+        except Exception:
+            return {}
+        if "symbol" not in snapshot.columns:
+            return {}
+        snapshot["symbol"] = snapshot["symbol"].astype(str)
+        return snapshot.set_index("symbol").to_dict(orient="index")
+
+    def file_on_or_before(days_back):
+        try:
+            current_date = pd.to_datetime(os.path.basename(current_file).split("_")[-1].replace(".csv", ""))
+        except Exception:
+            return None
+        target_date = current_date - pd.Timedelta(days=days_back)
+        candidate = None
+        for path in normalized_files[:current_index]:
+            try:
+                path_date = pd.to_datetime(os.path.basename(path).split("_")[-1].replace(".csv", ""))
+            except Exception:
+                continue
+            if path_date <= target_date:
+                candidate = path
+            else:
+                break
+        return candidate or previous_file
+
+    previous = read_snapshot_map(previous_file, ["symbol", "score", "rank", "rsi", "score_rsi", "price"])
+    price_20 = read_snapshot_map(file_on_or_before(20), ["symbol", "price"])
+    price_60 = read_snapshot_map(file_on_or_before(60), ["symbol", "price"])
+    return {
+        "previous": previous,
+        "price_20": price_20,
+        "price_60": price_60,
+        "current_file": current_file,
+    }
+
+
+def mobile_history_metrics(row, history_context, total_count):
+    symbol = str(row.get("symbol", ""))
+    previous = history_context.get("previous", {}).get(symbol, {})
+    price_20 = history_context.get("price_20", {}).get(symbol, {})
+    price_60 = history_context.get("price_60", {}).get(symbol, {})
+
+    score = clean_number(row.get("score"))
+    prev_score = clean_number(previous.get("score"))
+    rank = clean_number(row.get("rank"))
+    prev_rank = clean_number(previous.get("rank"))
+    rsi = clean_number(row.get("rsi"))
+    prev_rsi = clean_number(previous.get("rsi"))
+    score_rsi = clean_number(row.get("score_rsi"))
+    prev_score_rsi = clean_number(previous.get("score_rsi"))
+    top_cutoff = max(1, int(total_count * 0.2)) if total_count else 0
+
+    new_top20 = False
+    if rank is not None and top_cutoff and rank <= top_cutoff:
+        new_top20 = prev_rank is None or prev_rank > top_cutoff
+
+    return {
+        "score_delta": score - prev_score if score is not None and prev_score is not None else None,
+        "rank_delta": prev_rank - rank if rank is not None and prev_rank is not None else None,
+        "rsi_delta": rsi - prev_rsi if rsi is not None and prev_rsi is not None else None,
+        "tech_delta": score_rsi - prev_score_rsi if score_rsi is not None and prev_score_rsi is not None else None,
+        "new_top20": new_top20,
+        "return_20": mobile_price_return(row.get("price"), price_20.get("price")),
+        "return_60": mobile_price_return(row.get("price"), price_60.get("price")),
+    }
+
+
+def secondary_chip(label, value):
+    return f"{label} {value}"
+
+
+def mobile_secondary_analysis(row, secondary_lens, history_context, total_count):
+    if not secondary_lens:
+        return {"selected": True, "score": 0, "chips": [], "sentence": "", "details": []}
+
+    metrics = mobile_history_metrics(row, history_context, total_count)
+    score = clean_number(row.get("score"))
+    quality_score = mobile_lens_score(row, "🏢 좋은 회사")
+    composite_score = mobile_lens_score(row, "🎯 종합평가")
+    growth_score = mobile_growth_score(row)
+    value_score = mobile_lens_score(row, "💰 저평가")
+    stability_score = mobile_stability_score(row)
+    debt = clean_number(row.get("debt_ratio"))
+    per = clean_number(row.get("per"))
+    pbr = clean_number(row.get("pbr"))
+    rsi = clean_number(row.get("rsi"))
+    diff = clean_number(row.get("diff"))
+    peak_diff = clean_number(row.get("peak_diff"))
+    revenue_growth = clean_number(row.get("revenue_growth"))
+    operating_growth = clean_number(row.get("operating_growth"))
+    operating_income = clean_number(row.get("operating_income"))
+    operating_cashflow = clean_number(row.get("operating_cashflow"))
+    free_cashflow = clean_number(row.get("free_cashflow"))
+
+    if secondary_lens == "오늘 새로 뜬 종목":
+        checks = []
+        chips = []
+        core_improved = False
+        if metrics["score_delta"] is not None and metrics["score_delta"] >= 3:
+            checks.append(18 + min(metrics["score_delta"], 12))
+            chips.append(secondary_chip("점수", f"+{metrics['score_delta']:.0f}"))
+            core_improved = True
+        if metrics["rank_delta"] is not None and metrics["rank_delta"] >= 10:
+            checks.append(18 + min(metrics["rank_delta"] / 2, 20))
+            chips.append(secondary_chip("순위", f"+{metrics['rank_delta']:.0f}"))
+            core_improved = True
+        if metrics["new_top20"]:
+            checks.append(20)
+            chips.append("상위 20% 신규")
+            core_improved = True
+        if metrics["tech_delta"] is not None and metrics["tech_delta"] >= 5:
+            checks.append(10)
+            chips.append(secondary_chip("기술", f"+{metrics['tech_delta']:.0f}"))
+        if metrics["rsi_delta"] is not None and metrics["rsi_delta"] >= 5:
+            checks.append(8)
+            chips.append(secondary_chip("RSI", f"+{metrics['rsi_delta']:.0f}"))
+        selected = core_improved and len(checks) >= 2
+        return {
+            "selected": selected,
+            "score": sum(checks),
+            "chips": chips[:4],
+            "sentence": "점수와 순위가 함께 빠르게 개선되고 있습니다." if selected else "최근 개선 근거가 아직 충분하지 않습니다.",
+            "details": chips,
+        }
+
+    if secondary_lens == "아직 덜 오른 종목":
+        profit_ok = (operating_income is not None and operating_income > 0) or (operating_growth is not None and operating_growth >= 0)
+        debt_ok = debt is None or debt <= 200
+        eligible = quality_score >= 70 and composite_score >= 65 and profit_ok and debt_ok
+        checks = []
+        chips = [
+            secondary_chip("좋은회사", f"{quality_score:.0f}점"),
+            secondary_chip("종합", f"{composite_score:.0f}점"),
+        ]
+        if metrics["return_20"] is not None and metrics["return_20"] <= 5:
+            checks.append(12)
+            chips.append(secondary_chip("20일", f"{metrics['return_20']:+.1f}%"))
+        if metrics["return_60"] is not None and metrics["return_60"] <= 10:
+            checks.append(14)
+            chips.append(secondary_chip("60일", f"{metrics['return_60']:+.1f}%"))
+        if peak_diff is not None and peak_diff <= -15:
+            checks.append(13)
+            chips.append(secondary_chip("고점대비", f"{peak_diff:.0f}%"))
+        if rsi is not None and 35 <= rsi <= 55:
+            checks.append(10)
+            chips.append(secondary_chip("RSI", f"{rsi:.0f}"))
+        if per is not None and per <= 25:
+            checks.append(8)
+            chips.append(secondary_chip("PER", f"{per:.1f}"))
+        if pbr is not None and pbr <= 3:
+            checks.append(8)
+            chips.append(secondary_chip("PBR", f"{pbr:.1f}"))
+        selected = eligible and len(checks) >= 2
+        return {
+            "selected": selected,
+            "score": quality_score * 0.4 + composite_score * 0.35 + sum(checks),
+            "chips": chips[:4],
+            "sentence": "기업 평가는 높지만 최근 주가 상승은 제한적입니다." if selected else "기업 평가와 가격 미반영 조건이 동시에 충분하지 않습니다.",
+            "details": chips,
+        }
+
+    if secondary_lens == "왜 안 오르지":
+        weak_price = (
+            (metrics["return_20"] is not None and metrics["return_20"] <= 0)
+            or (metrics["return_60"] is not None and metrics["return_60"] <= 5)
+            or (peak_diff is not None and peak_diff <= -20)
+        )
+        eligible = quality_score >= 70 and composite_score >= 65 and weak_price
+        reasons = []
+        chips = [
+            secondary_chip("좋은회사", f"{quality_score:.0f}점"),
+        ]
+        if metrics["return_60"] is not None:
+            chips.append(secondary_chip("60일", f"{metrics['return_60']:+.1f}%"))
+        elif metrics["return_20"] is not None:
+            chips.append(secondary_chip("20일", f"{metrics['return_20']:+.1f}%"))
+
+        if (per is not None and per >= 30) or (pbr is not None and pbr >= 4) or value_score < 45:
+            reason_value = f"PER {per:.1f}" if per is not None and per >= 30 else f"PBR {pbr:.1f}" if pbr is not None and pbr >= 4 else "가치점수 낮음"
+            reasons.append(("가격 부담", reason_value, 18))
+        if (revenue_growth is not None and revenue_growth <= 0) or (operating_growth is not None and operating_growth <= 0) or growth_score < 45:
+            reason_value = f"영업익 {operating_growth:.1f}%" if operating_growth is not None else "성장점수 낮음"
+            reasons.append(("실적 둔화", reason_value, 15))
+        weak_tech = 0
+        if rsi is not None and rsi <= 40:
+            weak_tech += 1
+        if diff is not None and diff < 0:
+            weak_tech += 1
+        if peak_diff is not None and peak_diff <= -20:
+            weak_tech += 1
+        if metrics["return_20"] is not None and metrics["return_20"] < 0:
+            weak_tech += 1
+        if weak_tech >= 2:
+            reason_value = f"RSI {rsi:.0f}" if rsi is not None else f"고점대비 {peak_diff:.0f}%"
+            reasons.append(("기술 약세", reason_value, 16))
+        if (debt is not None and debt >= 200) or (operating_cashflow is not None and operating_cashflow < 0) or (free_cashflow is not None and free_cashflow < 0) or stability_score < 45:
+            reason_value = f"부채 {debt:.0f}%" if debt is not None and debt >= 200 else "현금흐름 약함"
+            reasons.append(("재무 부담", reason_value, 12))
+
+        reasons = sorted(reasons, key=lambda item: item[2], reverse=True)[:3]
+        reason_chips = [label for label, _, _ in reasons]
+        selected = eligible and bool(reasons)
+        return {
+            "selected": selected,
+            "score": quality_score + composite_score * 0.5 + sum(item[2] for item in reasons),
+            "chips": (chips + reason_chips)[:4],
+            "sentence": f"{' · '.join(reason_chips)}이 주가를 누르는 요인으로 보입니다." if selected else "좋은 종목이지만 부진 원인을 특정할 근거가 아직 약합니다.",
+            "details": [f"{label}: {value}" for label, value, _ in reasons],
+        }
+
+    return {"selected": True, "score": 0, "chips": [], "sentence": "", "details": []}
+
+
+def apply_mobile_secondary_lens(df, secondary_lens, market_text):
+    if df is None or df.empty or not secondary_lens:
+        return df, {}
+    history_context = load_mobile_history_context(market_text)
+    total_count = len(df)
+    rows = []
+    analyses = {}
+    for _, row in df.iterrows():
+        row_dict = row.to_dict()
+        analysis = mobile_secondary_analysis(row_dict, secondary_lens, history_context, total_count)
+        symbol = str(row_dict.get("symbol", ""))
+        analyses[symbol] = analysis
+        if analysis["selected"]:
+            enriched = row.copy()
+            enriched["_secondary_score"] = analysis["score"]
+            rows.append(enriched)
+    if not rows:
+        return df.head(0).copy(), analyses
+    out = pd.DataFrame(rows)
+    out = out.sort_values("_secondary_score", ascending=False).drop(columns=["_secondary_score"]).reset_index(drop=True)
+    return out, analyses
 
 
 def filter_mobile_candidates(df):
@@ -1506,7 +1806,7 @@ def metric_explanation(label, row, value):
     return "현재 수치만으로 결론내리기 어렵습니다. 같은 섹션의 다른 지표와 함께 확인하세요."
 
 
-def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가"):
+def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가", secondary_analysis=None):
     name = escape_html(row.get("name", row.get("symbol", "이름 없음")))
     symbol = escape_html(row.get("symbol", ""))
     sector = escape_html(row.get("sector") or row.get("industry") or "업종 확인")
@@ -1518,6 +1818,13 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
     confidence_score, confidence_label, _, _, _ = mobile_confidence(row)
     reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
+    secondary_html = ""
+    if secondary_analysis and secondary_analysis.get("chips"):
+        secondary_chips = "".join([f"<span>{escape_html(chip)}</span>" for chip in secondary_analysis.get("chips", [])])
+        secondary_html = (
+            f"<div class='mobile-secondary-row'>{secondary_chips}</div>"
+            f"<div class='mobile-secondary-sentence'>{escape_html(secondary_analysis.get('sentence', ''))}</div>"
+        )
     signal_html = ""
     for signal in mobile_signal_cards(row, lens):
         fact_lines = signal_fact_lines(signal["summary"])
@@ -1549,6 +1856,7 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
                 <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>
                 <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
             </div>
+            {secondary_html}
             <div class="mobile-chip-row">{chip_html}</div>
         </div>
         """,
@@ -1825,6 +2133,14 @@ def select_mobile_lens(lens):
     st.rerun()
 
 
+def select_mobile_secondary_lens(lens):
+    st.session_state.mobile_secondary_lens = None if lens == st.session_state.mobile_secondary_lens else lens
+    st.session_state.mobile_visible_count = 5
+    st.session_state.mobile_selected_symbol = None
+    st.session_state.mobile_evidence_symbol = None
+    st.rerun()
+
+
 def render_choice_buttons(options, current_value, key_prefix, columns, on_select, label_fn=lambda value: value):
     with st.container(key=f"{key_prefix}_wrap"):
         cols = st.columns(columns, gap="small")
@@ -1866,6 +2182,28 @@ def render_top_choice_panel():
             select_mobile_lens,
             label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
         )
+
+        st.markdown('<div class="top-choice-label">투자 렌즈 Ⅱ</div>', unsafe_allow_html=True)
+        render_choice_buttons(
+            MOBILE_SECONDARY_LENS_OPTIONS,
+            st.session_state.mobile_secondary_lens,
+            "top_second_lens_choice",
+            len(MOBILE_SECONDARY_LENS_OPTIONS),
+            select_mobile_secondary_lens,
+            label_fn=lambda lens: MOBILE_SECONDARY_LENS_META.get(lens, {}).get("short", lens),
+        )
+        secondary_lens = st.session_state.mobile_secondary_lens
+        if secondary_lens:
+            secondary_description = MOBILE_SECONDARY_LENS_META.get(secondary_lens, {}).get("description", "")
+            st.markdown(
+                f'<div class="top-choice-help"><b>{escape_html(secondary_lens)}</b> · {escape_html(secondary_description)}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="top-choice-help">선택하지 않으면 투자 렌즈 Ⅰ 기준으로 그대로 봅니다.</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def render_market_environment_panel():
@@ -2338,6 +2676,28 @@ st.markdown("""
         .mobile-detail-score b {
             color: #16a34a;
         }
+        .mobile-secondary-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 8px 0 5px 0;
+        }
+        .mobile-secondary-row span {
+            border-radius: 999px;
+            background: #ecfeff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            padding: 5px 9px;
+            font-size: 0.76rem;
+            font-weight: 900;
+            line-height: 1.15;
+        }
+        .mobile-secondary-sentence {
+            color: #334155;
+            font-size: 0.8rem;
+            line-height: 1.35;
+            margin: 0 0 8px 0;
+        }
         .mobile-chip-row {
             display: flex;
             flex-wrap: wrap;
@@ -2661,7 +3021,8 @@ st.markdown("""
         }
         [class*="st-key-top_market_choice_wrap"] [data-testid="stHorizontalBlock"],
         [class*="st-key-top_view_choice_wrap"] [data-testid="stHorizontalBlock"],
-        [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"],
+        [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
             gap: 6px !important;
             align-items: center !important;
@@ -2678,9 +3039,13 @@ st.markdown("""
         [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
             grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
         }
+        [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
         [class*="st-key-top_market_choice_wrap"] [data-testid="stColumn"],
         [class*="st-key-top_view_choice_wrap"] [data-testid="stColumn"],
-        [class*="st-key-top_lens_choice_wrap"] [data-testid="stColumn"] {
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stColumn"],
+        [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stColumn"] {
             width: 100% !important;
             min-width: 0 !important;
             flex: initial !important;
@@ -2690,15 +3055,18 @@ st.markdown("""
         [class*="st-key-top_market_choice_wrap"] [data-testid="stElementContainer"],
         [class*="st-key-top_view_choice_wrap"] [data-testid="stElementContainer"],
         [class*="st-key-top_lens_choice_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stElementContainer"],
         [class*="st-key-top_market_choice_wrap"] [data-testid="stButton"],
         [class*="st-key-top_view_choice_wrap"] [data-testid="stButton"],
-        [class*="st-key-top_lens_choice_wrap"] [data-testid="stButton"] {
+        [class*="st-key-top_lens_choice_wrap"] [data-testid="stButton"],
+        [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stButton"] {
             width: 100% !important;
             min-width: 0 !important;
         }
         [class*="st-key-top_market_choice_"] button,
         [class*="st-key-top_view_choice_"] button,
-        [class*="st-key-top_lens_choice_"] button {
+        [class*="st-key-top_lens_choice_"] button,
+        [class*="st-key-top_second_lens_choice_"] button {
             min-height: 40px;
             height: 40px;
             border-radius: 8px;
@@ -2715,11 +3083,22 @@ st.markdown("""
         }
         [class*="st-key-top_market_choice_active_"] button,
         [class*="st-key-top_view_choice_active_"] button,
-        [class*="st-key-top_lens_choice_active_"] button {
+        [class*="st-key-top_lens_choice_active_"] button,
+        [class*="st-key-top_second_lens_choice_active_"] button {
             background: #111827 !important;
             color: #ffffff !important;
             border-color: #111827 !important;
             box-shadow: 0 8px 18px rgba(17, 24, 39, 0.2);
+        }
+        .top-choice-help {
+            color: #64748b;
+            font-size: 0.78rem;
+            line-height: 1.35;
+            margin: 6px 0 2px 2px;
+        }
+        .top-choice-help b {
+            color: #111827;
+            font-weight: 900;
         }
         [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
@@ -3011,9 +3390,13 @@ st.markdown("""
             [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
                 grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
             }
+            [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
+                grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+            }
             [class*="st-key-top_market_choice_"] button,
             [class*="st-key-top_view_choice_"] button,
-            [class*="st-key-top_lens_choice_"] button {
+            [class*="st-key-top_lens_choice_"] button,
+            [class*="st-key-top_second_lens_choice_"] button {
                 min-height: 38px;
                 height: 38px;
                 font-size: 0.74rem;
@@ -3219,11 +3602,13 @@ if st.session_state.data:
 
     if st.session_state.table_view_mode == "모바일 보기":
         current_lens = st.session_state.mobile_investment_lens
+        current_secondary_lens = st.session_state.mobile_secondary_lens
         lens_meta = MOBILE_LENS_META.get(current_lens, MOBILE_LENS_META["🎯 종합평가"])
         render_mobile_lens_panel(current_lens)
 
         sorted_mobile_df = sort_mobile_candidates(df, current_lens)
         mobile_df = filter_mobile_candidates_for_lens(sorted_mobile_df, current_lens)
+        mobile_df, secondary_analyses = apply_mobile_secondary_lens(mobile_df, current_secondary_lens, get_market_text())
         if current_lens == "🎯 종합평가":
             excluded_mobile_df = sorted_mobile_df[
                 sorted_mobile_df.apply(lambda row: mobile_grade_label(row.to_dict()), axis=1) == "⚪ 좋은 회사지만 아직 비쌈"
@@ -3240,8 +3625,10 @@ if st.session_state.data:
         if st.session_state.mobile_selected_symbol not in set(mobile_df["symbol"].astype(str)):
             st.session_state.mobile_selected_symbol = None
 
-        title_prefix = lens_meta["title"]
+        title_prefix = current_secondary_lens or lens_meta["title"]
         st.subheader(title_prefix)
+        if current_secondary_lens:
+            st.caption(MOBILE_SECONDARY_LENS_META.get(current_secondary_lens, {}).get("description", ""))
 
         with st.container(key="mobile_count_wrap"):
             count_cols = st.columns(5, gap="small")
@@ -3264,10 +3651,18 @@ if st.session_state.data:
                     st.rerun()
 
         st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
+        if visible_mobile_df.empty and current_secondary_lens:
+            st.info("현재 기준에 맞는 종목이 없습니다. 투자 렌즈 Ⅱ를 한 번 더 눌러 해제하거나 다른 렌즈를 선택해보세요.")
         for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):
             row_dict = row.to_dict()
             symbol = str(row_dict.get("symbol", ""))
-            render_mobile_candidate_card(row_dict, list_index, is_kr, current_lens)
+            render_mobile_candidate_card(
+                row_dict,
+                list_index,
+                is_kr,
+                current_lens,
+                secondary_analyses.get(symbol) if current_secondary_lens else None,
+            )
             evidence_open = st.session_state.mobile_evidence_symbol == symbol
             evidence_label = "근거 닫기" if evidence_open else "근거 보기"
             with st.container(key=f"mobile_card_actions_{symbol}_{list_index}"):
