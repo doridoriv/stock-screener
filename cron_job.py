@@ -86,11 +86,20 @@ def run_auto_screening(market, top_n=FIXED_TOP_N, force_scrape=None, save_cache=
 
     # 5. 수집 결과 로그 출력
     market_text = "코스닥" if market == "한국(코스닥)" else "코스피" if market in ["한국(코스피)", "한국"] else "미국"
-    target_date_str = analyzer.get_latest_market_date(market_text)
+    collected_df = pd.DataFrame(collected_rows)
+    data_dates = collected_df.get("data_date", pd.Series(dtype=str)).dropna().astype(str)
+    if not data_dates.empty:
+        target_date_str = data_dates.iloc[0].replace("-", "")
+    else:
+        target_date_str = analyzer.get_latest_market_date(market_text)
     file_path = os.path.join(CACHE_DIR, f"snapshot_{market_text}_{target_date_str}.csv")
+    cache_valid, cache_reasons = analyzer.validate_cache_dataframe(collected_df, expected_rows=top_n)
     
     if had_error:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 수집 중 에러가 발생하여 기존 캐시를 성공으로 처리하지 않습니다.\n")
+        return False
+    elif not cache_valid:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [FAIL] {market} 캐시 검증 실패: {'; '.join(cache_reasons)}\n")
         return False
     elif save_cache and os.path.exists(file_path):
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [OK] {market} 자동 저장 완료! 저장경로: {file_path}")

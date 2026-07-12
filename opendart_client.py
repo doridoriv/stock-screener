@@ -14,6 +14,7 @@ from secret_utils import get_secret
 
 CORP_CODE_CACHE = os.path.join(CACHE_DIR, "dart_corp_codes.csv")
 REPORT_CODES = ["11011", "11014", "11012", "11013"]
+KRW_CURRENCIES = {"KRW", "KOREAN WON", "원", "￦", "₩"}
 
 
 def _to_number(value):
@@ -37,6 +38,21 @@ def _won_to_eok(value):
     if pd.isna(value):
         return np.nan
     return round(value / 100000000, 2)
+
+
+def _row_currency(row) -> str:
+    return str(row.get("currency") or row.get("currency_nm") or "").strip().upper()
+
+
+def _is_krw_row(row) -> bool:
+    currency = _row_currency(row)
+    return not currency or currency in KRW_CURRENCIES
+
+
+def _row_amount_eok(row):
+    if not _is_krw_row(row):
+        return np.nan
+    return _won_to_eok(row.get("thstrm_amount"))
 
 
 def _latest_business_year():
@@ -151,7 +167,11 @@ def _pick(rows, statement_names=None, account_keywords=None, account_ids=None):
     if not candidates:
         return np.nan
     candidates.sort(key=lambda item: (item[0], len(str(item[1].get("account_nm", "")))))
-    return _won_to_eok(candidates[0][1].get("thstrm_amount"))
+    for _, row in candidates:
+        value = _row_amount_eok(row)
+        if pd.notna(value):
+            return value
+    return np.nan
 
 
 def _sum_picks(rows, statement_names=None, account_keywords=None, account_ids=None):
@@ -177,9 +197,9 @@ def _sum_picks(rows, statement_names=None, account_keywords=None, account_ids=No
         key = (account_id, account_text)
         if key in seen:
             continue
-        seen.add(key)
-        value = _won_to_eok(row.get("thstrm_amount"))
+        value = _row_amount_eok(row)
         if pd.notna(value):
+            seen.add(key)
             values.append(value)
     if not values:
         return np.nan
@@ -227,51 +247,59 @@ def _dividend_metrics(rows):
     return {}
 
 
+def _summarize_dividend_history(history: list[dict], start_year: int, years: int = 5) -> dict:
+    by_year = {item["year"]: _to_number(item.get("dividend_per_share")) for item in history}
+    positive_years = {
+        year: value
+        for year, value in by_year.items()
+        if pd.notna(value) and value > 0
+    }
+    if not positive_years:
+        return {}
+
+    consecutive_years = 0
+    for target_year in range(start_year, start_year - years, -1):
+        value = by_year.get(target_year, np.nan)
+        if pd.isna(value) or value <= 0:
+            break
+        consecutive_years += 1
+
+    adjacent_cuts = []
+    for newer_year in range(start_year, start_year - years + 1, -1):
+        newer = by_year.get(newer_year, np.nan)
+        older = by_year.get(newer_year - 1, np.nan)
+        if pd.notna(newer) and newer > 0 and pd.notna(older) and older > 0:
+            adjacent_cuts.append(newer < older)
+
+    cut_flag = True if any(adjacent_cuts) else False if consecutive_years == years else None
+    result = {
+        "dividend_history_years": len(positive_years),
+        "dividend_consecutive_years": consecutive_years,
+        "dividend_cut_flag": cut_flag,
+        "dividend_history_source": "OpenDART",
+    }
+
+    growth_values = [by_year.get(year, np.nan) for year in range(start_year - 3, start_year + 1)]
+    if all(pd.notna(value) and value > 0 for value in growth_values):
+        result["dividend_growth_3y"] = round(((growth_values[-1] / growth_values[0]) ** (1 / 3) - 1) * 100, 2)
+    return result
+
+
 def _collect_dividend_history(api_key: str, corp_code: str, start_year: int, years: int = 5) -> dict:
     history = []
     for target_year in range(start_year, start_year - years, -1):
-        for report_code in REPORT_CODES:
-            try:
-                rows = _fetch_dividend_rows(api_key, corp_code, target_year, report_code)
-            except Exception:
-                rows = []
-            metrics = _dividend_metrics(rows)
-            if not metrics:
-                continue
-            dps = metrics.get("dividend_per_share")
-            history.append({
-                "year": target_year,
-                "report_code": report_code,
-                "dividend_per_share": dps,
-                "dividend_yield": metrics.get("dividend_yield"),
-                "payout_ratio": metrics.get("payout_ratio"),
-            })
-            break
+        try:
+            rows = _fetch_dividend_rows(api_key, corp_code, target_year, "11011")
+        except Exception:
+            rows = []
+        metrics = _dividend_metrics(rows)
+        history.append({
+            "year": target_year,
+            "report_code": "11011",
+            "dividend_per_share": metrics.get("dividend_per_share") if metrics else np.nan,
+        })
 
-    if not history:
-        return {}
-
-    dps_values = [
-        item.get("dividend_per_share")
-        for item in sorted(history, key=lambda item: item["year"])
-        if pd.notna(item.get("dividend_per_share")) and item.get("dividend_per_share") > 0
-    ]
-    result = {
-        "dividend_history_years": len(dps_values),
-        "dividend_consecutive_years": len(dps_values),
-        "dividend_cut_flag": False,
-        "dividend_history_source": "OpenDART",
-    }
-    if len(dps_values) >= 2:
-        first = dps_values[0]
-        last = dps_values[-1]
-        if first > 0:
-            result["dividend_growth_3y"] = round(((last / first) ** (1 / (len(dps_values) - 1)) - 1) * 100, 2)
-        result["dividend_cut_flag"] = any(
-            later < earlier
-            for earlier, later in zip(dps_values, dps_values[1:])
-        )
-    return result
+    return _summarize_dividend_history(history, start_year, years)
 
 
 def _statement_metrics(rows):
@@ -348,6 +376,11 @@ def _statement_metrics(rows):
         "operating_cashflow": operating_cashflow,
         "dart_source": "OpenDART",
     }
+    currencies = sorted({_row_currency(row) for row in rows if _row_currency(row)})
+    if currencies:
+        metrics["financial_currency"] = "/".join(currencies)
+    if any(not _is_krw_row(row) for row in rows):
+        metrics["cashflow_status"] = "외화 공시 환산 필요"
     if pd.notna(cash) and pd.notna(total_debt):
         metrics["net_cash"] = round(cash - total_debt, 2)
     if pd.notna(operating_cashflow) and pd.notna(capex):

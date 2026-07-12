@@ -235,6 +235,7 @@ def load_cached_market_data():
             df_cached = pd.read_csv(cache_file)
             if not df_cached.empty:
                 df_cached = analyzer.normalize_dividend_yield_metrics(df_cached)
+                df_cached = analyzer.normalize_financial_sanity_metrics(df_cached)
                 df_cached = analyzer.sort_by_market_cap(df_cached).head(FIXED_TOP_N)
                 st.session_state.data = df_cached.to_dict(orient='records')
                 st.session_state.sidebar_state = "collapsed"
@@ -332,6 +333,48 @@ def row_is_kr(row):
     return symbol.isdigit() or yf_symbol.endswith((".KS", ".KQ"))
 
 
+def is_financial_business(row):
+    text = " ".join([
+        str(row.get("name", "")),
+        str(row.get("sector", "")),
+        str(row.get("industry", "")),
+    ]).lower()
+    keywords = [
+        "은행", "금융지주", "보험", "증권", "캐피탈", "카드", "리츠",
+        "bank", "insurance", "reit", "financial services", "capital markets",
+        "credit services", "asset management", "diversified financial",
+    ]
+    return any(keyword in text for keyword in keywords)
+
+
+def cashflow_metrics_usable(row):
+    if is_financial_business(row):
+        return False
+    status = row.get("cashflow_status", "")
+    try:
+        if pd.isna(status):
+            return True
+    except Exception:
+        pass
+    return str(status or "").strip() == ""
+
+
+def dividend_cut_status(value):
+    if value is None:
+        return "미확인"
+    try:
+        if pd.isna(value):
+            return "미확인"
+    except Exception:
+        pass
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes"}:
+        return "있음"
+    if normalized in {"false", "0", "no"}:
+        return "없음"
+    return "미확인"
+
+
 def format_cashflow_amount(value, row):
     number = clean_number(value)
     if number is None:
@@ -353,6 +396,18 @@ def escape_html(value):
     return html.escape(str(value if value is not None else ""))
 
 
+def display_text(value, fallback=""):
+    if value is None:
+        return fallback
+    try:
+        if pd.isna(value):
+            return fallback
+    except Exception:
+        pass
+    text = str(value).strip()
+    return fallback if not text or text.lower() in {"nan", "none", "n/a"} else text
+
+
 def mobile_grade_label(row):
     risk_profile = mobile_structural_risk(row)
     if risk_profile["level"] == "hard":
@@ -364,7 +419,7 @@ def mobile_grade_label(row):
     momentum = mobile_momentum_score(row)
     risk = mobile_risk_penalty(row)
     if momentum >= 24 and risk <= 14:
-        return "🔥 주도업종 모멘텀 후보"
+        return "🔥 가격 모멘텀 후보"
     if cheapness >= 28 and quality >= 22 and risk <= 10:
         return "🔴 저렴한 우량 후보"
     if cheapness >= 24 and risk <= 18:
@@ -391,12 +446,14 @@ def sort_mobile_candidates(df, lens="🎯 종합평가"):
         return df
     out = df.copy()
     out["_mobile_score_sort"] = out.apply(lambda row: mobile_lens_score(row.to_dict(), lens), axis=1)
+    tie_values = out.apply(lambda row: mobile_lens_tiebreak_values(row.to_dict(), lens), axis=1)
+    out[["_lens_tie_1", "_lens_tie_2", "_lens_tie_3"]] = pd.DataFrame(tie_values.tolist(), index=out.index)
     out["_rank_sort"] = pd.to_numeric(out.get("rank"), errors="coerce").fillna(999999)
     out = out.sort_values(
-        by=["_mobile_score_sort", "_rank_sort"],
-        ascending=[False, True],
+        by=["_mobile_score_sort", "_lens_tie_1", "_lens_tie_2", "_lens_tie_3", "_rank_sort"],
+        ascending=[False, False, False, False, True],
     )
-    return out.drop(columns=["_mobile_score_sort", "_rank_sort"]).reset_index(drop=True)
+    return out.drop(columns=["_mobile_score_sort", "_lens_tie_1", "_lens_tie_2", "_lens_tie_3", "_rank_sort"]).reset_index(drop=True)
 
 
 def mobile_cache_files_for_market(market_text):
@@ -435,7 +492,7 @@ def load_mobile_history_context(market_text):
     current_index = normalized_files.index(current_file)
     previous_file = normalized_files[current_index - 1] if current_index > 0 else None
 
-    def read_snapshot_map(path, columns):
+    def read_snapshot_map(path, columns, include_score_rank=False):
         if not path:
             return {}
         try:
@@ -444,30 +501,24 @@ def load_mobile_history_context(market_text):
             return {}
         if "symbol" not in snapshot.columns:
             return {}
+        if include_score_rank and "score" in snapshot.columns:
+            snapshot["_score_rank"] = pd.to_numeric(
+                snapshot["score"], errors="coerce"
+            ).rank(method="min", ascending=False)
         snapshot["symbol"] = snapshot["symbol"].astype(str)
         return snapshot.set_index("symbol").to_dict(orient="index")
 
-    def file_on_or_before(days_back):
-        try:
-            current_date = pd.to_datetime(os.path.basename(current_file).split("_")[-1].replace(".csv", ""))
-        except Exception:
-            return None
-        target_date = current_date - pd.Timedelta(days=days_back)
-        candidate = None
-        for path in normalized_files[:current_index]:
-            try:
-                path_date = pd.to_datetime(os.path.basename(path).split("_")[-1].replace(".csv", ""))
-            except Exception:
-                continue
-            if path_date <= target_date:
-                candidate = path
-            else:
-                break
-        return candidate or previous_file
+    def file_sessions_back(session_count):
+        target_index = current_index - session_count
+        return normalized_files[target_index] if target_index >= 0 else None
 
-    previous = read_snapshot_map(previous_file, ["symbol", "score", "rank", "rsi", "score_rsi", "price"])
-    price_20 = read_snapshot_map(file_on_or_before(20), ["symbol", "price"])
-    price_60 = read_snapshot_map(file_on_or_before(60), ["symbol", "price"])
+    previous = read_snapshot_map(
+        previous_file,
+        ["symbol", "score", "rsi", "score_rsi", "price"],
+        include_score_rank=True,
+    )
+    price_20 = read_snapshot_map(file_sessions_back(20), ["symbol", "price"])
+    price_60 = read_snapshot_map(file_sessions_back(60), ["symbol", "price"])
     return {
         "previous": previous,
         "price_20": price_20,
@@ -484,8 +535,8 @@ def mobile_history_metrics(row, history_context, total_count):
 
     score = clean_number(row.get("score"))
     prev_score = clean_number(previous.get("score"))
-    rank = clean_number(row.get("rank"))
-    prev_rank = clean_number(previous.get("rank"))
+    rank = clean_number(row.get("_score_rank_current"))
+    prev_rank = clean_number(previous.get("_score_rank"))
     rsi = clean_number(row.get("rsi"))
     prev_rsi = clean_number(previous.get("rsi"))
     score_rsi = clean_number(row.get("score_rsi"))
@@ -502,8 +553,8 @@ def mobile_history_metrics(row, history_context, total_count):
         "rsi_delta": rsi - prev_rsi if rsi is not None and prev_rsi is not None else None,
         "tech_delta": score_rsi - prev_score_rsi if score_rsi is not None and prev_score_rsi is not None else None,
         "new_top20": new_top20,
-        "return_20": mobile_price_return(row.get("price"), price_20.get("price")),
-        "return_60": mobile_price_return(row.get("price"), price_60.get("price")),
+        "return_20": clean_number(row.get("return_20d")) if clean_number(row.get("return_20d")) is not None else mobile_price_return(row.get("price"), price_20.get("price")),
+        "return_60": clean_number(row.get("return_60d")) if clean_number(row.get("return_60d")) is not None else mobile_price_return(row.get("price"), price_60.get("price")),
     }
 
 
@@ -571,7 +622,7 @@ def mobile_situation_lens_analysis(row, lens, history_context, total_count):
 
     if lens == "아직 덜 오른 종목":
         profit_ok = (operating_income is not None and operating_income > 0) or (operating_growth is not None and operating_growth >= 0)
-        debt_ok = debt is None or debt <= 200
+        debt_ok = is_financial_business(row) or debt is None or debt <= 200
         eligible = quality_score >= 70 and composite_score >= 65 and profit_ok and debt_ok
         checks = []
         chips = [
@@ -586,14 +637,14 @@ def mobile_situation_lens_analysis(row, lens, history_context, total_count):
             chips.append(secondary_chip("60일", f"{metrics['return_60']:+.1f}%"))
         if peak_diff is not None and peak_diff <= -15:
             checks.append(13)
-            chips.append(secondary_chip("고점대비", f"{peak_diff:.0f}%"))
+            chips.append(secondary_chip("2년고점대비", f"{peak_diff:.0f}%"))
         if rsi is not None and 35 <= rsi <= 55:
             checks.append(10)
             chips.append(secondary_chip("RSI", f"{rsi:.0f}"))
-        if per is not None and per <= 25:
+        if per is not None and 0 < per <= 25:
             checks.append(8)
             chips.append(secondary_chip("PER", f"{per:.1f}"))
-        if pbr is not None and pbr <= 3:
+        if pbr is not None and 0 < pbr <= 3:
             checks.append(8)
             chips.append(secondary_chip("PBR", f"{pbr:.1f}"))
         selected = eligible and len(checks) >= 2
@@ -639,8 +690,18 @@ def mobile_situation_lens_analysis(row, lens, history_context, total_count):
         if weak_tech >= 2:
             reason_value = f"RSI {rsi:.0f}" if rsi is not None else f"고점대비 {peak_diff:.0f}%"
             reasons.append(("기술 약세", reason_value, 16))
-        if (debt is not None and debt >= 200) or (operating_cashflow is not None and operating_cashflow < 0) or (free_cashflow is not None and free_cashflow < 0) or stability_score < 45:
-            reason_value = f"부채 {debt:.0f}%" if debt is not None and debt >= 200 else "현금흐름 약함"
+        debt_pressure = not is_financial_business(row) and debt is not None and debt >= 200
+        cash_pressure = cashflow_metrics_usable(row) and (
+            (operating_cashflow is not None and operating_cashflow < 0)
+            or (free_cashflow is not None and free_cashflow < 0)
+        )
+        if debt_pressure or cash_pressure or stability_score < 45:
+            if debt_pressure:
+                reason_value = f"부채 {debt:.0f}%"
+            elif cash_pressure:
+                reason_value = "현금흐름 약함"
+            else:
+                reason_value = "안정성 점수 낮음"
             reasons.append(("재무 부담", reason_value, 12))
 
         reasons = sorted(reasons, key=lambda item: item[2], reverse=True)[:3]
@@ -661,10 +722,15 @@ def apply_mobile_situation_lens(df, lens, market_text):
     if df is None or df.empty or not is_mobile_situation_lens(lens):
         return df, {}
     history_context = load_mobile_history_context(market_text)
-    total_count = len(df)
+    work_df = df.copy()
+    score_values = work_df["score"] if "score" in work_df.columns else pd.Series(np.nan, index=work_df.index)
+    work_df["_score_rank_current"] = pd.to_numeric(
+        score_values, errors="coerce"
+    ).rank(method="min", ascending=False)
+    total_count = len(work_df)
     rows = []
     analyses = {}
-    for _, row in df.iterrows():
+    for _, row in work_df.iterrows():
         row_dict = row.to_dict()
         analysis = mobile_situation_lens_analysis(row_dict, lens, history_context, total_count)
         symbol = str(row_dict.get("symbol", ""))
@@ -797,7 +863,9 @@ def mobile_cheapness_score(row):
     diff = clean_number(row.get("diff"))
 
     if per is not None:
-        if per <= 8:
+        if per <= 0:
+            score -= 10
+        elif per <= 8:
             score += 14
         elif per <= 12:
             score += 11
@@ -805,7 +873,7 @@ def mobile_cheapness_score(row):
             score += 6
         elif per >= 25:
             score -= 4
-    if per is not None and hist_per is not None and hist_per > 0:
+    if per is not None and per > 0 and hist_per is not None and hist_per > 0:
         discount = (hist_per - per) / hist_per
         if discount >= 0.35:
             score += 14
@@ -816,7 +884,9 @@ def mobile_cheapness_score(row):
         elif discount <= -0.2:
             score -= 5
     if pbr is not None:
-        if pbr <= 0.8:
+        if pbr <= 0:
+            score -= 10
+        elif pbr <= 0.8:
             score += 10
         elif pbr <= 1.2:
             score += 7
@@ -836,7 +906,12 @@ def mobile_cheapness_score(row):
             score += 5
         elif diff < -35:
             score -= 4
-    return bounded(score, 0, 45)
+    final_score = bounded(score, 0, 45)
+    if pbr is not None and pbr <= 0:
+        return min(final_score, 12)
+    if per is not None and per <= 0:
+        return min(final_score, 18)
+    return final_score
 
 
 def mobile_quality_score(row):
@@ -882,7 +957,6 @@ def mobile_timing_score(row):
     rsi = clean_number(row.get("rsi"))
     eps_growth = clean_number(row.get("eps_growth"))
     cagr = clean_number(row.get("cagr"))
-    foreign_supply = clean_number(row.get("foreign_supply"))
 
     if rsi is not None:
         if 35 <= rsi <= 60:
@@ -901,27 +975,24 @@ def mobile_timing_score(row):
             score += 4
         elif cagr <= 0:
             score -= 3
-    if foreign_supply is not None:
-        if foreign_supply >= 15:
-            score += 3
-        elif foreign_supply < 5:
-            score -= 1
     return bounded(score, 0, 20)
 
 
 def mobile_momentum_score(row):
     score = 0
-    tags = mobile_theme_tags(row)
     peak_diff = clean_number(row.get("peak_diff"))
     diff = clean_number(row.get("diff"))
     rsi = clean_number(row.get("rsi"))
     eps_growth = clean_number(row.get("eps_growth"))
     revenue = clean_number(row.get("revenue_growth"))
     operating = clean_number(row.get("operating_growth"))
-    foreign_supply = clean_number(row.get("foreign_supply"))
+    return_20d = clean_number(row.get("return_20d"))
+    return_60d = clean_number(row.get("return_60d"))
 
-    if tags:
-        score += 12
+    if return_20d is not None:
+        score += 6 if return_20d >= 5 else -3 if return_20d < 0 else 2
+    if return_60d is not None:
+        score += 6 if return_60d >= 10 else -3 if return_60d < 0 else 2
     if peak_diff is not None:
         if peak_diff > -10:
             score += 7
@@ -943,20 +1014,24 @@ def mobile_momentum_score(row):
         score += 3
     if operating is not None and operating >= 15:
         score += 4
-    if foreign_supply is not None and foreign_supply >= 15:
-        score += 3
     return bounded(score, 0, 35)
 
 
 def mobile_risk_penalty(row):
     penalty = 0
     debt = clean_number(row.get("debt_ratio"))
+    per = clean_number(row.get("per"))
+    pbr = clean_number(row.get("pbr"))
     roe = clean_number(row.get("roe"))
     eps_growth = clean_number(row.get("eps_growth"))
     operating = clean_number(row.get("operating_growth"))
     rsi = clean_number(row.get("rsi"))
 
-    if debt is not None and debt >= 200:
+    if debt is not None and debt >= 200 and not is_financial_business(row):
+        penalty += 10
+    if per is not None and per <= 0:
+        penalty += 8
+    if pbr is not None and pbr <= 0:
         penalty += 10
     if roe is not None and roe < 5:
         penalty += 8
@@ -992,6 +1067,56 @@ def mobile_confidence(row):
     return score, label, missing, available_count, total_count
 
 
+def mobile_lens_confidence(row, lens):
+    requirements = {
+        "🎯 종합평가": ["per", "pbr", "roe", "revenue_growth", "operating_growth", "debt_ratio", "rsi", "diff"],
+        "🏢 좋은 회사": ["roe", "revenue_growth", "operating_growth", "debt_ratio", "operating_cashflow", "free_cashflow"],
+        "💰 저평가": ["per", "pbr", "hist_per_avg", "peer_per_gap", "peak_diff"],
+        "📈 성장": ["revenue_growth", "operating_growth", "eps_growth", "cagr"],
+        "💸 현금창출": ["operating_cashflow", "free_cashflow", "net_cash", "operating_margin", "debt_ratio"],
+        "🏦 배당": ["dividend_yield", "payout_ratio", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "free_cashflow", "operating_cashflow"],
+        "🔥 모멘텀": ["rsi", "diff", "peak_diff", "return_20d", "return_60d"],
+        "🛡 안정성": ["debt_ratio", "roe", "operating_cashflow", "free_cashflow", "net_cash"],
+    }
+    if lens == "💸 현금창출" and not cashflow_metrics_usable(row):
+        raw_reason = row.get("cashflow_status", "")
+        try:
+            reason = "" if pd.isna(raw_reason) else str(raw_reason).strip()
+        except Exception:
+            reason = str(raw_reason or "").strip()
+        reason = reason or "업종 전용 현금흐름 기준 필요"
+        return 0, "판단 보류", reason, 0, len(requirements[lens])
+
+    fields = requirements.get(lens)
+    if not fields:
+        score, _, missing, available_count, total_count = mobile_confidence(row)
+        label = "충분" if score >= 80 else "일부 미확인" if score >= 60 else "제한"
+        return score, label, missing, available_count, total_count
+
+    labels = {
+        "hist_per_avg": "과거 PER", "peer_per_gap": "업종 PER", "operating_cashflow": "영업현금",
+        "free_cashflow": "FCF", "net_cash": "순현금", "dividend_growth_3y": "배당성장",
+        "dividend_consecutive_years": "연속배당", "dividend_cut_flag": "배당삭감", "return_20d": "20거래일",
+        "return_60d": "60거래일",
+    }
+    missing_fields = []
+    for field in fields:
+        raw = row.get(field)
+        try:
+            is_missing = raw is None or pd.isna(raw) or str(raw).strip() in {"", "nan", "None", "N/A"}
+        except Exception:
+            is_missing = raw is None
+        if is_missing:
+            missing_fields.append(labels.get(field, field))
+
+    total_count = len(fields)
+    available_count = total_count - len(missing_fields)
+    score = round(available_count / total_count * 100) if total_count else 0
+    label = "충분" if score >= 85 else "일부 미확인" if score >= 60 else "제한"
+    missing = " · ".join(missing_fields) if missing_fields else "없음"
+    return score, label, missing, available_count, total_count
+
+
 def mobile_candidate_score(row):
     confidence, _, _, _, _ = mobile_confidence(row)
     data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
@@ -1011,7 +1136,48 @@ def mobile_candidate_score(row):
     return raw_score
 
 
-def mobile_score_breakdown(row):
+def mobile_score_breakdown(row, lens="🎯 종합평가"):
+    if lens != "🎯 종합평가":
+        component_rows = {
+            "🏢 좋은 회사": [
+                ("기업 품질", f"{mobile_quality_score(row):.0f}", "ROE, 성장, 부채"),
+                ("현금창출", f"{mobile_cash_generation_score(row):.0f}", "영업현금, FCF, 순현금"),
+                ("안정성", f"{mobile_stability_score(row):.0f}", "재무 부담과 현금 여력"),
+            ],
+            "💰 저평가": [
+                ("저렴함", f"{mobile_cheapness_score(row):.0f}", "양수 PER/PBR, 업종·과거 기준"),
+                ("기업 품질", f"{mobile_quality_score(row):.0f}", "싼 이유가 실적 훼손인지 확인"),
+                ("업종 PER 괴리", format_metric(row.get("peer_per_gap"), "%"), "동일 업종 중앙값 대비"),
+            ],
+            "📈 성장": [
+                ("성장점수", f"{mobile_growth_score(row):.0f}", "매출, 영업이익, EPS, CAGR"),
+                ("매출성장", format_metric(row.get("revenue_growth"), "%"), "최근 외형 성장"),
+                ("영업이익성장", format_metric(row.get("operating_growth"), "%"), "본업 이익 성장"),
+            ],
+            "💸 현금창출": [
+                ("현금창출", f"{mobile_cash_generation_score(row):.0f}", "영업현금, FCF, 순현금"),
+                ("FCF", format_cashflow_amount(row.get("free_cashflow"), row), "투자 후 남는 현금"),
+                ("영업현금", format_cashflow_amount(row.get("operating_cashflow"), row), "본업 현금 유입"),
+            ],
+            "🏦 배당": [
+                ("연배당률", format_metric(row.get("dividend_yield"), "%"), "현재 가격 대비 배당"),
+                ("배당성장", format_metric(row.get("dividend_growth_3y"), "%"), "최근 3년 연속 자료 기준"),
+                ("연속배당", format_metric(row.get("dividend_consecutive_years"), "년", decimals=0), "중간 누락 없는 연속 연도"),
+            ],
+            "🔥 모멘텀": [
+                ("모멘텀", f"{mobile_momentum_score(row):.0f}", "가격 추세와 기술적 위치"),
+                ("20거래일", format_metric(row.get("return_20d"), "%"), "20거래일 종가 수익률"),
+                ("RSI", format_metric(row.get("rsi")), "단기 과열 확인"),
+            ],
+            "🛡 안정성": [
+                ("안정성", f"{mobile_stability_score(row):.0f}", "재무·현금흐름 위험"),
+                ("부채비율", format_metric(row.get("debt_ratio"), "%"), "일반기업 기준"),
+                ("순현금", format_cashflow_amount(row.get("net_cash"), row), "현금에서 총부채 차감"),
+            ],
+        }.get(lens, [])
+        component_rows.append(("최종", f"{mobile_lens_score(row, lens):.0f}", "선택한 렌즈의 후보 정렬 점수"))
+        return component_rows
+
     confidence, _, _, _, _ = mobile_confidence(row)
     data_penalty = 10 if confidence < 40 else 5 if confidence < 60 else 0
     risk_profile = mobile_structural_risk(row)
@@ -1025,8 +1191,8 @@ def mobile_score_breakdown(row):
     rows = [
         ("저렴함", f"+{cheapness:.0f}", "PER, PBR, 과거 평균 대비 할인, 고점 대비 조정"),
         ("기업 품질", f"+{quality:.0f}", "ROE, 매출 성장, 영업이익 성장, 부채 부담"),
-        ("시장/타이밍", f"+{timing:.0f}", "RSI, EPS 성장, CAGR, 외인/기관 관심"),
-        ("주도 모멘텀", f"+{momentum:.0f}", "주도 테마, 200일선, 고점권, 수급 온기"),
+        ("시장/타이밍", f"+{timing:.0f}", "RSI, EPS 성장, CAGR"),
+        ("주도 모멘텀", f"+{momentum:.0f}", "관심 테마, 200일선, 2년 고점권"),
         ("위험 감점", f"-{risk:.0f}", "부채, 수익성, 역성장, 과열"),
         ("데이터 부족", f"-{data_penalty:.0f}", "분석 신뢰도 부족 감점"),
     ]
@@ -1071,6 +1237,8 @@ def mobile_growth_score(row):
 
 
 def mobile_cash_generation_score(row):
+    if not cashflow_metrics_usable(row):
+        return 0
     score = 0
     fcf = clean_number(row.get("free_cashflow"))
     operating_cashflow = clean_number(row.get("operating_cashflow"))
@@ -1114,6 +1282,10 @@ def mobile_dividend_score(row):
     operating_cashflow = clean_number(row.get("operating_cashflow"))
     net_cash = clean_number(row.get("net_cash"))
     debt = clean_number(row.get("debt_ratio"))
+    if not cashflow_metrics_usable(row):
+        fcf = None
+        operating_cashflow = None
+        net_cash = None
 
     yield_cap = 100
     if dividend_yield is not None:
@@ -1182,7 +1354,8 @@ def mobile_stability_score(row):
     score = 55
 
     score -= mobile_risk_penalty(row) * 2
-    if debt is not None:
+    cashflow_usable = cashflow_metrics_usable(row)
+    if debt is not None and not is_financial_business(row):
         if debt <= 80:
             score += 16
         elif debt <= 150:
@@ -1196,11 +1369,11 @@ def mobile_stability_score(row):
             score -= 10
     if operating is not None:
         score += 8 if operating >= 0 else -8
-    if operating_cashflow is not None:
+    if cashflow_usable and operating_cashflow is not None:
         score += 8 if operating_cashflow > 0 else -8
-    if fcf is not None:
+    if cashflow_usable and fcf is not None:
         score += 8 if fcf > 0 else -8
-    if net_cash is not None:
+    if cashflow_usable and net_cash is not None:
         score += 10 if net_cash > 0 else -6
     if confidence < 60:
         score -= 8
@@ -1221,7 +1394,7 @@ def mobile_lens_score(row, lens):
     elif lens == "📈 성장":
         score = mobile_growth_score(row)
     elif lens == "💸 현금창출":
-        score = bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
+        score = 0 if not cashflow_metrics_usable(row) else bounded(mobile_cash_generation_score(row) * 0.7 + mobile_stability_score(row) * 0.3)
     elif lens == "🏦 배당":
         score = mobile_dividend_score(row)
     elif lens == "🔥 모멘텀":
@@ -1233,6 +1406,45 @@ def mobile_lens_score(row, lens):
     if risk_profile["level"] == "hard":
         score = min(score, 35)
     return bounded(score, 0, 100)
+
+
+def mobile_lens_tiebreak_values(row, lens):
+    def value(name, default=-1_000_000.0):
+        number = clean_number(row.get(name))
+        return number if number is not None else default
+
+    def ratio(numerator_name, denominator_name):
+        numerator = clean_number(row.get(numerator_name))
+        denominator = clean_number(row.get(denominator_name))
+        if numerator is None or denominator is None or denominator <= 0:
+            return -1_000_000.0
+        return numerator / denominator * 100
+
+    if lens == "🏢 좋은 회사":
+        return mobile_quality_score(row), mobile_cash_generation_score(row), mobile_stability_score(row)
+    if lens == "💰 저평가":
+        peer_gap = value("peer_per_gap")
+        return mobile_cheapness_score(row), -peer_gap if peer_gap > -999_999 else peer_gap, mobile_quality_score(row)
+    if lens == "📈 성장":
+        growth_values = [value(name, 0) for name in ["revenue_growth", "operating_growth", "eps_growth", "cagr"]]
+        clipped_growth = sum(max(-100, min(100, number)) for number in growth_values)
+        return clipped_growth, value("roe", -1_000_000), mobile_quality_score(row)
+    if lens == "💸 현금창출":
+        if not cashflow_metrics_usable(row):
+            return -1_000_000.0, -1_000_000.0, -1_000_000.0
+        return ratio("free_cashflow", "market_cap"), ratio("operating_cashflow", "revenue"), ratio("net_cash", "market_cap")
+    if lens == "🏦 배당":
+        payout = value("payout_ratio")
+        payout_quality = -abs(payout - 45) if payout > -999_999 else payout
+        return value("dividend_yield"), value("dividend_consecutive_years"), value("dividend_growth_3y") + payout_quality * 0.1
+    if lens == "🔥 모멘텀":
+        rsi = value("rsi")
+        rsi_balance = -abs(rsi - 60) if rsi > -999_999 else rsi
+        return mobile_momentum_score(row), mobile_timing_score(row), rsi_balance
+    if lens == "🛡 안정성":
+        debt = value("debt_ratio")
+        return mobile_stability_score(row), -debt if debt > -999_999 else debt, ratio("net_cash", "market_cap")
+    return mobile_quality_score(row), mobile_cheapness_score(row), -mobile_risk_penalty(row)
 
 
 def mobile_growth_reasons(row):
@@ -1253,6 +1465,8 @@ def mobile_growth_reasons(row):
 
 
 def mobile_cash_reasons(row):
+    if not cashflow_metrics_usable(row):
+        return ["현금흐름 기준 부적합"]
     reasons = []
     fcf = clean_number(row.get("free_cashflow"))
     operating_cashflow = clean_number(row.get("operating_cashflow"))
@@ -1275,13 +1489,14 @@ def mobile_stability_reasons(row):
     net_cash = clean_number(row.get("net_cash"))
     operating_cashflow = clean_number(row.get("operating_cashflow"))
     fcf = clean_number(row.get("free_cashflow"))
-    if debt is not None and debt <= 80:
+    cashflow_usable = cashflow_metrics_usable(row)
+    if debt is not None and debt <= 80 and not is_financial_business(row):
         reasons.append("부채 부담 낮음")
-    if net_cash is not None and net_cash > 0:
+    if cashflow_usable and net_cash is not None and net_cash > 0:
         reasons.append("순현금")
-    if operating_cashflow is not None and operating_cashflow > 0:
+    if cashflow_usable and operating_cashflow is not None and operating_cashflow > 0:
         reasons.append("본업 현금 유입")
-    if fcf is not None and fcf > 0:
+    if cashflow_usable and fcf is not None and fcf > 0:
         reasons.append("FCF 플러스")
     return reasons
 
@@ -1303,9 +1518,9 @@ def mobile_dividend_reasons(row):
         reasons.append("배당 성장")
     if consecutive_years is not None and consecutive_years >= 3:
         reasons.append("연속 배당")
-    if fcf is not None and fcf > 0:
+    if cashflow_metrics_usable(row) and fcf is not None and fcf > 0:
         reasons.append("FCF로 배당 여력")
-    if net_cash is not None and net_cash > 0:
+    if cashflow_metrics_usable(row) and net_cash is not None and net_cash > 0:
         reasons.append("순현금 여력")
     return reasons
 
@@ -1317,11 +1532,11 @@ def mobile_cheap_reasons(row):
     pbr = clean_number(row.get("pbr"))
     peak_diff = clean_number(row.get("peak_diff"))
     diff = clean_number(row.get("diff"))
-    if per is not None and per <= 12:
+    if per is not None and 0 < per <= 12:
         reasons.append("PER 낮음")
-    if per is not None and hist_per is not None and hist_per > 0 and per <= hist_per * 0.8:
+    if per is not None and per > 0 and hist_per is not None and hist_per > 0 and per <= hist_per * 0.8:
         reasons.append("과거 PER 대비 할인")
-    if pbr is not None and pbr <= 1.2:
+    if pbr is not None and 0 < pbr <= 1.2:
         reasons.append("PBR 낮음")
     if peak_diff is not None and peak_diff <= -20:
         reasons.append("고점 대비 조정")
@@ -1336,6 +1551,8 @@ def mobile_good_reasons(row):
     revenue = clean_number(row.get("revenue_growth"))
     operating = clean_number(row.get("operating_growth"))
     debt = clean_number(row.get("debt_ratio"))
+    per = clean_number(row.get("per"))
+    pbr = clean_number(row.get("pbr"))
     if roe is not None and roe >= 15:
         reasons.append("ROE 우수")
     if revenue is not None and revenue > 0:
@@ -1360,7 +1577,7 @@ def mobile_momentum_reasons(row):
     if diff is not None and diff >= 0:
         reasons.append("200일선 위")
     if rsi is not None and 50 <= rsi <= 70:
-        reasons.append("수급 온기")
+        reasons.append("추세 온기")
     return reasons
 
 
@@ -1378,7 +1595,7 @@ def mobile_reason_facts(row, reason_type):
         if pbr is not None:
             facts.append(f"PBR: 현재 {pbr:.2f}")
         if peak_diff is not None:
-            facts.append(f"최고점 대비: {peak_diff:.2f}%")
+            facts.append(f"2년고점 대비: {peak_diff:.2f}%")
     elif reason_type == "good":
         roe = clean_number(row.get("roe"))
         revenue = clean_number(row.get("revenue_growth"))
@@ -1403,7 +1620,7 @@ def mobile_reason_facts(row, reason_type):
         if diff is not None:
             facts.append(f"200일선 대비: {diff:.2f}%")
         if peak_diff is not None:
-            facts.append(f"최고점 대비: {peak_diff:.2f}%")
+            facts.append(f"2년고점 대비: {peak_diff:.2f}%")
         if rsi is not None:
             facts.append(f"RSI: {rsi:.2f}")
         if foreign_supply is not None:
@@ -1435,21 +1652,37 @@ def mobile_warning_reasons(row):
     warnings = []
     risk_profile = mobile_structural_risk(row)
     debt = clean_number(row.get("debt_ratio"))
+    per = clean_number(row.get("per"))
+    pbr = clean_number(row.get("pbr"))
     roe = clean_number(row.get("roe"))
     eps_growth = clean_number(row.get("eps_growth"))
     operating = clean_number(row.get("operating_growth"))
+    revenue = clean_number(row.get("revenue_growth"))
     rsi = clean_number(row.get("rsi"))
     confidence, _, missing, _, _ = mobile_confidence(row)
     if risk_profile["warning"]:
         warnings.append(risk_profile["label"])
-    if debt is not None and debt >= 200:
+    if debt is not None and debt >= 200 and not is_financial_business(row):
         warnings.append("부채비율 높음")
+    if per is not None and per <= 0:
+        warnings.append("적자로 PER 판단 불가")
+    if pbr is not None and pbr <= 0:
+        warnings.append("음의 자기자본 확인")
+    if not cashflow_metrics_usable(row):
+        status = str(row.get("cashflow_status", "") or "").strip()
+        warnings.append(status or "업종상 FCF 비교 부적합")
     if roe is not None and roe < 8:
         warnings.append("수익성 약함")
     if eps_growth is not None and eps_growth < 0:
         warnings.append("EPS 역성장")
     if operating is not None and operating < 0:
         warnings.append("영업이익 둔화")
+    if (
+        (revenue is not None and abs(revenue) > 300)
+        or (operating is not None and abs(operating) > 500)
+        or (eps_growth is not None and abs(eps_growth) > 500)
+    ):
+        warnings.append("성장률 기저효과 확인")
     if rsi is not None and rsi >= 70:
         warnings.append("단기 과열")
     if confidence < 60:
@@ -1535,6 +1768,7 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
     dividend_yield = clean_number(row.get("dividend_yield"))
     payout_ratio = clean_number(row.get("payout_ratio"))
     rsi = clean_number(row.get("rsi"))
+    cashflow_usable = cashflow_metrics_usable(row)
 
     if quality >= 26:
         quality_text, quality_tone = "좋음", "good"
@@ -1577,7 +1811,7 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         [
             f"PER: {format_metric(row.get('per'))} - 이익 대비 가격입니다.",
             f"PBR: {format_metric(row.get('pbr'))} - 자산 대비 가격입니다.",
-            f"최고점대비: {format_metric(row.get('peak_diff'), '%')} - 가격 위치입니다.",
+            f"2년고점대비: {format_metric(row.get('peak_diff'), '%')} - 가격 위치입니다.",
             f"업종PER괴리: {format_metric(row.get('peer_per_gap'), '%')} - 업종 대비 가격입니다.",
         ],
     )
@@ -1589,7 +1823,7 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         [
             f"부채비율: {format_metric(row.get('debt_ratio'), '%')} - 높으면 재무 부담입니다.",
             f"RSI: {format_metric(row.get('rsi'))} - 단기 과열 여부입니다.",
-            f"FCF: {format_metric(row.get('free_cashflow'), '억')} - 마이너스면 현금 유출 부담입니다.",
+            f"FCF: {format_cashflow_amount(row.get('free_cashflow'), row)} - 마이너스면 현금 유출 부담입니다.",
             f"확인사항: {' · '.join(warnings[:3]) if warnings else '강한 경고는 적습니다.'}",
         ],
     )
@@ -1608,9 +1842,9 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         return [
             signal_item("가격이 싼가", price_text, price_tone, cheap_item["summary"], cheap_item["details"]),
             signal_item("업종보다 싼가", "저렴" if clean_number(row.get("peer_per_gap")) is not None and clean_number(row.get("peer_per_gap")) <= -15 else "중립", "good" if clean_number(row.get("peer_per_gap")) is not None and clean_number(row.get("peer_per_gap")) <= -15 else "watch", join_facts(metric_fact(row, "peer_per_gap", "PER괴리", "%"), metric_fact(row, "peer_pbr_gap", "PBR괴리", "%")), [
-                f"업종 평균 PER: {format_metric(row.get('peer_per_avg'))}",
-                f"업종 평균 PBR: {format_metric(row.get('peer_pbr_avg'))}",
-                f"업종 내 표본수: {format_metric(row.get('peer_group_count'), decimals=0)}",
+                f"업종 중앙 PER: {format_metric(row.get('peer_per_avg'))}",
+                f"업종 중앙 PBR: {format_metric(row.get('peer_pbr_avg'))}",
+                f"유효 비교기업: {format_metric(row.get('peer_per_count'), decimals=0)}개",
             ]),
             signal_item("싸 보이는 이유는", caution_text, caution_tone, " · ".join(warnings[:2]) if warnings else "특이 리스크 적음", caution_item["details"]),
         ]
@@ -1621,6 +1855,13 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
             signal_item("지속성이 있나", "양호" if growth >= 65 else "확인", "good" if growth >= 65 else "watch", join_facts(metric_fact(row, "cagr", "CAGR", "%"), metric_fact(row, "roe", "ROE", "%")), [f"CAGR: {format_metric(row.get('cagr'), '%')}", f"ROE: {format_metric(row.get('roe'), '%')}"]),
         ]
     if lens == "💸 현금창출":
+        if not cashflow_usable:
+            status = str(row.get("cashflow_status", "") or "").strip() or "금융업은 일반기업 FCF 기준과 비교하기 어렵습니다."
+            return [
+                signal_item("영업현금은", "판단 보류", "watch", status, [status]),
+                signal_item("FCF는", "판단 보류", "watch", "업종·통화 기준 확인 필요", [status]),
+                signal_item("현금여력은", "전용 기준 필요", "watch", "일반기업 기준 미적용", [status]),
+            ]
         return [
             signal_item("영업현금은", "플러스" if operating_cashflow is not None and operating_cashflow > 0 else "확인 필요", "good" if operating_cashflow is not None and operating_cashflow > 0 else "risk", cashflow_fact(row, "operating_cashflow", "영업현금"), [
                 f"영업현금흐름: {format_cashflow_amount(row.get('operating_cashflow'), row)}",
@@ -1637,18 +1878,29 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
             ]),
         ]
     if lens == "🏦 배당":
+        consecutive_years = clean_number(row.get("dividend_consecutive_years"))
+        cut_status = dividend_cut_status(row.get("dividend_cut_flag"))
+        persistence_confirmed = (
+            consecutive_years is not None
+            and consecutive_years >= 3
+            and payout_ratio is not None
+            and 0 < payout_ratio <= 80
+            and cut_status == "없음"
+        )
+        persistence_text = "양호" if persistence_confirmed else "주의" if cut_status == "있음" else "확인 필요"
+        persistence_tone = "good" if persistence_confirmed else "risk" if cut_status == "있음" else "watch"
         return [
             signal_item("배당 매력은", "높음" if dividend_yield is not None and dividend_yield >= 2.5 else "보통" if dividend_yield is not None and dividend_yield > 0 else "확인 필요", "good" if dividend_yield is not None and dividend_yield >= 2.5 else "watch" if dividend_yield is not None and dividend_yield > 0 else "risk", join_facts(metric_fact(row, "dividend_yield", "연배당률", "%"), metric_fact(row, "dividend_growth_3y", "성장률", "%")), [
                 f"연배당률: {format_metric(row.get('dividend_yield'), '%')}",
                 f"배당성장률: {format_metric(row.get('dividend_growth_3y'), '%')}",
                 f"데이터출처: {row.get('dividend_source') or row.get('dividend_history_source') or 'N/A'}",
             ]),
-            signal_item("지속성은", "양호" if dividend >= 70 else "보통" if dividend >= 45 else "확인", "good" if dividend >= 70 else "watch" if dividend >= 45 else "risk", join_facts(metric_fact(row, "dividend_consecutive_years", "연속", "년"), metric_fact(row, "payout_ratio", "성향", "%")), [
+            signal_item("지속성은", persistence_text, persistence_tone, join_facts(metric_fact(row, "dividend_consecutive_years", "연속", "년"), metric_fact(row, "payout_ratio", "성향", "%")), [
                 f"연속배당연수: {format_metric(row.get('dividend_consecutive_years'), '년', decimals=0)}",
                 f"배당성향: {format_metric(row.get('payout_ratio'), '%')}",
-                f"배당삭감여부: {'있음' if str(row.get('dividend_cut_flag')).strip().lower() in {'true', '1', 'yes'} else '확인 안 됨/없음'}",
+                f"배당삭감여부: {cut_status}",
             ]),
-            signal_item("배당 여력은", "양호" if fcf is not None and fcf > 0 else "확인", "good" if fcf is not None and fcf > 0 else "watch", join_facts(cashflow_fact(row, "free_cashflow", "FCF"), cashflow_fact(row, "operating_cashflow", "영업현금")), [
+            signal_item("배당 여력은", "양호" if cashflow_usable and fcf is not None and fcf > 0 else "확인", "good" if cashflow_usable and fcf is not None and fcf > 0 else "watch", join_facts(cashflow_fact(row, "free_cashflow", "FCF"), cashflow_fact(row, "operating_cashflow", "영업현금")), [
                 f"FCF: {format_cashflow_amount(row.get('free_cashflow'), row)}",
                 f"영업현금흐름: {format_cashflow_amount(row.get('operating_cashflow'), row)}",
                 f"순현금: {format_cashflow_amount(row.get('net_cash'), row)}",
@@ -1656,9 +1908,9 @@ def mobile_signal_cards(row, lens="🎯 종합평가"):
         ]
     if lens == "🔥 모멘텀":
         return [
-            signal_item("추세가 살아있나", "강함" if momentum >= 24 else "보통", "good" if momentum >= 24 else "watch", join_facts(metric_fact(row, "diff", "200일", "%"), metric_fact(row, "peak_diff", "고점대비", "%")), [f"200일괴리율: {format_metric(row.get('diff'), '%')}", f"최고점대비: {format_metric(row.get('peak_diff'), '%')}"]),
+            signal_item("추세가 살아있나", "강함" if momentum >= 24 else "보통", "good" if momentum >= 24 else "watch", join_facts(metric_fact(row, "diff", "200일", "%"), metric_fact(row, "peak_diff", "2년고점대비", "%")), [f"200일괴리율: {format_metric(row.get('diff'), '%')}", f"2년고점대비: {format_metric(row.get('peak_diff'), '%')}"]),
             signal_item("과열은 아닌가", "과열" if rsi is not None and rsi >= 70 else "중립", "risk" if rsi is not None and rsi >= 70 else "good", metric_fact(row, "rsi", "RSI"), [f"RSI: {format_metric(row.get('rsi'))}", "70 이상이면 단기 과열로 봅니다."]),
-            signal_item("주도 테마인가", "확인" if not mobile_theme_tags(row) else "테마 있음", "watch" if not mobile_theme_tags(row) else "good", " · ".join(mobile_theme_tags(row)[:2]) if mobile_theme_tags(row) else "테마 확인 필요", [f"테마: {'/'.join(mobile_theme_tags(row)[:3]) if mobile_theme_tags(row) else '확인 필요'}"]),
+            signal_item("관심 테마가 있나", "확인" if not mobile_theme_tags(row) else "테마 있음", "watch", " · ".join(mobile_theme_tags(row)[:2]) if mobile_theme_tags(row) else "테마 확인 필요", [f"고정 관심테마: {'/'.join(mobile_theme_tags(row)[:3]) if mobile_theme_tags(row) else '해당 없음'}", "테마명 자체는 모멘텀 점수에 가산하지 않습니다."]),
         ]
     if lens == "🛡 안정성":
         return [
@@ -1675,7 +1927,7 @@ def mobile_change_text(row):
     if after_change is not None:
         return f"{after_change:+.2f}%"
     if peak_diff is not None:
-        return f"최고점 대비 {peak_diff:.1f}%"
+        return f"2년 고점 대비 {peak_diff:.1f}%"
     return "등락 N/A"
 
 
@@ -1722,6 +1974,8 @@ def render_mobile_market_notes(market_data):
 def metric_explanation(label, row, value):
     number = clean_number(value)
     if label == "PER":
+        if number is not None and number <= 0:
+            return f"PER {number:.2f}는 이익이 적자이거나 기준 이익이 음수라 저평가 판단에 사용할 수 없습니다. 흑자 전환 가능성과 적자 원인을 먼저 확인하세요."
         hist_per = clean_number(row.get("hist_per_avg"))
         if number is not None and hist_per is not None and hist_per > 0:
             gap = (number / hist_per - 1) * 100
@@ -1747,6 +2001,8 @@ def metric_explanation(label, row, value):
         return "ROE 데이터가 없습니다. 기업이 자본을 얼마나 효율적으로 쓰는지 판단하려면 이 값이 필요합니다."
     if label == "PBR":
         if number is not None:
+            if number <= 0:
+                return f"PBR {number:.2f}는 자기자본이 음수이거나 데이터 확인이 필요한 값입니다. 자산 대비 싸다는 뜻으로 해석하면 안 됩니다."
             if number <= 1:
                 return f"PBR {number:.2f}는 장부가치보다 낮거나 비슷한 가격입니다. 자산 대비 싸 보이지만, 시장이 성장성을 낮게 보는 이유도 확인해야 합니다."
             if number >= 3:
@@ -1803,12 +2059,8 @@ def metric_explanation(label, row, value):
         return "부채비율 데이터가 없습니다. 재무 안전성을 판단하려면 보강이 필요합니다."
     if label == "외인/기관지분":
         if number is not None:
-            if number >= 15:
-                return f"외인/기관지분 {number:.2f}%는 전문 투자자 관심이 있는 편입니다. 다만 최근에 사고 있는지, 팔고 있는지가 더 중요합니다."
-            if number < 5:
-                return f"외인/기관지분 {number:.2f}%는 관심이 낮은 편입니다. 주가를 밀어 올릴 수급 동력이 약할 수 있습니다."
-            return f"외인/기관지분 {number:.2f}%는 보통 수준입니다. 최근 순매수 방향을 추가로 확인하세요."
-        return "수급 데이터가 없습니다. 외국인과 기관의 관심도를 판단하기 어렵습니다."
+            return f"외인/기관 보유율 {number:.2f}%는 현재 보유 비중입니다. 최근 순매수·순매도 흐름을 뜻하지 않으므로 수급 점수에는 사용하지 않습니다."
+        return "외인/기관 보유율 데이터가 없습니다. 최근 수급 흐름과는 별도 지표입니다."
     if label == "200일괴리율":
         if number is not None:
             if number >= 0:
@@ -1820,11 +2072,11 @@ def metric_explanation(label, row, value):
     if label == "최고점대비":
         if number is not None:
             if number <= -30:
-                return f"최고점대비 {number:.2f}%는 고점에서 많이 내려온 상태입니다. 반등 여지는 있지만 하락 이유가 해소됐는지 확인해야 합니다."
+                return f"2년고점대비 {number:.2f}%는 최근 2년 고점에서 많이 내려온 상태입니다. 반등 여지는 있지만 하락 이유가 해소됐는지 확인해야 합니다."
             if number > -10:
-                return f"최고점대비 {number:.2f}%는 고점과 가깝습니다. 모멘텀은 살아 있지만 추격 매수 부담도 있습니다."
-            return f"최고점대비 {number:.2f}%는 적당히 조정받은 상태입니다. 가격 매력과 추세를 함께 볼 구간입니다."
-        return "최고점대비 데이터가 없습니다. 현재 가격 위치를 판단하기 어렵습니다."
+                return f"2년고점대비 {number:.2f}%는 최근 2년 고점과 가깝습니다. 모멘텀은 살아 있지만 추격 매수 부담도 있습니다."
+            return f"2년고점대비 {number:.2f}%는 적당히 조정받은 상태입니다. 가격 매력과 추세를 함께 볼 구간입니다."
+        return "2년고점대비 데이터가 없습니다. 현재 가격 위치를 판단하기 어렵습니다."
     if label == "RSI":
         if number is not None:
             if number >= 70:
@@ -1841,15 +2093,15 @@ def metric_explanation(label, row, value):
 
 
 def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가", secondary_analysis=None):
-    name = escape_html(row.get("name", row.get("symbol", "이름 없음")))
-    symbol = escape_html(row.get("symbol", ""))
-    sector = escape_html(row.get("sector") or row.get("industry") or "업종 확인")
+    name = escape_html(display_text(row.get("name"), display_text(row.get("symbol"), "이름 없음")))
+    symbol = escape_html(display_text(row.get("symbol")))
+    sector = escape_html(display_text(row.get("sector"), display_text(row.get("industry"), "업종 확인")))
     price = escape_html(format_price(row.get("price"), is_kr))
     change_text = escape_html(mobile_change_text(row))
     grade = escape_html(mobile_grade_label(row))
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
     candidate_score = mobile_lens_score(row, lens)
-    confidence_score, confidence_label, _, _, _ = mobile_confidence(row)
+    confidence_score, confidence_label, _, _, _ = mobile_lens_confidence(row, lens)
     reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
     secondary_html = ""
@@ -1884,8 +2136,8 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
         f'<div class="mobile-price-row"><b>{price}</b><span>{change_text}</span></div>'
         f'<div class="mobile-signal-grid">{signal_html}</div>'
         f'<div class="mobile-score-row">'
-        f'<span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>'
-        f"<span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>"
+        f'<span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}점</span>'
+        f"<span>렌즈 근거 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>"
         f"</div>"
         f"{secondary_html}"
         f'<div class="mobile-chip-row">{chip_html}</div>'
@@ -1940,7 +2192,7 @@ def mobile_detail_section_tone(title):
         return "caution"
     if title in ["기업 품질", "성장성"]:
         return "positive"
-    if title in ["가격", "차트 대신 보는 핵심 위치"]:
+    if title in ["가격", "기술적 위치"]:
         return "judgment"
     if title in ["재무", "수급"]:
         return "stability"
@@ -1995,15 +2247,16 @@ def render_mobile_lens_panel(lens):
 
 def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평가"):
     rank = row.get("rank", "")
-    name = row.get("name", row.get("symbol", "이름 없음"))
-    symbol = row.get("symbol", "")
+    name = display_text(row.get("name"), display_text(row.get("symbol"), "이름 없음"))
+    symbol = display_text(row.get("symbol"))
+    sector = display_text(row.get("sector"), display_text(row.get("industry"), "업종 확인"))
     score = format_metric(row.get("score"), decimals=0)
     grade = row.get("grade", "N/A")
     price = format_price(row.get("price"), is_kr)
     cap = format_cap(row.get("market_cap"), is_kr)
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
     candidate_score = mobile_lens_score(row, lens)
-    confidence_score, confidence_label, confidence_missing, available_count, total_count = mobile_confidence(row)
+    confidence_score, confidence_label, confidence_missing, available_count, total_count = mobile_lens_confidence(row, lens)
     risk_profile = mobile_structural_risk(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
@@ -2034,15 +2287,15 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
                 <div class="mobile-detail-top">
                     <div>
                         <div class="mobile-stock-title">{escape_html(name)}</div>
-                        <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(row.get("sector") or row.get("industry") or "업종 확인")}</div>
+                        <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(sector)}</div>
                     </div>
                     <span class="mobile-grade-pill">{escape_html(mobile_grade_label(row))}</span>
                 </div>
                 <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
                 <div class="mobile-detail-signals">{signal_html}</div>
                 <div class="mobile-detail-score">
-                    <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}%</span>
-                    <span>근거 신뢰도 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
+                    <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}점</span>
+                    <span>렌즈 근거 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
                 </div>
             </div>
             """,
@@ -2051,7 +2304,9 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
     else:
         st.markdown('<div class="mobile-inline-detail-anchor"></div>', unsafe_allow_html=True)
 
-    detail_tab_options = ["요약", "상세 수치", "차트", "기업 정보"]
+    if st.session_state.mobile_detail_tab == "차트":
+        st.session_state.mobile_detail_tab = "기술 위치"
+    detail_tab_options = ["요약", "상세 수치", "기술 위치", "기업 정보"]
     if st.session_state.mobile_detail_tab not in detail_tab_options:
         st.session_state.mobile_detail_tab = "요약"
     selected_detail_tab = st.session_state.mobile_detail_tab
@@ -2069,13 +2324,13 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
         render_mobile_section("3. 확인 필요", [
             ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
             ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다."),
-            ("분석 신뢰도", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
+            ("렌즈 근거", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
         ])
     elif selected_detail_tab == "상세 수치":
         st.dataframe(
             pd.DataFrame([
-                {"항목": label, "점수": points, "기준": reason}
-                for label, points, reason in mobile_score_breakdown(row)
+                {"항목": label, "값/점수": points, "기준": reason}
+                for label, points, reason in mobile_score_breakdown(row, lens)
             ]),
             width="stretch",
             hide_index=True,
@@ -2098,19 +2353,20 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
             ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
         ])
-        render_mobile_section("수급", [
-            ("외인/기관지분", format_metric(row.get("foreign_supply"), "%"), metric_explanation("외인/기관지분", row, row.get("foreign_supply"))),
+        ownership_label = "외국인 보유율" if row_is_kr(row) else "기관 보유율"
+        render_mobile_section("보유 현황", [
+            (ownership_label, format_metric(row.get("foreign_supply"), "%"), "보유 비중이며 최근 순매수 수급과는 다른 지표입니다."),
         ])
         render_mobile_section("리스크", [
             ("데이터기준일", str(row.get("data_date", "N/A")), metric_explanation("데이터기준일", row, row.get("data_date", "N/A"))),
             ("가격기준", str(row.get("price_basis", "N/A")), metric_explanation("가격기준", row, row.get("price_basis", "N/A"))),
             ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
         ])
-    elif selected_detail_tab == "차트":
-        render_mobile_section("차트 대신 보는 핵심 위치", [
-            ("현재 가격", price, "모바일에서는 차트보다 위치 판단을 먼저 보여줍니다."),
+    elif selected_detail_tab == "기술 위치":
+        render_mobile_section("기술적 위치", [
+            ("현재 가격", price, "최근 종가 흐름을 기준으로 현재 위치를 봅니다."),
             ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
-            ("최고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
+            ("2년고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
             ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
         ])
     else:
@@ -2158,8 +2414,6 @@ def select_mobile_lens(lens):
         return
     st.session_state.mobile_investment_lens = lens
     st.session_state.last_mobile_investment_lens = lens
-    st.session_state.mobile_visible_count = 5
-    st.session_state.mobile_count_choice = "5개"
     st.session_state.mobile_selected_symbol = None
     st.session_state.mobile_evidence_symbol = None
     st.rerun()
@@ -3436,7 +3690,7 @@ with st.sidebar:
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
 st.header(f"🎯 {get_market_text()} 분석")
-st.caption("1단계 좋은 회사 후보 → 2단계 시장환경 점검 → 3단계 좋은 회사인데 왜 안 오르지?")
+st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 시장환경 → 3단계 부진 원인")
 render_top_choice_panel()
 
 st.divider()
@@ -3444,21 +3698,53 @@ st.subheader("1단계: 좋은 회사 후보 찾기")
 
 if st.session_state.data:
     df = analyzer.normalize_dividend_yield_metrics(pd.DataFrame(st.session_state.data))
+    df = analyzer.normalize_financial_sanity_metrics(df)
     df = analyzer.sort_by_market_cap(df)
     st.session_state.data = df.to_dict(orient="records")
     if "selected_symbol" not in st.session_state and not df.empty:
         st.session_state.selected_symbol = df.iloc[0]["symbol"]
     is_kr = st.session_state.selected_market.startswith("한국")
+
+    current_lens = st.session_state.mobile_investment_lens
+    display_source_df = df
+    if st.session_state.table_view_mode == "PC 보기":
+        if is_mobile_situation_lens(current_lens):
+            display_source_df, pc_lens_analyses = apply_mobile_situation_lens(df, current_lens, get_market_text())
+        else:
+            display_source_df = sort_mobile_candidates(df, current_lens)
+            display_source_df = filter_mobile_candidates_for_lens(display_source_df, current_lens)
+            pc_lens_analyses = {}
+        display_source_df = display_source_df.copy().reset_index(drop=True)
+        display_source_df["lens_rank"] = range(1, len(display_source_df) + 1)
+        if is_mobile_situation_lens(current_lens):
+            display_source_df["lens_score"] = display_source_df["symbol"].astype(str).map(
+                lambda symbol: round(pc_lens_analyses.get(symbol, {}).get("score", 0))
+            )
+        else:
+            display_source_df["lens_score"] = display_source_df.apply(
+                lambda row: round(mobile_lens_score(row.to_dict(), current_lens)), axis=1
+            )
     
     # config.py의 TABLE_COLUMNS 기반 한글 컬럼명 매핑
     col_map = {col["id"]: col["text"] for col in TABLE_COLUMNS}
-    df_renamed = df.rename(columns=col_map)
+    df_renamed = display_source_df.rename(columns=col_map)
      
+    lens_extra_ids = {
+        "🏢 좋은 회사": ["revenue_growth", "operating_growth", "debt_ratio", "operating_margin"],
+        "💰 저평가": ["hist_per_avg", "peer_per_gap", "peer_pbr_gap"],
+        "📈 성장": ["revenue_growth", "operating_growth", "eps_growth", "cagr"],
+        "💸 현금창출": ["operating_cashflow", "free_cashflow", "net_cash", "operating_margin"],
+        "🏦 배당": ["dividend_yield", "dividend_growth_3y", "dividend_consecutive_years", "payout_ratio"],
+        "🔥 모멘텀": ["return_20d", "return_60d", "diff", "rsi"],
+        "🛡 안정성": ["debt_ratio", "operating_cashflow", "free_cashflow", "net_cash"],
+    }.get(current_lens, [])
     full_ids = [
-        "name", "market_cap", "price",
-        "per", "pbr", "roe", "eps_growth", "cagr", "peg", "diff", "peak_diff",
+        "lens_rank", "lens_score", "name", "market_cap", "price",
+        *lens_extra_ids,
+        "per", "pbr", "roe", "peak_diff",
         "data_date", "price_basis", "price_time", "grade", "rank", "symbol"
     ]
+    full_ids = list(dict.fromkeys(full_ids))
     if not is_kr:
         full_ids[3:3] = ["after_market_price", "after_market_change_pct"]
 
@@ -3471,9 +3757,9 @@ if st.session_state.data:
     df_display = df_renamed[display_cols]
     
     # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
-    numeric_ids = ["rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply", 
+    numeric_ids = ["lens_rank", "lens_score", "rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply",
                    "market_cap", "price", "after_market_price", "after_market_change_pct", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
-                   "revenue_growth", "operating_growth", "debt_ratio"]
+                   "revenue_growth", "operating_growth", "debt_ratio", "operating_margin", "return_20d", "return_60d"]
     numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
     
     # None 문자열이나 실제 None 객체를 numpy NaN으로 통일하여 결측치 처리기(na_rep)가 작동하게 함
@@ -3515,7 +3801,12 @@ if st.session_state.data:
     if market_cap_col and market_cap_col in df_display.columns:
         df_display[market_cap_col] = df_display[market_cap_col].apply(format_market_cap)
 
-    for center_col in ["순위", "종합점수", "등급"]:
+    cash_display_row = {"symbol": "000000" if is_kr else "US"}
+    for cash_col in ["영업현금", "FCF", "순현금"]:
+        if cash_col in df_display.columns:
+            df_display[cash_col] = df_display[cash_col].apply(lambda value: format_cashflow_amount(value, cash_display_row))
+
+    for center_col in ["렌즈순위", "렌즈점수", "시장순위", "종합점수", "등급"]:
         if center_col in df_display.columns:
             df_display[center_col] = df_display[center_col].apply(
                 lambda v: "" if pd.isna(v) else f"{int(v)}" if isinstance(v, (int, float)) and float(v).is_integer() else str(v)
@@ -3557,15 +3848,15 @@ if st.session_state.data:
         styled_df = style_method(highlight_score, subset=["종합점수"])
         
     # 색상을 입힐 핵심 지표 컬럼
-    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "최고점대비(%)", "ROE(%)", "매출성장률(%)", "영업이익성장률(%)", "애프터등락률(%)"] if c in df_display.columns]
+    color_cols = [c for c in ["EPS성장률(%)", "200일괴리율(%)", "2년고점대비(%)", "ROE(%)", "매출성장률(%)", "영업이익성장률(%)", "애프터등락률(%)"] if c in df_display.columns]
     if color_cols:
         styled_df = style_method(color_kr_style, subset=color_cols)
 
-    center_cols = [c for c in ["종합점수", "등급", "순위", "티커"] if c in df_display.columns]
+    center_cols = [c for c in ["렌즈순위", "렌즈점수", "종합점수", "등급", "시장순위", "티커"] if c in df_display.columns]
     if center_cols:
         styled_df = styled_df.set_properties(subset=center_cols, **{"text-align": "center"})
 
-    header_center_cols = ["기준가격", "현재PER", "ROE(%)", "최고점대비(%)"]
+    header_center_cols = ["기준가격", "현재PER", "ROE(%)", "2년고점대비(%)"]
     header_styles = [
         {
             "selector": f"th.col_heading.level0.col{idx}",
@@ -3597,11 +3888,11 @@ if st.session_state.data:
                 col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="$%,.2f")
         elif col_id == "market_cap":
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text)
-        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio", "after_market_change_pct"]:
+        elif col_id in ["eps_growth", "roe", "peak_diff", "diff", "cagr", "foreign_supply", "us_10y_bond", "revenue_growth", "operating_growth", "debt_ratio", "operating_margin", "return_20d", "return_60d", "after_market_change_pct"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f%%")
         elif col_id in ["hist_per_avg", "per", "pbr", "peg", "rsi"]:
             col_config[actual_col_text] = st.column_config.NumberColumn(actual_col_text, format="%.2f")
-        elif col_id in ["rank", "score"]:
+        elif col_id in ["lens_rank", "lens_score", "rank", "score"]:
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text, alignment="center")
         elif col_id in ["grade", "symbol"]:
             col_config[actual_col_text] = st.column_config.TextColumn(actual_col_text, alignment="center")
@@ -3636,7 +3927,11 @@ if st.session_state.data:
         else:
             excluded_mobile_df = pd.DataFrame()
         total_candidates = len(mobile_df)
-        selected_count = st.session_state.mobile_visible_count
+        selected_count = (
+            total_candidates
+            if st.session_state.mobile_count_choice == "전체"
+            else st.session_state.mobile_visible_count
+        )
         visible_count = min(selected_count, total_candidates)
 
         visible_mobile_df = mobile_df.head(visible_count)
@@ -3707,7 +4002,7 @@ if st.session_state.data:
                 render_mobile_stock_card(row_dict, is_kr, show_header=False, lens=current_lens)
                 with st.container(key=f"mobile_fixed_close_wrap_{symbol}_{list_index}"):
                     tab_cols = st.columns(5)
-                    fixed_tabs = [("요약", "요약", "summary"), ("수치", "상세 수치", "numbers"), ("차트", "차트", "chart"), ("정보", "기업 정보", "info")]
+                    fixed_tabs = [("요약", "요약", "summary"), ("수치", "상세 수치", "numbers"), ("위치", "기술 위치", "chart"), ("정보", "기업 정보", "info")]
                     for tab_col, (short_label, tab_label, tone_key) in zip(tab_cols[:4], fixed_tabs):
                         active_key_part = "active_" if st.session_state.mobile_detail_tab == tab_label else ""
                         with tab_col:

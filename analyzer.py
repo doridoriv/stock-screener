@@ -4,6 +4,7 @@ import time
 import random
 import io
 import queue
+import hashlib
 from datetime import datetime, time as datetime_time, timedelta
 import concurrent.futures
 from zoneinfo import ZoneInfo
@@ -65,8 +66,10 @@ def download_prices_robust(yf_symbols, start_date):
         time.sleep(random.uniform(MIN_SLEEP, MAX_SLEEP))
     if not price_series:
         raise RuntimeError("All price fetches failed.")
-    closes = pd.concat(price_series, axis=1)
-    closes = closes.ffill().bfill()
+    closes = pd.concat(price_series, axis=1).sort_index()
+    # Keep pre-listing periods empty. Backfilling would fabricate price history
+    # for newly listed stocks and distort 200-day averages and drawdowns.
+    closes = closes.ffill().dropna(how="all")
     print(f"[OK] FinanceDataReader fetched {len(closes.columns)} symbols.")
     return closes
 
@@ -181,6 +184,54 @@ def get_latest_market_date(market: str) -> str:
 def _get_daily_cache_path(market_text: str, date_str: str) -> str:
     return os.path.join(CACHE_DIR, f"snapshot_{market_text}_{date_str}.csv")
 
+
+REQUIRED_CACHE_COLUMNS = {"symbol", "name", "price", "data_date"}
+
+
+def validate_cache_dataframe(df: pd.DataFrame, expected_rows: int = FIXED_TOP_N) -> tuple[bool, list[str]]:
+    """Validate a snapshot before it is served or committed."""
+    reasons = []
+    if df is None or df.empty:
+        return False, ["empty cache"]
+
+    missing_columns = sorted(REQUIRED_CACHE_COLUMNS - set(df.columns))
+    if missing_columns:
+        reasons.append(f"missing columns: {', '.join(missing_columns)}")
+
+    if expected_rows and len(df) < expected_rows:
+        reasons.append(f"row count {len(df)} < {expected_rows}")
+
+    if "symbol" in df.columns:
+        symbols = df["symbol"].fillna("").astype(str).str.strip()
+        unique_symbols = symbols[symbols != ""].nunique()
+        if expected_rows and unique_symbols < expected_rows:
+            reasons.append(f"unique symbols {unique_symbols} < {expected_rows}")
+
+    if "price" in df.columns:
+        valid_prices = pd.to_numeric(df["price"], errors="coerce").gt(0)
+        minimum_valid = max(1, int(len(df) * 0.95))
+        if int(valid_prices.sum()) < minimum_valid:
+            reasons.append(f"valid prices {int(valid_prices.sum())} < {minimum_valid}")
+
+    if "data_date" in df.columns:
+        dates = df["data_date"].dropna().astype(str).str.strip()
+        if dates.empty:
+            reasons.append("data date missing")
+        elif dates.nunique() != 1:
+            reasons.append("mixed data dates")
+
+    return not reasons, reasons
+
+
+def _read_valid_cache(path: str, expected_rows: int = FIXED_TOP_N) -> pd.DataFrame | None:
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return None
+    valid, _ = validate_cache_dataframe(df, expected_rows=expected_rows)
+    return df if valid else None
+
+
 def find_latest_valid_cache(market_text: str):
     """
     가장 최근 거래일의 캐시가 있으면 가져오고, 없으면 최대 8일 전 캐시까지 탐색합니다.
@@ -188,15 +239,15 @@ def find_latest_valid_cache(market_text: str):
     target_date_str = get_latest_market_date(market_text)
     file_path = _get_daily_cache_path(market_text, target_date_str)
     
-    if os.path.exists(file_path):
-        return file_path
-        
+    candidates = [file_path]
     # 공휴일이나 휴장일 대비 이전 8일간의 캐시 역추적
     for i in range(1, 9):
         check_date = datetime.strptime(target_date_str, "%Y%m%d") - timedelta(days=i)
-        fallback_path = _get_daily_cache_path(market_text, check_date.strftime("%Y%m%d"))
-        if os.path.exists(fallback_path):
-            return fallback_path
+        candidates.append(_get_daily_cache_path(market_text, check_date.strftime("%Y%m%d")))
+
+    for candidate in candidates:
+        if os.path.exists(candidate) and _read_valid_cache(candidate) is not None:
+            return candidate
     return None
 
 def load_us_market_cap_cache():
@@ -217,6 +268,66 @@ def sort_by_market_cap(df: pd.DataFrame) -> pd.DataFrame:
     out = out.reset_index(drop=True)
     out["rank"] = range(1, len(out) + 1)
     return out
+
+
+def normalize_financial_sanity_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Quarantine clearly incompatible Korean cash-flow units in cached data."""
+    if df is None or df.empty:
+        return df
+
+    out = df.copy()
+    cash_fields = ["operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash"]
+    for field in ["revenue", *cash_fields]:
+        if field not in out.columns:
+            out[field] = np.nan
+
+    symbols = out.get("symbol", pd.Series("", index=out.index)).fillna("").astype(str).str.zfill(6)
+    is_korean_symbol = symbols.str.fullmatch(r"\d{6}")
+    revenue = pd.to_numeric(out["revenue"], errors="coerce").abs()
+    cash_scale = pd.concat(
+        [pd.to_numeric(out[field], errors="coerce").abs() for field in ["operating_cashflow", "cash", "total_debt"]],
+        axis=1,
+    ).max(axis=1)
+    scale_mismatch = (
+        is_korean_symbol
+        & revenue.ge(1_000)
+        & cash_scale.gt(0)
+        & cash_scale.div(revenue.replace(0, np.nan)).lt(0.001)
+    )
+
+    if "cashflow_status" not in out.columns:
+        out["cashflow_status"] = ""
+    else:
+        out["cashflow_status"] = out["cashflow_status"].fillna("").astype(str)
+    out.loc[scale_mismatch, "cashflow_status"] = "통화 단위 확인 필요"
+    out.loc[scale_mismatch, cash_fields] = np.nan
+    return out
+
+
+def market_date_from_prices(closes: pd.DataFrame) -> str | None:
+    if closes is None or closes.empty:
+        return None
+    parsed = pd.to_datetime(pd.Index(closes.index), errors="coerce")
+    parsed = parsed[~pd.isna(parsed)]
+    if len(parsed) == 0:
+        return None
+    return pd.Timestamp(parsed.max()).strftime("%Y%m%d")
+
+
+def _period_return(closes: pd.DataFrame, current_prices: pd.Series, sessions: int) -> pd.Series:
+    result = pd.Series(np.nan, index=current_prices.index, dtype=float)
+    if closes is None or len(closes) <= sessions:
+        return result
+    base = pd.to_numeric(closes.shift(sessions).iloc[-1], errors="coerce")
+    current = pd.to_numeric(current_prices, errors="coerce")
+    valid = base.gt(0) & current.notna()
+    result.loc[valid] = ((current.loc[valid] - base.loc[valid]) / base.loc[valid] * 100).round(2)
+    return result
+
+
+def _stable_refresh_bucket(symbol: str, buckets: int = 5) -> int:
+    digest = hashlib.sha1(str(symbol).encode("utf-8")).hexdigest()
+    return int(digest[:8], 16) % buckets
 
 def merge_missing_fields(base: dict, supplement: dict) -> dict:
     for key, value in supplement.items():
@@ -316,18 +427,30 @@ def add_peer_comparison_metrics(df: pd.DataFrame) -> pd.DataFrame:
     valid_pbr = out["pbr"].where(out["pbr"] > 0) if "pbr" in out.columns else pd.Series(np.nan, index=out.index)
     valid_roe = out["roe"] if "roe" in out.columns else pd.Series(np.nan, index=out.index)
 
-    out["peer_per_avg"] = valid_per.groupby(out["_peer_group"]).transform("mean").round(2)
-    out["peer_pbr_avg"] = valid_pbr.groupby(out["_peer_group"]).transform("mean").round(2)
-    out["peer_roe_avg"] = valid_roe.groupby(out["_peer_group"]).transform("mean").round(2)
+    def leave_one_out_median(values: pd.Series) -> tuple[pd.Series, pd.Series]:
+        medians = pd.Series(np.nan, index=out.index, dtype=float)
+        counts = pd.Series(0, index=out.index, dtype=int)
+        for _, group_indexes in out.groupby("_peer_group").groups.items():
+            group_values = values.loc[group_indexes]
+            for row_index in group_indexes:
+                peers = group_values.drop(index=row_index, errors="ignore").dropna()
+                counts.at[row_index] = len(peers)
+                if len(peers) >= 3:
+                    medians.at[row_index] = float(peers.median())
+        return medians.round(2), counts
+
+    out["peer_per_avg"], out["peer_per_count"] = leave_one_out_median(valid_per)
+    out["peer_pbr_avg"], out["peer_pbr_count"] = leave_one_out_median(valid_pbr)
+    out["peer_roe_avg"], out["peer_roe_count"] = leave_one_out_median(valid_roe)
     out["peer_group_count"] = out.groupby("_peer_group")["_peer_group"].transform("count")
 
     out["peer_per_gap"] = np.where(
-        (out["peer_group_count"] >= 3) & (out["peer_per_avg"] > 0) & (out["per"] > 0),
+        (out["peer_per_count"] >= 3) & (out["peer_per_avg"] > 0) & (out["per"] > 0),
         ((out["per"] - out["peer_per_avg"]) / out["peer_per_avg"] * 100).round(2),
         np.nan,
     )
     out["peer_pbr_gap"] = np.where(
-        (out["peer_group_count"] >= 3) & (out["peer_pbr_avg"] > 0) & (out["pbr"] > 0),
+        (out["peer_pbr_count"] >= 3) & (out["peer_pbr_avg"] > 0) & (out["pbr"] > 0),
         ((out["pbr"] - out["peer_pbr_avg"]) / out["peer_pbr_avg"] * 100).round(2),
         np.nan,
     )
@@ -854,12 +977,10 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         cache_file = _get_daily_cache_path(market_text, target_date_str)
         
         if not force_scrape and os.path.exists(cache_file):
-            df_cached = pd.read_csv(cache_file)
-            if len(df_cached) >= top_n:
-                df_normalized = normalize_dividend_yield_metrics(df_cached)
-                if save_cache and not df_normalized.equals(df_cached):
-                    df_normalized.to_csv(cache_file, index=False, encoding="utf-8-sig")
-                df_cached = df_normalized
+            df_cached = _read_valid_cache(cache_file, expected_rows=top_n)
+            if df_cached is not None:
+                df_cached = normalize_dividend_yield_metrics(df_cached)
+                df_cached = normalize_financial_sanity_metrics(df_cached)
                 df_cached = sort_by_market_cap(df_cached).head(top_n)
                 app_queue.put({"type": "data", "data": df_cached.to_dict(orient='records')})
                 app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 캐시 데이터 로드 완료!"})
@@ -913,6 +1034,24 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         
         closes = download_prices_robust(yf_symbols, start_date)
 
+        actual_market_date = market_date_from_prices(closes)
+        if actual_market_date:
+            target_date_str = actual_market_date
+            cache_file = _get_daily_cache_path(market_text, target_date_str)
+
+        # On exchange holidays the calendar-derived date can be newer than the
+        # last real close. Reuse that trading day's validated cache instead of
+        # publishing a duplicate snapshot under a false date.
+        if not force_scrape and os.path.exists(cache_file):
+            df_cached = _read_valid_cache(cache_file, expected_rows=top_n)
+            if df_cached is not None:
+                df_cached = normalize_dividend_yield_metrics(df_cached)
+                df_cached = normalize_financial_sanity_metrics(df_cached)
+                df_cached = sort_by_market_cap(df_cached).head(top_n)
+                app_queue.put({"type": "data", "data": df_cached.to_dict(orient="records")})
+                app_queue.put({"type": "done", "text": f"[OK] [{market_text}] {target_date_str} 실제 거래일 캐시 재사용"})
+                return
+
         current_prices = closes.iloc[-1].copy()
         is_kr_market = market in ["한국(코스피)", "한국(코스닥)", "한국"]
         price_sources = pd.Series("daily_close", index=current_prices.index)
@@ -958,6 +1097,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         diff_val = ((current_prices - ma200) / ma200) * 100
         peak = closes.max()
         peak_diff = ((current_prices - peak) / peak) * 100
+        return_20d = _period_return(closes, current_prices, 20)
+        return_60d = _period_return(closes, current_prices, 60)
 
         delta = closes.diff()
         gain = delta.clip(lower=0).rolling(window=14).mean()
@@ -972,6 +1113,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             'peak': peak, 
             'peak_diff': peak_diff, 
             'rsi': rsi,
+            'return_20d': return_20d,
+            'return_60d': return_60d,
             'price_source': price_sources,
             'price_basis': price_basis,
             'price_time': price_times,
@@ -998,7 +1141,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
                 for _, row in prev_df.iterrows():
                     sym = row[key_col]
-                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "dividend_history_years", "dividend_history_source", "sector", "industry", "peer_per_avg", "peer_pbr_avg", "peer_roe_avg", "peer_group_count", "peer_per_gap", "peer_pbr_gap", "analyst_buy_ratio", "consensus_revision", "target_mean", "target_high", "target_low", "target_upside", "earnings_surprise_pct", "finnhub_source"]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "cashflow_status", "financial_currency", "fundamental_refreshed_at", "dart_year", "dart_fs_div", "dart_report_code", "dart_source", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "dividend_history_years", "dividend_history_source", "sector", "industry", "peer_per_avg", "peer_pbr_avg", "peer_roe_avg", "peer_group_count", "peer_per_count", "peer_pbr_count", "peer_roe_count", "peer_per_gap", "peer_pbr_gap", "analyst_buy_ratio", "consensus_revision", "target_mean", "target_high", "target_low", "target_upside", "earnings_surprise_pct", "finnhub_source"]
                     data_dict = {}
                     for f in fund_fields:
                         val = row.get(f)
@@ -1009,13 +1152,17 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             except Exception as e:
                 print(f"[WARN] Failed to load previous cache for fallback: {e}")
         
+        refresh_buckets = 5
+        refresh_bucket = datetime.strptime(target_date_str, "%Y%m%d").date().toordinal() % refresh_buckets
+
         def process_fundamental(sym):
             if stop_requested_func():
                 return None
             
             # force_scrape가 아니며 이전 캐시에 6개 이상 채워진 데이터가 있는 경우 스킵(차단 원천 우회)
             use_cached = False
-            if not force_scrape and sym in prev_fund_map and len(prev_fund_map[sym]) >= 6:
+            refresh_due = _stable_refresh_bucket(sym, refresh_buckets) == refresh_bucket
+            if not force_scrape and not refresh_due and sym in prev_fund_map and len(prev_fund_map[sym]) >= 6:
                 use_cached = True
                 
             if use_cached:
@@ -1031,7 +1178,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "dividend_consecutive_years": np.nan, "dividend_cut_flag": "", "sector": "",
                     "industry": "", "analyst_buy_ratio": np.nan, "consensus_revision": np.nan,
                     "target_mean": np.nan, "target_high": np.nan, "target_low": np.nan,
-                    "target_upside": np.nan, "earnings_surprise_pct": np.nan, "finnhub_source": ""
+                    "target_upside": np.nan, "earnings_surprise_pct": np.nan, "finnhub_source": "",
+                    "cashflow_status": "", "financial_currency": "", "fundamental_refreshed_at": "",
+                    "dart_year": np.nan, "dart_fs_div": "", "dart_report_code": "", "dart_source": ""
                 }
                 data.update(prev_fund_map[sym])
                 if 'cagr' in prev_fund_map[sym] and pd.notna(prev_fund_map[sym]['cagr']):
@@ -1047,6 +1196,8 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 data = merge_missing_fields(data, opendart_client.fetch_dart_metrics(sym))
             else:
                 data = fetch_us_fundamental_yfinance(sym)
+
+            data["fundamental_refreshed_at"] = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
                 
             # 수집 실패 시 이전 캐시로 필드별 개별 보완
             if sym in prev_fund_map:
@@ -1090,6 +1241,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 df = df.drop(columns=[left_col, right_col], errors="ignore")
         df = supplemental_data.merge_supplemental_metrics(df, market_text)
         df = normalize_dividend_yield_metrics(df)
+        df = normalize_financial_sanity_metrics(df)
         df = add_peer_comparison_metrics(df)
         
         app_queue.put({"type": "progress", "value": 85, "text": "가치 및 성장성 스코어링 모형 구동..."})
@@ -1122,9 +1274,15 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         df = sort_by_market_cap(df)
 
         # 6. 저장 및 UI 전송
+        valid_cache, validation_reasons = validate_cache_dataframe(df, expected_rows=top_n)
+        if not valid_cache:
+            raise RuntimeError(f"cache validation failed: {'; '.join(validation_reasons)}")
+
         final_data = df.to_dict(orient='records')
         if save_cache:
-            df.to_csv(cache_file, index=False, encoding="utf-8-sig")
+            temp_cache_file = f"{cache_file}.tmp"
+            df.to_csv(temp_cache_file, index=False, encoding="utf-8-sig")
+            os.replace(temp_cache_file, cache_file)
         
         app_queue.put({"type": "data", "data": final_data})
         app_queue.put({"type": "done", "text": "[OK] 스크리닝 성공 및 로컬 데이터베이스 덤프 완료!"})

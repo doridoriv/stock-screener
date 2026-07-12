@@ -1,7 +1,7 @@
-streamlit
-pandas
-numpy
-yfinance
-finance-datareader
-requests
-lxml
+streamlit==1.58.0
+pandas==3.0.3
+numpy==2.4.3
+yfinance==1.4.1
+finance-datareader==0.9.202
+requests==2.34.2
+lxml==6.0.2
