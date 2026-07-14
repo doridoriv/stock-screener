@@ -19,6 +19,12 @@ MAX_SLEEP = 1.5
 US_MAX_WORKERS = 1  # Number of parallel workers for US market (configurable)
 FIXED_TOP_N = 100
 
+# Retired or malformed US symbols seen in the cached market-cap universe.
+US_TICKER_ALIASES = {
+    "ABV": "ABBV",
+    "MMC": "MRSH",
+}
+
 # User-Agent 풀 (데이터 제공처의 차단을 피하기 위해 사용)
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -38,7 +44,7 @@ DEFAULT_US_TICKERS = [
     "AMAT", "HON", "AMGN", "UNP", "GS", "PFE", "RTX", "LOW", "NEE", "SPGI",
     "INTU", "COP", "ABBV", "LMT", "MDT", "SYK", "EL",
     "BKNG", "ISRG", "BLK", "TJX", "VRTX", "C", "SCHW", "DE", "ADP", "PLTR",
-    "MDLZ", "ADI", "LRCX", "CB", "MMC", "GILD", "PANW", "AMT", "KLAC", "SO",
+    "MDLZ", "ADI", "LRCX", "CB", "MRSH", "GILD", "PANW", "AMT", "KLAC", "SO",
     "MO", "DUK", "BSX", "CI", "ZTS", "ICE", "CME", "EQIX", "SHW", "MCO",
     "PH", "REGN", "WM", "CDNS", "SNPS", "ORLY", "NOC", "USB", "PNC", "APD",
     "EOG", "AON", "ITW", "CL", "TGT", "FDX", "EMR", "MAR", "ROP", "HCA",
@@ -54,7 +60,8 @@ US_NAME_MAP = {
     "MA": "마스터카드", "HD": "홈디포", "PG": "프록터앤갬블", "COST": "코스트코",
     "ORCL": "오라클", "NFLX": "넷플릭스", "BAC": "뱅크오브아메리카", "CVX": "쉐브론",
     "AMD": "AMD", "KO": "코카콜라", "PEP": "펩시코", "ADBE": "어도비",
-    "CRM": "세일즈포스", "CSCO": "시스코 시스템즈"
+    "CRM": "세일즈포스", "CSCO": "시스코 시스템즈", "ABBV": "애브비",
+    "MRSH": "마쉬"
 }
 
 # 기존 평가 가중치 스키마 보존
@@ -124,6 +131,8 @@ TABLE_COLUMNS = [
     {"id": "dividend_consecutive_years", "text": "연속배당연수", "anchor": "center"},
     {"id": "peer_per_gap", "text": "업종PER괴리(%)", "anchor": "center"},
     {"id": "peer_pbr_gap", "text": "업종PBR괴리(%)", "anchor": "center"},
+    {"id": "analyst_opinion_score", "text": "투자의견(5점)", "anchor": "center"},
+    {"id": "analyst_opinion_count", "text": "의견수", "anchor": "center"},
     {"id": "analyst_buy_ratio", "text": "매수의견비율(%)", "anchor": "center"},
     {"id": "target_upside", "text": "목표가여력(%)", "anchor": "center"},
     {"id": "earnings_surprise_pct", "text": "실적서프라이즈(%)", "anchor": "center"},

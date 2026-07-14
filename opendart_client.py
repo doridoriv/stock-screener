@@ -377,9 +377,12 @@ def _statement_metrics(rows):
         "dart_source": "OpenDART",
     }
     currencies = sorted({_row_currency(row) for row in rows if _row_currency(row)})
-    if currencies:
+    has_krw_rows = any(_is_krw_row(row) for row in rows)
+    if has_krw_rows:
+        metrics["financial_currency"] = "KRW"
+    elif currencies:
         metrics["financial_currency"] = "/".join(currencies)
-    if any(not _is_krw_row(row) for row in rows):
+    if currencies and not has_krw_rows:
         metrics["cashflow_status"] = "외화 공시 환산 필요"
     if pd.notna(cash) and pd.notna(total_debt):
         metrics["net_cash"] = round(cash - total_debt, 2)
@@ -429,8 +432,27 @@ def fetch_dart_metrics(stock_code: str, year: int | None = None) -> dict:
                 metrics["dart_year"] = target_year
                 metrics["dart_fs_div"] = fs_div
                 metrics["dart_report_code"] = report_code
+                numeric_fields = [
+                    "revenue",
+                    "operating_income",
+                    "net_income",
+                    "cash",
+                    "total_debt",
+                    "operating_cashflow",
+                    "free_cashflow",
+                ]
+                has_usable_statement = any(pd.notna(metrics.get(field)) for field in numeric_fields)
+                if not has_usable_statement:
+                    if metrics.get("cashflow_status") and "cashflow_status" not in best_metrics:
+                        best_metrics["cashflow_status"] = metrics["cashflow_status"]
+                        best_metrics["financial_currency"] = metrics.get("financial_currency", "")
+                    continue
+
+                if not metrics.get("cashflow_status"):
+                    best_metrics.pop("cashflow_status", None)
+                    best_metrics.pop("financial_currency", None)
                 cleaned = {k: v for k, v in metrics.items() if not (isinstance(v, float) and pd.isna(v))}
-                best_metrics.update({k: v for k, v in cleaned.items() if k not in best_metrics})
+                best_metrics.update({key: value for key, value in cleaned.items() if key not in best_metrics})
                 if all(k in best_metrics for k in ["cash", "operating_cashflow", "free_cashflow"]):
                     return best_metrics
         if best_metrics:

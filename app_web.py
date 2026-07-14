@@ -1,7 +1,8 @@
 import os
 import html
 import glob
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
@@ -265,7 +266,12 @@ def get_cache_status():
         counts = df["price_basis"].dropna().astype(str).value_counts()
         if not counts.empty:
             price_basis = " / ".join([f"{idx} {val}" for idx, val in counts.items()])
-    price_time = df["price_time"].dropna().iloc[0] if "price_time" in df.columns and df["price_time"].notna().any() else "미지정"
+    price_time = "미지정"
+    if "price_time" in df.columns and df["price_time"].notna().any():
+        price_times = df["price_time"].dropna().astype(str).str.strip()
+        modes = price_times[price_times != ""].mode()
+        if not modes.empty:
+            price_time = modes.iloc[0]
     file_time = datetime.fromtimestamp(os.path.getmtime(cache_file)).strftime("%Y-%m-%d %H:%M")
     return {
         "data_date": data_date,
@@ -274,6 +280,74 @@ def get_cache_status():
         "file_time": file_time,
         "cache_file": cache_file,
     }
+
+
+def _parse_cache_time(value):
+    text = str(value or "").replace("KST", "").strip()
+    parsed = pd.to_datetime(text, errors="coerce")
+    if pd.isna(parsed):
+        return None
+    result = parsed.to_pydatetime() if hasattr(parsed, "to_pydatetime") else parsed
+    if result.tzinfo is None:
+        result = result.replace(tzinfo=ZoneInfo("Asia/Seoul"))
+    return result.astimezone(ZoneInfo("Asia/Seoul"))
+
+
+def _next_update_date(last_reflected_at, market_text, today):
+    eligible_weekdays = {0, 1, 2, 3, 4} if market_text in {"코스피", "코스닥"} else {1, 2, 3, 4, 5}
+    candidate = last_reflected_at.date() + timedelta(days=1)
+    while candidate < today or candidate.weekday() not in eligible_weekdays:
+        candidate += timedelta(days=1)
+    return candidate
+
+
+def build_price_update_status(cache_status, market_text, now=None):
+    if not cache_status:
+        return None
+    now = now or datetime.now(ZoneInfo("Asia/Seoul"))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ZoneInfo("Asia/Seoul"))
+    else:
+        now = now.astimezone(ZoneInfo("Asia/Seoul"))
+
+    reflected_at = _parse_cache_time(cache_status.get("price_time"))
+    if reflected_at is None:
+        reflected_at = _parse_cache_time(cache_status.get("data_date"))
+    if reflected_at is None:
+        return None
+
+    next_date = _next_update_date(reflected_at, market_text, now.date())
+    update_window = "22:30~23:30" if market_text in {"코스피", "코스닥"} else "12:30~13:30"
+    if next_date == now.date():
+        next_label = "오늘"
+    elif next_date == now.date() + timedelta(days=1):
+        next_label = "내일"
+    else:
+        next_label = f"{next_date.month}/{next_date.day}"
+
+    reflected_label = f"{reflected_at.month}/{reflected_at.day} {reflected_at:%H:%M}"
+    pending = next_date == now.date() and reflected_at.date() < now.date()
+    return {
+        "tone": "pending" if pending else "complete",
+        "message": f"표시 가격: {reflected_label} 반영 · 다음 업데이트: {next_label} {update_window} 예정",
+        "reflected_at": reflected_at,
+        "next_date": next_date,
+    }
+
+
+def render_price_update_banner():
+    status = build_price_update_status(get_cache_status(), get_market_text())
+    if not status:
+        return
+    st.markdown(
+        f"""
+        <div class="price-update-banner {status['tone']}">
+            <span class="price-update-dot" aria-hidden="true"></span>
+            <span>{escape_html(status['message'])}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def clean_number(value):
@@ -2649,19 +2723,6 @@ def render_market_environment_panel():
         else:
             st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
 
-        cache_status = get_cache_status()
-        if cache_status:
-            st.markdown(
-                f"""
-                <div class="cache-status-card">
-                    <div><b>최근 데이터 기준일</b> {escape_html(cache_status['data_date'])}</div>
-                    <div><b>가격 기준</b> {escape_html(cache_status['price_basis'])}</div>
-                    <div><b>수집 시각</b> {escape_html(cache_status['price_time'])}</div>
-                    <div><b>캐시 동기화</b> {escape_html(cache_status['file_time'])}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
         return market_data
     except Exception as e:
         st.error(f"시장 분석 패널 로드 오류: {e}")
@@ -3230,20 +3291,40 @@ st.markdown("""
             align-items: center;
             margin-bottom: 7px;
         }
-        .cache-status-card {
-            border: 1px solid rgba(226, 232, 240, 0.95);
-            border-radius: 8px;
-            padding: 8px 10px;
-            margin: 8px 0;
-            background: #f8fafc;
-            color: #475569;
-            font-size: 0.74rem;
-            line-height: 1.45;
+        .price-update-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 36px;
+            border: 1px solid;
+            border-radius: 7px;
+            padding: 7px 10px;
+            margin: 2px 0 7px;
+            color: #1f2937;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
         }
-        .cache-status-card b {
-            color: #111827;
-            font-weight: 750;
+        .price-update-banner::-webkit-scrollbar { display: none; }
+        .price-update-banner.pending {
+            border-color: #f3c46b;
+            background: #fff7e6;
         }
+        .price-update-banner.complete {
+            border-color: #8dd2a8;
+            background: #ecf9f1;
+        }
+        .price-update-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex: 0 0 9px;
+        }
+        .price-update-banner.pending .price-update-dot { background: #d99500; }
+        .price-update-banner.complete .price-update-dot { background: #169c54; }
         .market-driver-strip {
             display: flex;
             flex-wrap: wrap;
@@ -3658,6 +3739,12 @@ st.markdown("""
         }
         @media (max-width: 720px) {
             .block-container { padding-bottom: 5rem; }
+            .price-update-banner {
+                gap: 6px;
+                min-height: 34px;
+                padding: 6px 8px;
+                font-size: 0.72rem;
+            }
             [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
                 grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
             }
@@ -3690,6 +3777,7 @@ with st.sidebar:
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
 st.header(f"🎯 {get_market_text()} 분석")
+render_price_update_banner()
 st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 시장환경 → 3단계 부진 원인")
 render_top_choice_panel()
 
@@ -3742,6 +3830,8 @@ if st.session_state.data:
         "lens_rank", "lens_score", "name", "market_cap", "price",
         *lens_extra_ids,
         "per", "pbr", "roe", "peak_diff",
+        "analyst_opinion_score", "analyst_opinion_count", "analyst_buy_ratio",
+        "target_upside", "earnings_surprise_pct",
         "data_date", "price_basis", "price_time", "grade", "rank", "symbol"
     ]
     full_ids = list(dict.fromkeys(full_ids))
@@ -3759,7 +3849,8 @@ if st.session_state.data:
     # 수치형 컬럼 변환 (sorting 및 format 적용을 위해)
     numeric_ids = ["lens_rank", "lens_score", "rank", "score", "eps_growth", "hist_per_avg", "us_10y_bond", "foreign_supply",
                    "market_cap", "price", "after_market_price", "after_market_change_pct", "peak", "peak_diff", "ma200", "diff", "rsi", "per", "pbr", "roe", "peg", "cagr",
-                   "revenue_growth", "operating_growth", "debt_ratio", "operating_margin", "return_20d", "return_60d"]
+                   "revenue_growth", "operating_growth", "debt_ratio", "operating_margin", "return_20d", "return_60d",
+                   "analyst_opinion_score", "analyst_opinion_count", "analyst_buy_ratio", "target_upside", "earnings_surprise_pct"]
     numeric_cols = [col_map[idx] for idx in numeric_ids if idx in col_map]
     
     # None 문자열이나 실제 None 객체를 numpy NaN으로 통일하여 결측치 처리기(na_rep)가 작동하게 함

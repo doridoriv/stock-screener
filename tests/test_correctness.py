@@ -1,6 +1,8 @@
 import logging
 import unittest
+from datetime import datetime
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -29,6 +31,35 @@ class CacheCorrectnessTests(unittest.TestCase):
         is_valid, reasons = analyzer.validate_cache_dataframe(duplicate, expected_rows=3)
         self.assertFalse(is_valid)
         self.assertTrue(any("unique symbols" in reason for reason in reasons))
+
+        missing_price = valid.copy()
+        missing_price.loc[2, "price"] = np.nan
+        is_valid, reasons = analyzer.validate_cache_dataframe(missing_price, expected_rows=3)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("valid prices" in reason for reason in reasons))
+        self.assertTrue(
+            analyzer.validate_cache_dataframe(
+                missing_price,
+                expected_rows=3,
+                require_complete_prices=False,
+            )[0]
+        )
+
+    def test_us_universe_normalizes_aliases_and_removes_duplicates(self):
+        cached = {
+            "ABV": {"name": "ABV", "market_cap": 100},
+            "ABBV": {"name": "AbbVie", "market_cap": 200},
+            "MMC": {"name": "Marsh McLennan", "market_cap": 150},
+        }
+        with patch.object(analyzer, "load_us_market_cap_cache", return_value=cached):
+            candidates = analyzer.fetch_us_top100_tickers(5)
+        symbols = [item["symbol"] for item in candidates]
+        self.assertEqual(len(symbols), 5)
+        self.assertEqual(len(set(symbols)), 5)
+        self.assertIn("ABBV", symbols)
+        self.assertIn("MRSH", symbols)
+        self.assertNotIn("ABV", symbols)
+        self.assertNotIn("MMC", symbols)
 
     def test_market_date_comes_from_last_real_close(self):
         closes = pd.DataFrame(
@@ -77,6 +108,16 @@ class DartCorrectnessTests(unittest.TestCase):
         self.assertEqual(picked, 5.0)
         self.assertEqual(summed, 5.0)
 
+    def test_mixed_currency_statement_prefers_krw_without_false_warning(self):
+        rows = [
+            {"sj_nm": "재무상태표", "account_id": "ifrs-full_CashAndCashEquivalents", "account_nm": "현금", "currency": "USD", "thstrm_amount": "1000000000"},
+            {"sj_nm": "재무상태표", "account_id": "ifrs-full_CashAndCashEquivalents", "account_nm": "현금", "currency": "KRW", "thstrm_amount": "500000000"},
+        ]
+        metrics = opendart_client._statement_metrics(rows)
+        self.assertEqual(metrics["cash"], 5.0)
+        self.assertEqual(metrics["financial_currency"], "KRW")
+        self.assertNotIn("cashflow_status", metrics)
+
     def test_dividend_history_requires_true_consecutive_years(self):
         continuous = [
             {"year": year, "dividend_per_share": value}
@@ -100,6 +141,59 @@ class DartCorrectnessTests(unittest.TestCase):
         ]
         summary = opendart_client._summarize_dividend_history(history, 2025, 5)
         self.assertTrue(summary["dividend_cut_flag"])
+
+
+class SupplementalDataCorrectnessTests(unittest.TestCase):
+    def test_us_dividend_history_excludes_special_dividend(self):
+        dates = pd.to_datetime([
+            "2022-02-01", "2022-05-01", "2022-08-01", "2022-11-01",
+            "2023-02-01", "2023-05-01", "2023-08-01", "2023-11-01",
+            "2024-02-01", "2024-05-01", "2024-08-01", "2024-11-01", "2024-12-01",
+            "2025-02-01", "2025-05-01", "2025-08-01", "2025-11-01",
+        ])
+        payments = pd.Series(
+            [0.9] * 4 + [1.0] * 4 + [1.1] * 4 + [15.0] + [1.2] * 4,
+            index=dates,
+        )
+        summary = analyzer.summarize_us_dividend_history(payments, reference_year=2025)
+        self.assertEqual(summary["dividend_consecutive_years"], 4)
+        self.assertFalse(summary["dividend_cut_flag"])
+        self.assertAlmostEqual(summary["dividend_growth_3y"], 10.06, places=2)
+
+    def test_consensus_fallbacks_parse_real_target_values(self):
+        self.assertEqual(analyzer.extract_naver_target_mean("4.04매수 l 513,958"), 513958.0)
+        self.assertEqual(analyzer.extract_naver_opinion_score("4.04매수 l 513,958"), 4.04)
+        metrics = analyzer.consensus_metrics_from_yfinance_info({
+            "targetMeanPrice": 125.5,
+            "targetHighPrice": 150,
+            "targetLowPrice": 90,
+            "recommendationMean": 1.8,
+            "numberOfAnalystOpinions": 24,
+        })
+        self.assertEqual(metrics["target_mean"], 125.5)
+        self.assertEqual(metrics["analyst_opinion_score"], 4.2)
+        self.assertEqual(metrics["analyst_opinion_count"], 24)
+        self.assertEqual(metrics["consensus_source"], "yfinance")
+
+    def test_price_update_banner_uses_last_reflection_and_next_window(self):
+        pending = app_web.build_price_update_status(
+            {"price_time": "2026-07-13 22:38 KST", "data_date": "2026-07-13"},
+            "코스피",
+            now=datetime(2026, 7, 14, 21, 0, tzinfo=ZoneInfo("Asia/Seoul")),
+        )
+        self.assertEqual(pending["tone"], "pending")
+        self.assertEqual(
+            pending["message"],
+            "표시 가격: 7/13 22:38 반영 · 다음 업데이트: 오늘 22:30~23:30 예정",
+        )
+
+        complete = app_web.build_price_update_status(
+            {"price_time": "2026-07-14 23:12 KST", "data_date": "2026-07-14"},
+            "코스피",
+            now=datetime(2026, 7, 14, 23, 20, tzinfo=ZoneInfo("Asia/Seoul")),
+        )
+        self.assertEqual(complete["tone"], "complete")
+        self.assertIn("다음 업데이트: 내일 22:30~23:30 예정", complete["message"])
 
 
 class LensCorrectnessTests(unittest.TestCase):

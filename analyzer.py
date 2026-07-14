@@ -3,6 +3,7 @@ import json
 import time
 import random
 import io
+import re
 import queue
 import hashlib
 from datetime import datetime, time as datetime_time, timedelta
@@ -23,6 +24,7 @@ import supplemental_data
 from config import (
     DEFAULT_US_TICKERS,
     US_NAME_MAP,
+    US_TICKER_ALIASES,
     US_MARKETCAP_CACHE_FILE,
     GRADE_RULES,
     REQUEST_TIMEOUT,
@@ -188,7 +190,11 @@ def _get_daily_cache_path(market_text: str, date_str: str) -> str:
 REQUIRED_CACHE_COLUMNS = {"symbol", "name", "price", "data_date"}
 
 
-def validate_cache_dataframe(df: pd.DataFrame, expected_rows: int = FIXED_TOP_N) -> tuple[bool, list[str]]:
+def validate_cache_dataframe(
+    df: pd.DataFrame,
+    expected_rows: int = FIXED_TOP_N,
+    require_complete_prices: bool = True,
+) -> tuple[bool, list[str]]:
     """Validate a snapshot before it is served or committed."""
     reasons = []
     if df is None or df.empty:
@@ -209,7 +215,7 @@ def validate_cache_dataframe(df: pd.DataFrame, expected_rows: int = FIXED_TOP_N)
 
     if "price" in df.columns:
         valid_prices = pd.to_numeric(df["price"], errors="coerce").gt(0)
-        minimum_valid = max(1, int(len(df) * 0.95))
+        minimum_valid = len(df) if require_complete_prices else max(1, int(len(df) * 0.95))
         if int(valid_prices.sum()) < minimum_valid:
             reasons.append(f"valid prices {int(valid_prices.sum())} < {minimum_valid}")
 
@@ -228,7 +234,14 @@ def _read_valid_cache(path: str, expected_rows: int = FIXED_TOP_N) -> pd.DataFra
         df = pd.read_csv(path)
     except Exception:
         return None
-    valid, _ = validate_cache_dataframe(df, expected_rows=expected_rows)
+    # Legacy snapshots may contain a small number of unavailable prices. They
+    # can still be served while every newly written snapshot is validated at
+    # 100% completeness.
+    valid, _ = validate_cache_dataframe(
+        df,
+        expected_rows=expected_rows,
+        require_complete_prices=False,
+    )
     return df if valid else None
 
 
@@ -389,6 +402,109 @@ def _dividend_yield_from_info(info: dict):
     return _normalize_yield_percent(info.get("dividendYield"))
 
 
+def extract_naver_target_mean(value):
+    numbers = re.findall(r"\d[\d,]*(?:\.\d+)?", str(value or ""))
+    for text in reversed(numbers):
+        try:
+            number = float(text.replace(",", ""))
+        except ValueError:
+            continue
+        if number > 0:
+            return round(number, 2)
+    return np.nan
+
+
+def extract_naver_opinion_score(value):
+    numbers = re.findall(r"\d[\d,]*(?:\.\d+)?", str(value or ""))
+    if not numbers:
+        return np.nan
+    try:
+        score = float(numbers[0].replace(",", ""))
+    except ValueError:
+        return np.nan
+    return round(score, 2) if 0 < score <= 5 else np.nan
+
+
+def consensus_metrics_from_yfinance_info(info: dict) -> dict:
+    metrics = {}
+    for source_key, target_key in [
+        ("targetMeanPrice", "target_mean"),
+        ("targetHighPrice", "target_high"),
+        ("targetLowPrice", "target_low"),
+    ]:
+        value = _to_float_or_none(info.get(source_key))
+        if value is not None and value > 0:
+            metrics[target_key] = round(value, 2)
+    recommendation_mean = _to_float_or_none(info.get("recommendationMean"))
+    if recommendation_mean is not None and 1 <= recommendation_mean <= 5:
+        metrics["analyst_opinion_score"] = round(6 - recommendation_mean, 2)
+    opinion_count = _to_float_or_none(info.get("numberOfAnalystOpinions"))
+    if opinion_count is not None and opinion_count > 0:
+        metrics["analyst_opinion_count"] = int(opinion_count)
+    if metrics:
+        metrics["consensus_source"] = "yfinance"
+    return metrics
+
+
+def summarize_us_dividend_history(
+    dividends: pd.Series,
+    reference_year: int | None = None,
+    max_years: int = 10,
+) -> dict:
+    if dividends is None or len(dividends) == 0:
+        return {}
+
+    values = pd.to_numeric(pd.Series(dividends), errors="coerce")
+    dates = pd.to_datetime(values.index, errors="coerce")
+    valid = values.notna() & values.gt(0) & ~pd.isna(dates)
+    values = values.loc[valid]
+    dates = dates[valid]
+    if values.empty:
+        return {}
+
+    completed_year = reference_year or (datetime.now().year - 1)
+    annual_regular = {}
+    for year in sorted(set(dates.year)):
+        if year > completed_year:
+            continue
+        payments = values.loc[dates.year == year]
+        if payments.empty:
+            continue
+        median_payment = float(payments.median())
+        regular_payments = payments
+        if len(payments) >= 3 and median_payment > 0:
+            # Exclude obvious one-off special dividends (for example COST)
+            # from regular dividend growth and cut detection.
+            regular_payments = payments[payments <= median_payment * 3]
+        if not regular_payments.empty:
+            annual_regular[int(year)] = float(regular_payments.sum())
+
+    if not annual_regular:
+        return {}
+
+    consecutive_years = 0
+    for year in range(completed_year, completed_year - max_years, -1):
+        if annual_regular.get(year, 0) <= 0:
+            break
+        consecutive_years += 1
+
+    result = {
+        "dividend_history_years": len(annual_regular),
+        "dividend_consecutive_years": consecutive_years,
+        "dividend_history_source": "yfinance dividend history",
+    }
+
+    latest = annual_regular.get(completed_year)
+    previous = annual_regular.get(completed_year - 1)
+    if latest and previous:
+        result["dividend_cut_flag"] = bool(latest < previous * 0.95)
+
+    first = annual_regular.get(completed_year - 3)
+    if latest and first:
+        result["dividend_growth_3y"] = round(((latest / first) ** (1 / 3) - 1) * 100, 2)
+    return result
+
+
 def _needs_cashflow_boost(data: dict) -> bool:
     return any(_is_missing_value(data.get(field)) for field in ["free_cashflow", "operating_cashflow", "cash"])
 
@@ -542,8 +658,17 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
         "dividend_growth_3y": np.nan,
         "dividend_consecutive_years": np.nan,
         "dividend_cut_flag": "",
+        "dividend_history_years": np.nan,
+        "dividend_history_source": "",
         "sector": "",
-        "industry": ""
+        "industry": "",
+        "target_mean": np.nan,
+        "target_high": np.nan,
+        "target_low": np.nan,
+        "target_upside": np.nan,
+        "analyst_opinion_score": np.nan,
+        "analyst_opinion_count": np.nan,
+        "consensus_source": "",
     }
     
     try:
@@ -552,6 +677,22 @@ def fetch_kr_fundamental_naver(symbol: str) -> dict:
         
         for table in tables:
             txt = table.to_string()
+
+            if "투자의견" in txt and "목표주가" in txt:
+                for _, target_row in table.iterrows():
+                    label = str(target_row.iloc[0]) if len(target_row) else ""
+                    if "목표주가" not in label:
+                        continue
+                    raw_value = target_row.iloc[1] if len(target_row) > 1 else ""
+                    target_mean = extract_naver_target_mean(raw_value)
+                    opinion_score = extract_naver_opinion_score(raw_value)
+                    if pd.notna(target_mean):
+                        res_dict["target_mean"] = target_mean
+                        res_dict["consensus_source"] = "Naver/FnGuide"
+                    if pd.notna(opinion_score):
+                        res_dict["analyst_opinion_score"] = opinion_score
+                        res_dict["consensus_source"] = "Naver/FnGuide"
+                    break
             
             # 1. 기업 실적 분석 테이블 (Table 4)
             if '주요재무정보' in txt and '매출액' in txt:
@@ -725,16 +866,21 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         "dividend_growth_3y": np.nan,
         "dividend_consecutive_years": np.nan,
         "dividend_cut_flag": "",
+        "dividend_history_years": np.nan,
+        "dividend_history_source": "",
         "sector": "",
         "industry": "",
         "analyst_buy_ratio": np.nan,
+        "analyst_opinion_score": np.nan,
+        "analyst_opinion_count": np.nan,
         "consensus_revision": np.nan,
         "target_mean": np.nan,
         "target_high": np.nan,
         "target_low": np.nan,
         "target_upside": np.nan,
         "earnings_surprise_pct": np.nan,
-        "finnhub_source": ""
+        "finnhub_source": "",
+        "consensus_source": "",
     }
 
     try:
@@ -774,6 +920,16 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         if dividend_rate is not None:
             res_dict["dividend_per_share"] = round(float(dividend_rate), 2)
             res_dict["dividend_source"] = "yfinance"
+
+        res_dict = merge_missing_fields(res_dict, consensus_metrics_from_yfinance_info(info))
+
+        try:
+            dividend_history = t.history(period="10y", actions=True, auto_adjust=False)
+            if dividend_history is not None and "Dividends" in dividend_history.columns:
+                history_metrics = summarize_us_dividend_history(dividend_history["Dividends"])
+                res_dict = merge_missing_fields(res_dict, history_metrics)
+        except Exception:
+            pass
 
         # 연간 재무제표를 바탕으로 과거 평균 PER 및 EPS 트렌드 산출
         fin = t.financials
@@ -888,7 +1044,8 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
         if pd.notna(res_dict["cash"]) and pd.notna(res_dict["total_debt"]):
             res_dict["net_cash"] = round(float(res_dict["cash"]) - float(res_dict["total_debt"]), 2)
 
-        res_dict = merge_missing_fields(res_dict, finnhub_client.fetch_finnhub_metrics(symbol))
+        finnhub_metrics = finnhub_client.fetch_finnhub_metrics(symbol)
+        res_dict = merge_missing_fields(res_dict, finnhub_metrics)
                         
     except Exception as e:
         print(f"Error fetching yfinance for {symbol}: {e}")
@@ -898,6 +1055,15 @@ def fetch_us_fundamental_yfinance(symbol: str) -> dict:
 # ==========================================
 # 6. S&P500 기반 동적 미국 시가총액 상위 100선 추출
 # ==========================================
+def normalize_us_ticker(symbol: str) -> str:
+    value = str(symbol or "").strip().upper()
+    return US_TICKER_ALIASES.get(value, value)
+
+
+def _is_valid_us_ticker(symbol: str) -> bool:
+    return bool(re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", str(symbol or "")))
+
+
 def fetch_us_top100_tickers(top_n=100) -> list:
     """
     미국 시가총액 상위 100선 추출:
@@ -905,59 +1071,64 @@ def fetch_us_top100_tickers(top_n=100) -> list:
     로컬 캐시파일(us_marketcap_cache.json)이 있으면 이를 읽고, 
     없으면 config.py의 DEFAULT_US_TICKERS 목록을 기반으로 즉시 반환합니다.
     """
+    candidates = {}
+
+    def add_candidate(symbol, name=None, market_cap=0):
+        normalized = normalize_us_ticker(symbol)
+        if not _is_valid_us_ticker(normalized):
+            return
+        try:
+            cap_val = float(market_cap or 0)
+        except (TypeError, ValueError):
+            cap_val = 0
+        if cap_val > 1_000_000:
+            cap_val = round(cap_val / 1_000_000_000, 2)
+
+        display_name = str(name or "").strip()
+        if not display_name or display_name in {str(symbol), normalized}:
+            display_name = US_NAME_MAP.get(normalized, normalized)
+
+        existing = candidates.get(normalized)
+        if existing is None:
+            candidates[normalized] = {
+                "yf_symbol": normalized,
+                "symbol": normalized,
+                "name": display_name,
+                "market_cap": cap_val,
+            }
+            return
+        if cap_val > float(existing.get("market_cap") or 0):
+            existing["market_cap"] = cap_val
+        if existing.get("name") in {"", existing["symbol"]} and display_name != normalized:
+            existing["name"] = display_name
+
     try:
         cache_data = load_us_market_cap_cache()
-        if cache_data:
-            tickers_info = []
-            if isinstance(cache_data, dict):
-                sorted_items = sorted(cache_data.items(), key=lambda x: x[1].get("market_cap", 0), reverse=True)
-                for sym, info in sorted_items[:top_n]:
-                    cap_val = info.get("market_cap", 0)
-                    if cap_val > 1000000:
-                        cap_val = round(cap_val / 1000000000, 2)
-                    tickers_info.append({
-                        "yf_symbol": sym,
-                        "symbol": sym,
-                        "name": info.get("name", sym),
-                        "market_cap": cap_val
-                    })
-            else: # 리스트인 경우
-                for item in cache_data[:top_n]:
-                    cap_val = item.get("market_cap", 0)
-                    if cap_val > 1000000:
-                        cap_val = round(cap_val / 1000000000, 2)
-                    tickers_info.append({
-                        "yf_symbol": item.get("symbol", item.get("yf_symbol")),
-                        "symbol": item.get("symbol", item.get("yf_symbol")),
-                        "name": item.get("name", item.get("symbol")),
-                        "market_cap": cap_val
-                    })
-            if len(tickers_info) > 0:
-                # 캐시된 종목 수가 부족한 경우 DEFAULT_US_TICKERS로 채우되, 캐시의 시총 정보를 보존합니다.
-                if len(tickers_info) < top_n:
-                    existing_symbols = {t["yf_symbol"] for t in tickers_info}
-                    for sym in DEFAULT_US_TICKERS:
-                        if len(tickers_info) >= top_n:
-                            break
-                        if sym not in existing_symbols:
-                            tickers_info.append({
-                                "yf_symbol": sym,
-                                "symbol": sym,
-                                "name": US_NAME_MAP.get(sym, sym),
-                                "market_cap": 0
-                            })
-                return tickers_info
+        if isinstance(cache_data, dict):
+            sorted_items = sorted(
+                cache_data.items(),
+                key=lambda item: float((item[1] or {}).get("market_cap", 0) or 0),
+                reverse=True,
+            )
+            for sym, info in sorted_items:
+                info = info or {}
+                add_candidate(sym, info.get("name"), info.get("market_cap", 0))
+        elif isinstance(cache_data, list):
+            for item in cache_data:
+                item = item or {}
+                symbol = item.get("symbol", item.get("yf_symbol"))
+                add_candidate(symbol, item.get("name"), item.get("market_cap", 0))
     except Exception as e:
         print("로컬 미국 시총 캐시 읽기 오류, 기본 목록 대체:", e)
-        
-    tickers_info = []
-    for i, sym in enumerate(DEFAULT_US_TICKERS[:top_n], 1):
-        tickers_info.append({
-            "yf_symbol": sym,
-            "symbol": sym,
-            "name": US_NAME_MAP.get(sym, sym),
-            "market_cap": 0
-        })
+
+    for symbol in DEFAULT_US_TICKERS:
+        add_candidate(symbol, US_NAME_MAP.get(normalize_us_ticker(symbol)), 0)
+        if len(candidates) >= top_n:
+            break
+
+    tickers_info = list(candidates.values())[:top_n]
+    if len(tickers_info) < top_n:
+        raise RuntimeError(f"US universe has only {len(tickers_info)} unique tickers; expected {top_n}.")
     return tickers_info
 
 # ==========================================
@@ -1023,7 +1194,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "krx_source": krx_info.get("krx_source", "")
                 })
         else:
-            tickers_info = fetch_us_top100_tickers(top_n)
+            # Pull a small reserve list so unavailable or retired symbols can
+            # be replaced before the expensive fundamentals stage begins.
+            tickers_info = fetch_us_top100_tickers(top_n + 20)
         
         base_df = pd.DataFrame(tickers_info)
         yf_symbols = base_df['yf_symbol'].tolist()
@@ -1033,6 +1206,30 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         start_date = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
         
         closes = download_prices_robust(yf_symbols, start_date)
+
+        if market_text == "미국":
+            latest_prices = pd.to_numeric(closes.iloc[-1], errors="coerce")
+            valid_symbols = [
+                symbol
+                for symbol in yf_symbols
+                if symbol in latest_prices.index and pd.notna(latest_prices.get(symbol)) and latest_prices.get(symbol) > 0
+            ]
+            if len(valid_symbols) < top_n:
+                raise RuntimeError(
+                    f"US universe has only {len(valid_symbols)} symbols with valid prices; expected {top_n}."
+                )
+            valid_symbols = valid_symbols[:top_n]
+            base_df = base_df[base_df["yf_symbol"].isin(valid_symbols)].copy()
+            base_df["_candidate_order"] = base_df["yf_symbol"].map(
+                {symbol: index for index, symbol in enumerate(valid_symbols)}
+            )
+            base_df = (
+                base_df.sort_values("_candidate_order")
+                .drop(columns="_candidate_order")
+                .reset_index(drop=True)
+            )
+            yf_symbols = valid_symbols
+            closes = closes.reindex(columns=yf_symbols)
 
         actual_market_date = market_date_from_prices(closes)
         if actual_market_date:
@@ -1141,7 +1338,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                 key_col = 'yf_symbol' if 'yf_symbol' in prev_df.columns else 'symbol'
                 for _, row in prev_df.iterrows():
                     sym = row[key_col]
-                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "cashflow_status", "financial_currency", "fundamental_refreshed_at", "dart_year", "dart_fs_div", "dart_report_code", "dart_source", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "dividend_history_years", "dividend_history_source", "sector", "industry", "peer_per_avg", "peer_pbr_avg", "peer_roe_avg", "peer_group_count", "peer_per_count", "peer_pbr_count", "peer_roe_count", "peer_per_gap", "peer_pbr_gap", "analyst_buy_ratio", "consensus_revision", "target_mean", "target_high", "target_low", "target_upside", "earnings_surprise_pct", "finnhub_source"]
+                    fund_fields = ["eps_growth", "hist_per_avg", "foreign_supply", "per", "pbr", "roe", "debt_ratio", "revenue_growth", "operating_growth", "peg", "eps3y", "cagr", "revenue", "operating_income", "net_income", "operating_margin", "net_margin", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash", "cashflow_status", "financial_currency", "fundamental_refreshed_at", "dart_year", "dart_fs_div", "dart_report_code", "dart_source", "dividend_yield", "payout_ratio", "dividend_per_share", "dividend_total", "dividend_source", "dividend_year", "dividend_report_code", "dividend_growth_3y", "dividend_consecutive_years", "dividend_cut_flag", "dividend_history_years", "dividend_history_source", "sector", "industry", "peer_per_avg", "peer_pbr_avg", "peer_roe_avg", "peer_group_count", "peer_per_count", "peer_pbr_count", "peer_roe_count", "peer_per_gap", "peer_pbr_gap", "analyst_buy_ratio", "analyst_opinion_score", "analyst_opinion_count", "consensus_revision", "target_mean", "target_high", "target_low", "target_upside", "earnings_surprise_pct", "finnhub_source", "consensus_source"]
                     data_dict = {}
                     for f in fund_fields:
                         val = row.get(f)
@@ -1175,10 +1372,13 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
                     "free_cashflow": np.nan, "cash": np.nan, "total_debt": np.nan, "net_cash": np.nan,
                     "dividend_yield": np.nan, "payout_ratio": np.nan, "dividend_per_share": np.nan,
                     "dividend_total": np.nan, "dividend_source": "", "dividend_growth_3y": np.nan,
-                    "dividend_consecutive_years": np.nan, "dividend_cut_flag": "", "sector": "",
-                    "industry": "", "analyst_buy_ratio": np.nan, "consensus_revision": np.nan,
+                    "dividend_consecutive_years": np.nan, "dividend_cut_flag": "",
+                    "dividend_history_years": np.nan, "dividend_history_source": "", "sector": "",
+                    "industry": "", "analyst_buy_ratio": np.nan, "analyst_opinion_score": np.nan,
+                    "analyst_opinion_count": np.nan, "consensus_revision": np.nan,
                     "target_mean": np.nan, "target_high": np.nan, "target_low": np.nan,
                     "target_upside": np.nan, "earnings_surprise_pct": np.nan, "finnhub_source": "",
+                    "consensus_source": "",
                     "cashflow_status": "", "financial_currency": "", "fundamental_refreshed_at": "",
                     "dart_year": np.nan, "dart_fs_div": "", "dart_report_code": "", "dart_source": ""
                 }
