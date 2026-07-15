@@ -196,6 +196,53 @@ class SupplementalDataCorrectnessTests(unittest.TestCase):
         self.assertIn("다음 업데이트: 내일 22:30~23:30 예정", complete["message"])
 
 
+class CustomViewCorrectnessTests(unittest.TestCase):
+    def test_custom_metric_catalog_is_unique_and_hides_empty_metrics(self):
+        self.assertEqual(len(app_web.CUSTOM_METRIC_IDS), len(set(app_web.CUSTOM_METRIC_IDS)))
+        self.assertTrue(set(app_web.CUSTOM_DEFAULT_METRICS).issubset(app_web.CUSTOM_METRIC_DEFS))
+
+        data = pd.DataFrame({
+            "price": [1000],
+            "per": [np.nan],
+            "roe": [12.5],
+            "dividend_cut_flag": [False],
+        })
+        available = app_web.available_custom_metric_ids(data)
+        self.assertIn("price", available)
+        self.assertIn("roe", available)
+        self.assertIn("dividend_cut_flag", available)
+        self.assertNotIn("per", available)
+        self.assertNotIn("target_mean", available)
+
+    def test_custom_table_keeps_numeric_sort_values_and_compact_display(self):
+        data = pd.DataFrame([{
+            "symbol": "000001",
+            "name": "테스트회사",
+            "per": 8.25,
+            "roe": 14.1,
+            "free_cashflow": 41000,
+        }])
+        metric_ids = ["per", "roe", "free_cashflow"]
+        rows = app_web.build_custom_table_rows(data, metric_ids, is_kr=True)
+        self.assertEqual(rows[0]["per"], 8.25)
+        self.assertEqual(rows[0]["display"]["roe"], "14.10%")
+        self.assertEqual(rows[0]["display"]["free_cashflow"], "4.1조")
+
+        invalid = app_web.build_custom_table_rows(
+            pd.DataFrame([{"symbol": "000002", "name": "적자회사", "per": -20}]),
+            ["per"],
+            is_kr=True,
+        )[0]
+        self.assertIsNone(invalid["per"])
+        self.assertEqual(invalid["display"]["per"], "-")
+
+        table_html = app_web.build_custom_table_html(data, metric_ids, True, "테스트")
+        self.assertIn('state.sortDir = "desc"', table_html)
+        self.assertIn('state.sortDir = "asc"', table_html)
+        self.assertIn("if (aMissing) return 1", table_html)
+        self.assertIn("orderedRows().slice(0, visibleLimit())", table_html)
+
+
 class LensCorrectnessTests(unittest.TestCase):
     def test_negative_per_and_pbr_are_not_cheapness_signals(self):
         invalid = {"per": -5, "pbr": -1, "peak_diff": -40, "diff": -10}

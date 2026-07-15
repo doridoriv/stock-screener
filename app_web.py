@@ -1,10 +1,12 @@
 import os
 import html
 import glob
+import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import analyzer
 import diagnostics
@@ -167,6 +169,94 @@ MOBILE_LENS_META.update(MOBILE_SITUATION_LENS_META)
 MOBILE_SITUATION_LENS_OPTIONS = list(MOBILE_SITUATION_LENS_META.keys())
 MOBILE_LENS_OPTIONS = MOBILE_PRIMARY_LENS_OPTIONS + MOBILE_SITUATION_LENS_OPTIONS
 
+CUSTOM_METRIC_GROUPS = [
+    ("기본", [
+        ("price", "현재가", "price"),
+        ("market_cap", "시가총액", "market_cap"),
+        ("score", "종합점수", "score"),
+        ("rank", "시장순위", "rank"),
+    ]),
+    ("가치", [
+        ("per", "PER", "multiple"),
+        ("pbr", "PBR", "multiple"),
+        ("peg", "PEG", "multiple"),
+        ("hist_per_avg", "과거평균 PER", "multiple"),
+    ]),
+    ("수익성", [
+        ("roe", "ROE", "percent"),
+        ("operating_margin", "영업이익률", "percent"),
+        ("net_margin", "순이익률", "percent"),
+        ("revenue", "매출액", "cash"),
+        ("operating_income", "영업이익", "cash"),
+        ("net_income", "순이익", "cash"),
+    ]),
+    ("성장", [
+        ("revenue_growth", "매출성장률", "percent"),
+        ("operating_growth", "영업이익성장률", "percent"),
+        ("eps_growth", "EPS 성장률", "percent"),
+        ("cagr", "EPS CAGR", "percent"),
+    ]),
+    ("재무·현금", [
+        ("debt_ratio", "부채비율", "percent"),
+        ("operating_cashflow", "영업현금", "cash"),
+        ("free_cashflow", "FCF", "cash"),
+        ("cash", "현금보유액", "cash"),
+        ("total_debt", "총부채", "cash"),
+        ("net_cash", "순현금", "cash"),
+    ]),
+    ("배당", [
+        ("dividend_yield", "배당수익률", "percent"),
+        ("payout_ratio", "배당성향", "percent"),
+        ("dividend_per_share", "주당배당금", "price"),
+        ("dividend_total", "배당총액", "cash"),
+        ("dividend_growth_3y", "배당성장률", "percent"),
+        ("dividend_consecutive_years", "연속배당연수", "years"),
+        ("dividend_history_years", "배당이력연수", "years"),
+        ("dividend_cut_flag", "배당삭감", "boolean"),
+    ]),
+    ("가격", [
+        ("peak", "2년고점", "price"),
+        ("peak_diff", "고점대비", "percent"),
+        ("ma200", "200일선", "price"),
+        ("diff", "200일선괴리", "percent"),
+        ("rsi", "RSI", "number"),
+        ("return_20d", "20일 수익률", "percent"),
+        ("return_60d", "60일 수익률", "percent"),
+        ("after_market_price", "애프터가격", "price"),
+        ("after_market_change_pct", "애프터등락률", "percent"),
+    ]),
+    ("업종", [
+        ("peer_per_avg", "업종평균 PER", "multiple"),
+        ("peer_pbr_avg", "업종평균 PBR", "multiple"),
+        ("peer_roe_avg", "업종평균 ROE", "percent"),
+        ("peer_per_gap", "업종 PER 괴리", "percent"),
+        ("peer_pbr_gap", "업종 PBR 괴리", "percent"),
+        ("peer_group_count", "업종비교수", "count"),
+    ]),
+    ("컨센서스", [
+        ("foreign_supply", "외인·기관지분", "percent"),
+        ("analyst_opinion_score", "투자의견", "number"),
+        ("analyst_opinion_count", "의견수", "count"),
+        ("analyst_buy_ratio", "매수의견비율", "percent"),
+        ("consensus_revision", "매수의견변화", "percent_point"),
+        ("target_mean", "평균목표가", "price"),
+        ("target_high", "최고목표가", "price"),
+        ("target_low", "최저목표가", "price"),
+        ("target_upside", "목표가여력", "percent"),
+        ("earnings_surprise_pct", "실적서프라이즈", "percent"),
+    ]),
+]
+CUSTOM_METRIC_DEFS = {
+    metric_id: {"id": metric_id, "label": label, "format": format_type, "group": group}
+    for group, metrics in CUSTOM_METRIC_GROUPS
+    for metric_id, label, format_type in metrics
+}
+CUSTOM_METRIC_IDS = list(CUSTOM_METRIC_DEFS.keys())
+CUSTOM_DEFAULT_METRICS = ("price", "score", "per", "pbr", "roe", "return_20d")
+CUSTOM_POSITIVE_ONLY_METRICS = {
+    "per", "pbr", "peg", "hist_per_avg", "peer_per_avg", "peer_pbr_avg",
+}
+
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
     cached_panel = market_analyzer.load_market_panel_cache()
@@ -184,9 +274,19 @@ if "market_choice" not in st.session_state:
     st.session_state.market_choice = MARKET_VALUE_TO_LABEL.get(st.session_state.selected_market, "코스피")
 
 if "table_view_mode" not in st.session_state:
-    st.session_state.table_view_mode = "모바일 보기"
+    st.session_state.table_view_mode = "맞춤 보기"
 elif st.session_state.table_view_mode == "핵심만":
     st.session_state.table_view_mode = "모바일 보기"
+elif st.session_state.table_view_mode not in {"맞춤 보기", "모바일 보기", "PC 보기"}:
+    st.session_state.table_view_mode = "맞춤 보기"
+
+if "custom_lens_enabled" not in st.session_state:
+    st.session_state.custom_lens_enabled = False
+
+for custom_metric_id in CUSTOM_METRIC_IDS:
+    custom_metric_key = f"custom_metric_{custom_metric_id}"
+    if custom_metric_key not in st.session_state:
+        st.session_state[custom_metric_key] = custom_metric_id in CUSTOM_DEFAULT_METRICS
 
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
@@ -480,6 +580,439 @@ def display_text(value, fallback=""):
         pass
     text = str(value).strip()
     return fallback if not text or text.lower() in {"nan", "none", "n/a"} else text
+
+
+def available_custom_metric_ids(data) -> list[str]:
+    df = data.copy() if isinstance(data, pd.DataFrame) else pd.DataFrame(data or [])
+    if df.empty:
+        return list(CUSTOM_METRIC_IDS)
+
+    available = []
+    for metric_id in CUSTOM_METRIC_IDS:
+        if metric_id not in df.columns:
+            continue
+        series = df[metric_id]
+        if CUSTOM_METRIC_DEFS[metric_id]["format"] == "boolean":
+            normalized = series.astype(str).str.strip().str.lower()
+            has_value = (series.notna() & ~normalized.isin({"", "nan", "none", "n/a"})).any()
+        else:
+            has_value = pd.to_numeric(series, errors="coerce").notna().any()
+        if has_value:
+            available.append(metric_id)
+    return available
+
+
+def selected_custom_metric_ids(data) -> list[str]:
+    available = set(available_custom_metric_ids(data))
+    return [
+        metric_id
+        for metric_id in CUSTOM_METRIC_IDS
+        if metric_id in available and st.session_state.get(f"custom_metric_{metric_id}", False)
+    ]
+
+
+def custom_metric_sort_value(metric_id, value):
+    if CUSTOM_METRIC_DEFS[metric_id]["format"] == "boolean":
+        label = format_dividend_cut_flag(value)
+        if label == "있음":
+            return 1
+        if label == "없음":
+            return 0
+        return None
+    number = clean_number(value)
+    if metric_id in CUSTOM_POSITIVE_ONLY_METRICS and number is not None and number <= 0:
+        return None
+    return number
+
+
+def format_custom_metric_value(metric_id, value, row, is_kr):
+    format_type = CUSTOM_METRIC_DEFS[metric_id]["format"]
+    if format_type == "boolean":
+        label = format_dividend_cut_flag(value)
+        return "-" if label == "미확인" else label
+
+    number = custom_metric_sort_value(metric_id, value)
+    if number is None:
+        return "-"
+    if format_type == "price":
+        return format_price(number, is_kr)
+    if format_type == "market_cap":
+        return format_cap(number, is_kr)
+    if format_type == "cash":
+        return format_cashflow_amount(number, row)
+    if format_type == "percent":
+        return f"{number:,.2f}%"
+    if format_type == "percent_point":
+        return f"{number:,.2f}%p"
+    if format_type == "multiple":
+        return f"{number:,.2f}배"
+    if format_type == "score":
+        return f"{number:,.0f}점"
+    if format_type == "rank":
+        return f"{number:,.0f}위"
+    if format_type == "years":
+        return f"{number:,.0f}년"
+    if format_type == "count":
+        return f"{number:,.0f}"
+    return f"{number:,.2f}"
+
+
+def build_custom_table_rows(df, metric_ids, is_kr):
+    rows = []
+    for base_order, (_, row) in enumerate(df.reset_index(drop=True).iterrows()):
+        row_dict = row.to_dict()
+        item = {
+            "_base_order": base_order,
+            "name": display_text(row_dict.get("name"), display_text(row_dict.get("symbol"), "-")),
+            "symbol": display_text(row_dict.get("symbol")),
+            "display": {},
+        }
+        for metric_id in metric_ids:
+            value = row_dict.get(metric_id)
+            item[metric_id] = custom_metric_sort_value(metric_id, value)
+            item["display"][metric_id] = format_custom_metric_value(metric_id, value, row_dict, is_kr)
+        rows.append(item)
+    return rows
+
+
+def build_custom_table_html(df, metric_ids, is_kr, context_key):
+    rows = build_custom_table_rows(df, metric_ids, is_kr)
+    columns = [
+        {"id": metric_id, "label": CUSTOM_METRIC_DEFS[metric_id]["label"]}
+        for metric_id in metric_ids
+    ]
+    rows_json = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
+    columns_json = json.dumps(columns, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
+    storage_key_json = json.dumps(
+        f"stock-screener-custom-table:{context_key}",
+        ensure_ascii=False,
+    ).replace("</", "<\\/")
+
+    template = r"""
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent;
+        color: #111827;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    }
+    .count-controls {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0 0 8px;
+    }
+    .count-controls button {
+        height: 38px;
+        min-width: 0;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        background: #ffffff;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .count-controls button:hover { border-color: #64748b; background: #f8fafc; }
+    .count-controls button.active {
+        border-color: #111827;
+        background: #111827;
+        color: #ffffff;
+    }
+    .count-controls button:disabled { cursor: default; opacity: 0.38; }
+    .table-shell {
+        width: 100%;
+        max-height: 300px;
+        overflow: auto;
+        border: 1px solid #dbe3ec;
+        border-radius: 7px;
+        background: #ffffff;
+        scrollbar-color: #94a3b8 #f1f5f9;
+        scrollbar-width: thin;
+    }
+    table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: fixed;
+        font-size: 13px;
+    }
+    th, td {
+        height: 42px;
+        padding: 8px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        border-right: 1px solid #eef2f7;
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #f1f5f9;
+        color: #334155;
+        font-weight: 900;
+        text-align: right;
+    }
+    th.sorted { background: #111827; color: #ffffff; }
+    th button {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 5px;
+        width: 100%;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    th button .label { overflow: hidden; text-overflow: ellipsis; }
+    th button .arrow { flex: 0 0 12px; text-align: center; }
+    th.name, td.name {
+        position: sticky;
+        left: 0;
+        width: 176px;
+        min-width: 176px;
+        max-width: 176px;
+        text-align: left;
+    }
+    th.name { z-index: 5; background: #e8eef5; }
+    td.name {
+        z-index: 2;
+        background: #ffffff;
+        color: #111827;
+        font-weight: 850;
+    }
+    tbody tr:nth-child(even) td { background: #f8fafc; }
+    tbody tr:nth-child(even) td.name { background: #f8fafc; }
+    tbody tr:hover td, tbody tr:hover td.name { background: #fff7ed; }
+    td.metric {
+        text-align: right;
+        color: #334155;
+        font-variant-numeric: tabular-nums;
+    }
+    td.missing { color: #94a3b8; }
+    tbody tr:last-child td { border-bottom: 0; }
+    th:last-child, td:last-child { border-right: 0; }
+    .empty-cell { height: 84px; text-align: center; color: #64748b; }
+    @media (max-width: 520px) {
+        .count-controls { gap: 4px; }
+        .count-controls button { height: 35px; font-size: 11.5px; padding: 0 2px; }
+        table { font-size: 12px; }
+        th, td { height: 40px; padding: 7px 8px; }
+        th.name, td.name { width: 132px; min-width: 132px; max-width: 132px; }
+    }
+</style>
+</head>
+<body>
+<div class="count-controls" role="group" aria-label="표시 개수">
+    <button type="button" data-limit="5">5개</button>
+    <button type="button" data-limit="10">10개</button>
+    <button type="button" data-limit="20">20개</button>
+    <button type="button" data-limit="all">전체</button>
+    <button type="button" data-action="more">다음5개</button>
+</div>
+<div class="table-shell" id="table-shell">
+    <table id="custom-table">
+        <thead><tr id="header-row"></tr></thead>
+        <tbody id="table-body"></tbody>
+    </table>
+</div>
+<script>
+    const allRows = __ROWS_JSON__;
+    const columns = __COLUMNS_JSON__;
+    const storageKey = __STORAGE_KEY_JSON__;
+    const collator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
+    let state = { limit: 5, sortId: null, sortDir: null };
+
+    try {
+        const stored = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+        if (stored && (stored.limit === "all" || Number.isFinite(Number(stored.limit)))) {
+            state.limit = stored.limit === "all" ? "all" : Number(stored.limit);
+        }
+        if (stored && columns.some((column) => column.id === stored.sortId) && ["desc", "asc"].includes(stored.sortDir)) {
+            state.sortId = stored.sortId;
+            state.sortDir = stored.sortDir;
+        }
+    } catch (error) {}
+
+    function saveState() {
+        try { window.localStorage.setItem(storageKey, JSON.stringify(state)); } catch (error) {}
+    }
+
+    function isMissing(value) {
+        return value === null || value === undefined || value === "" || (typeof value === "number" && Number.isNaN(value));
+    }
+
+    function orderedRows() {
+        const rows = [...allRows];
+        if (!state.sortId || !state.sortDir) {
+            return rows.sort((a, b) => a._base_order - b._base_order);
+        }
+        return rows.sort((a, b) => {
+            const av = a[state.sortId];
+            const bv = b[state.sortId];
+            const aMissing = isMissing(av);
+            const bMissing = isMissing(bv);
+            if (aMissing && bMissing) return a._base_order - b._base_order;
+            if (aMissing) return 1;
+            if (bMissing) return -1;
+            let comparison;
+            if (typeof av === "number" && typeof bv === "number") {
+                comparison = av - bv;
+            } else {
+                comparison = collator.compare(String(av), String(bv));
+            }
+            if (comparison === 0) return a._base_order - b._base_order;
+            return state.sortDir === "desc" ? -comparison : comparison;
+        });
+    }
+
+    function visibleLimit() {
+        return state.limit === "all" ? allRows.length : Math.max(0, Number(state.limit) || 5);
+    }
+
+    function setSort(metricId) {
+        if (state.sortId !== metricId) {
+            state.sortId = metricId;
+            state.sortDir = "desc";
+        } else if (state.sortDir === "desc") {
+            state.sortDir = "asc";
+        } else {
+            state.sortId = null;
+            state.sortDir = null;
+        }
+        saveState();
+        render();
+    }
+
+    function renderHeader() {
+        const headerRow = document.getElementById("header-row");
+        headerRow.replaceChildren();
+
+        const nameHeader = document.createElement("th");
+        nameHeader.className = "name";
+        nameHeader.textContent = "종목명";
+        headerRow.appendChild(nameHeader);
+
+        columns.forEach((column) => {
+            const th = document.createElement("th");
+            const active = state.sortId === column.id;
+            if (active) th.classList.add("sorted");
+            th.setAttribute("aria-sort", active ? (state.sortDir === "desc" ? "descending" : "ascending") : "none");
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.title = column.label;
+            button.setAttribute("aria-label", `${column.label} 정렬`);
+            button.addEventListener("click", () => setSort(column.id));
+
+            const label = document.createElement("span");
+            label.className = "label";
+            label.textContent = column.label;
+            const arrow = document.createElement("span");
+            arrow.className = "arrow";
+            arrow.textContent = active ? (state.sortDir === "desc" ? "▼" : "▲") : "";
+            button.append(label, arrow);
+            th.appendChild(button);
+            headerRow.appendChild(th);
+        });
+    }
+
+    function renderBody(rows) {
+        const body = document.getElementById("table-body");
+        body.replaceChildren();
+        if (!rows.length) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.className = "empty-cell";
+            td.colSpan = Math.max(1, columns.length + 1);
+            td.textContent = "결과 없음";
+            tr.appendChild(td);
+            body.appendChild(tr);
+            return;
+        }
+
+        rows.forEach((row) => {
+            const tr = document.createElement("tr");
+            const nameCell = document.createElement("td");
+            nameCell.className = "name";
+            nameCell.textContent = row.name || row.symbol || "-";
+            nameCell.title = row.name || row.symbol || "-";
+            tr.appendChild(nameCell);
+
+            columns.forEach((column) => {
+                const td = document.createElement("td");
+                const display = row.display[column.id] || "-";
+                td.className = display === "-" ? "metric missing" : "metric";
+                td.textContent = display;
+                td.title = display;
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+    }
+
+    function updateCountControls() {
+        document.querySelectorAll("button[data-limit]").forEach((button) => {
+            const requested = button.dataset.limit;
+            const active = requested === "all" ? state.limit === "all" : state.limit !== "all" && Number(requested) === Number(state.limit);
+            button.classList.toggle("active", active);
+        });
+        const moreButton = document.querySelector('button[data-action="more"]');
+        moreButton.disabled = visibleLimit() >= allRows.length;
+    }
+
+    function render() {
+        const rows = orderedRows().slice(0, visibleLimit());
+        const table = document.getElementById("custom-table");
+        table.style.minWidth = columns.length ? `${176 + columns.length * 132}px` : "100%";
+        renderHeader();
+        renderBody(rows);
+        updateCountControls();
+    }
+
+    document.querySelectorAll("button[data-limit]").forEach((button) => {
+        button.addEventListener("click", () => {
+            state.limit = button.dataset.limit === "all" ? "all" : Number(button.dataset.limit);
+            saveState();
+            render();
+        });
+    });
+    document.querySelector('button[data-action="more"]').addEventListener("click", () => {
+        if (state.limit === "all") return;
+        state.limit = Math.min(visibleLimit() + 5, allRows.length);
+        saveState();
+        render();
+    });
+    render();
+</script>
+</body>
+</html>
+"""
+    return (
+        template
+        .replace("__ROWS_JSON__", rows_json)
+        .replace("__COLUMNS_JSON__", columns_json)
+        .replace("__STORAGE_KEY_JSON__", storage_key_json)
+    )
 
 
 def mobile_grade_label(row):
@@ -2504,6 +3037,61 @@ def render_choice_buttons(options, current_value, key_prefix, columns, on_select
                     on_select(option)
 
 
+def render_investment_lens_controls():
+    st.markdown('<div class="top-choice-label">투자 렌즈</div>', unsafe_allow_html=True)
+    st.markdown('<div class="top-choice-help">원하는 분석 기준을 하나 선택하세요.</div>', unsafe_allow_html=True)
+    render_choice_buttons(
+        MOBILE_PRIMARY_LENS_OPTIONS,
+        st.session_state.mobile_investment_lens,
+        "top_lens_choice",
+        len(MOBILE_PRIMARY_LENS_OPTIONS),
+        select_mobile_lens,
+        label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
+    )
+    render_choice_buttons(
+        MOBILE_SITUATION_LENS_OPTIONS,
+        st.session_state.mobile_investment_lens,
+        "top_second_lens_choice",
+        len(MOBILE_SITUATION_LENS_OPTIONS),
+        select_mobile_lens,
+        label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
+    )
+    current_lens = st.session_state.mobile_investment_lens
+    current_description = MOBILE_LENS_META.get(current_lens, {}).get("description", "")
+    st.markdown(
+        f'<div class="top-choice-help"><b>{escape_html(MOBILE_LENS_META.get(current_lens, {}).get("short", current_lens))}</b> · {escape_html(current_description)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_custom_metric_selector():
+    data = pd.DataFrame(st.session_state.get("data", []))
+    available = set(available_custom_metric_ids(data))
+    with st.container(key="custom_metric_selector"):
+        for group, metrics in CUSTOM_METRIC_GROUPS:
+            visible_metrics = [metric for metric in metrics if metric[0] in available]
+            if not visible_metrics:
+                continue
+            st.markdown(f'<div class="custom-metric-group-label">{escape_html(group)}</div>', unsafe_allow_html=True)
+            for row_start in range(0, len(visible_metrics), 5):
+                row_metrics = visible_metrics[row_start:row_start + 5]
+                columns = st.columns(len(row_metrics), gap="small")
+                for column, (metric_id, label, _) in zip(columns, row_metrics):
+                    with column:
+                        st.checkbox(label, key=f"custom_metric_{metric_id}")
+
+
+def render_custom_results(df, is_kr, current_lens):
+    metric_ids = selected_custom_metric_ids(df)
+    lens_context = current_lens if st.session_state.custom_lens_enabled else "시장순위"
+    context_key = f"{get_market_text()}|{lens_context}"
+    components.html(
+        build_custom_table_html(df, metric_ids, is_kr, context_key),
+        height=355,
+        scrolling=False,
+    )
+
+
 def render_top_choice_panel():
     with st.container(key="top_choice_panel"):
         st.markdown('<div class="top-choice-eyebrow">분석 조건 선택</div>', unsafe_allow_html=True)
@@ -2518,41 +3106,25 @@ def render_top_choice_panel():
 
         st.markdown('<div class="top-choice-label">보기 방식</div>', unsafe_allow_html=True)
         render_choice_buttons(
-            ["모바일 보기", "PC 보기"],
+            ["맞춤 보기", "모바일 보기", "PC 보기"],
             st.session_state.table_view_mode,
             "top_view_choice",
-            2,
+            3,
             select_table_view_mode,
         )
 
-        st.markdown('<div class="top-choice-label">투자 렌즈</div>', unsafe_allow_html=True)
-        st.markdown('<div class="top-choice-help">원하는 분석 기준을 하나 선택하세요.</div>', unsafe_allow_html=True)
-        render_choice_buttons(
-            MOBILE_PRIMARY_LENS_OPTIONS,
-            st.session_state.mobile_investment_lens,
-            "top_lens_choice",
-            len(MOBILE_PRIMARY_LENS_OPTIONS),
-            select_mobile_lens,
-            label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
-        )
-        render_choice_buttons(
-            MOBILE_SITUATION_LENS_OPTIONS,
-            st.session_state.mobile_investment_lens,
-            "top_second_lens_choice",
-            len(MOBILE_SITUATION_LENS_OPTIONS),
-            select_mobile_lens,
-            label_fn=lambda lens: MOBILE_LENS_META.get(lens, {}).get("short", lens),
-        )
-        current_lens = st.session_state.mobile_investment_lens
-        current_description = MOBILE_LENS_META.get(current_lens, {}).get("description", "")
-        st.markdown(
-            f'<div class="top-choice-help"><b>{escape_html(MOBILE_LENS_META.get(current_lens, {}).get("short", current_lens))}</b> · {escape_html(current_description)}</div>',
-            unsafe_allow_html=True,
-        )
+        if st.session_state.table_view_mode == "맞춤 보기":
+            st.markdown('<div class="top-choice-label">표시할 지표</div>', unsafe_allow_html=True)
+            render_custom_metric_selector()
+            st.toggle("투자 렌즈 적용", key="custom_lens_enabled")
+            if st.session_state.custom_lens_enabled:
+                render_investment_lens_controls()
+        else:
+            render_investment_lens_controls()
 
 
-def render_market_environment_panel():
-    st.subheader("2단계: 시장환경 점검")
+def render_market_environment_panel(title="2단계: 시장환경 점검"):
+    st.subheader(title)
     try:
         market_data = get_cached_market_panel()
 
@@ -3386,7 +3958,7 @@ st.markdown("""
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         }
         [class*="st-key-top_view_choice_wrap"] [data-testid="stHorizontalBlock"] {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         }
         [class*="st-key-top_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
             grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
@@ -3451,6 +4023,34 @@ st.markdown("""
         .top-choice-help b {
             color: #111827;
             font-weight: 900;
+        }
+        [class*="st-key-custom_metric_selector"] {
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 4px 0 6px;
+            margin-bottom: 8px;
+        }
+        .custom-metric-group-label {
+            color: #475569;
+            font-size: 0.76rem;
+            font-weight: 900;
+            margin: 6px 0 1px 1px;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stHorizontalBlock"] {
+            gap: 5px !important;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stColumn"] {
+            min-width: 0 !important;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] {
+            min-height: 30px;
+            padding: 1px 0;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label p {
+            color: #1f2937;
+            font-size: 0.78rem;
+            font-weight: 750;
+            line-height: 1.2;
         }
         [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
@@ -3751,6 +4351,16 @@ st.markdown("""
             [class*="st-key-top_second_lens_choice_wrap"] [data-testid="stHorizontalBlock"] {
                 grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
             }
+            [class*="st-key-custom_metric_selector"] [data-testid="stHorizontalBlock"] {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 2px 8px !important;
+            }
+            [class*="st-key-custom_metric_selector"] [data-testid="stColumn"] {
+                width: 100% !important;
+                max-width: none !important;
+                padding: 0 !important;
+            }
             [class*="st-key-top_market_choice_"] button,
             [class*="st-key-top_view_choice_"] button,
             [class*="st-key-top_lens_choice_"] button,
@@ -3778,11 +4388,17 @@ with st.sidebar:
 # ==========================================
 st.header(f"🎯 {get_market_text()} 분석")
 render_price_update_banner()
-st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 시장환경 → 3단계 부진 원인")
+if st.session_state.table_view_mode == "맞춤 보기":
+    st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 선택 지표 비교")
+else:
+    st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 시장환경 → 3단계 부진 원인")
 render_top_choice_panel()
 
 st.divider()
-st.subheader("1단계: 좋은 회사 후보 찾기")
+if st.session_state.table_view_mode == "맞춤 보기":
+    st.subheader("맞춤 지표 비교")
+else:
+    st.subheader("1단계: 좋은 회사 후보 찾기")
 
 if st.session_state.data:
     df = analyzer.normalize_dividend_yield_metrics(pd.DataFrame(st.session_state.data))
@@ -3795,7 +4411,14 @@ if st.session_state.data:
 
     current_lens = st.session_state.mobile_investment_lens
     display_source_df = df
-    if st.session_state.table_view_mode == "PC 보기":
+    uses_table_lens = (
+        st.session_state.table_view_mode == "PC 보기"
+        or (
+            st.session_state.table_view_mode == "맞춤 보기"
+            and st.session_state.custom_lens_enabled
+        )
+    )
+    if uses_table_lens:
         if is_mobile_situation_lens(current_lens):
             display_source_df, pc_lens_analyses = apply_mobile_situation_lens(df, current_lens, get_market_text())
         else:
@@ -4126,6 +4749,8 @@ if st.session_state.data:
                     })
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
+    elif st.session_state.table_view_mode == "맞춤 보기":
+        render_custom_results(display_source_df, is_kr, current_lens)
     else:
         # width="stretch": 브라우저 크기에 맞추되 column_config로 각 데이터에 맞게 최적 너비 설정
         st.dataframe(formatted_styled_df, width="stretch", hide_index=True, column_config=col_config)
@@ -4134,7 +4759,8 @@ if st.session_state.data:
             st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
     st.divider()
-    market_data = render_market_environment_panel()
+    market_panel_title = "시장환경 점검" if st.session_state.table_view_mode == "맞춤 보기" else "2단계: 시장환경 점검"
+    market_data = render_market_environment_panel(market_panel_title)
 
     if st.session_state.table_view_mode == "PC 보기":
         st.divider()
