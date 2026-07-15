@@ -200,6 +200,7 @@ class CustomViewCorrectnessTests(unittest.TestCase):
     def test_custom_metric_catalog_is_unique_and_hides_empty_metrics(self):
         self.assertEqual(len(app_web.CUSTOM_METRIC_IDS), len(set(app_web.CUSTOM_METRIC_IDS)))
         self.assertTrue(set(app_web.CUSTOM_DEFAULT_METRICS).issubset(app_web.CUSTOM_METRIC_DEFS))
+        self.assertEqual(app_web.CUSTOM_DEFAULT_METRICS, ("price", "market_cap"))
 
         data = pd.DataFrame({
             "price": [1000],
@@ -241,6 +242,10 @@ class CustomViewCorrectnessTests(unittest.TestCase):
         self.assertIn('state.sortDir = "asc"', table_html)
         self.assertIn("if (aMissing) return 1", table_html)
         self.assertIn("orderedRows().slice(0, visibleLimit())", table_html)
+        self.assertIn('class="desktop-view"', table_html)
+        self.assertIn('class="mobile-view"', table_html)
+        self.assertIn("renderMobileCards(rows)", table_html)
+        self.assertIn("overflow-x: hidden", table_html)
 
 
 class LensCorrectnessTests(unittest.TestCase):

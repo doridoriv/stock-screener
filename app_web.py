@@ -252,7 +252,8 @@ CUSTOM_METRIC_DEFS = {
     for metric_id, label, format_type in metrics
 }
 CUSTOM_METRIC_IDS = list(CUSTOM_METRIC_DEFS.keys())
-CUSTOM_DEFAULT_METRICS = ("price", "score", "per", "pbr", "roe", "return_20d")
+CUSTOM_DEFAULT_METRICS = ("price", "market_cap")
+CUSTOM_METRIC_DEFAULT_VERSION = 2
 CUSTOM_POSITIVE_ONLY_METRICS = {
     "per", "pbr", "peg", "hist_per_avg", "peer_per_avg", "peer_pbr_avg",
 }
@@ -283,10 +284,15 @@ elif st.session_state.table_view_mode not in {"맞춤 보기", "모바일 보기
 if "custom_lens_enabled" not in st.session_state:
     st.session_state.custom_lens_enabled = False
 
-for custom_metric_id in CUSTOM_METRIC_IDS:
-    custom_metric_key = f"custom_metric_{custom_metric_id}"
-    if custom_metric_key not in st.session_state:
-        st.session_state[custom_metric_key] = custom_metric_id in CUSTOM_DEFAULT_METRICS
+if st.session_state.get("custom_metric_default_version") != CUSTOM_METRIC_DEFAULT_VERSION:
+    for custom_metric_id in CUSTOM_METRIC_IDS:
+        st.session_state[f"custom_metric_{custom_metric_id}"] = custom_metric_id in CUSTOM_DEFAULT_METRICS
+    st.session_state.custom_metric_default_version = CUSTOM_METRIC_DEFAULT_VERSION
+else:
+    for custom_metric_id in CUSTOM_METRIC_IDS:
+        custom_metric_key = f"custom_metric_{custom_metric_id}"
+        if custom_metric_key not in st.session_state:
+            st.session_state[custom_metric_key] = custom_metric_id in CUSTOM_DEFAULT_METRICS
 
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
@@ -698,12 +704,19 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
     html, body {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
         margin: 0;
         padding: 0;
         overflow: hidden;
         background: transparent;
         color: #111827;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    }
+    body {
+        display: flex;
+        flex-direction: column;
     }
     .count-controls {
         display: grid;
@@ -740,6 +753,8 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         scrollbar-color: #94a3b8 #f1f5f9;
         scrollbar-width: thin;
     }
+    .desktop-view { display: block; min-height: 0; }
+    .mobile-view { display: none; }
     table {
         width: 100%;
         border-collapse: separate;
@@ -812,12 +827,118 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     tbody tr:last-child td { border-bottom: 0; }
     th:last-child, td:last-child { border-right: 0; }
     .empty-cell { height: 84px; text-align: center; color: #64748b; }
-    @media (max-width: 520px) {
+    @media (max-width: 720px) {
         .count-controls { gap: 4px; }
         .count-controls button { height: 35px; font-size: 11.5px; padding: 0 2px; }
-        table { font-size: 12px; }
-        th, td { height: 40px; padding: 7px 8px; }
-        th.name, td.name { width: 132px; min-width: 132px; max-width: 132px; }
+        .desktop-view { display: none; }
+        .mobile-view {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .mobile-shell {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+            border: 1px solid #dbe3ec;
+            border-radius: 7px;
+            background: #ffffff;
+            scrollbar-width: thin;
+        }
+        .mobile-result {
+            width: 100%;
+            max-width: 100%;
+            padding: 11px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #ffffff;
+        }
+        .mobile-result:nth-child(even) { background: #f8fafc; }
+        .mobile-result:last-child { border-bottom: 0; }
+        .mobile-result-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            min-width: 0;
+            margin-bottom: 9px;
+        }
+        .mobile-result-rank {
+            display: grid;
+            place-items: center;
+            flex: 0 0 24px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: #111827;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 900;
+        }
+        .mobile-result-identity { min-width: 0; }
+        .mobile-result-name {
+            color: #111827;
+            font-size: 13.5px;
+            font-weight: 900;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+        .mobile-result-symbol {
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 10.5px;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+        .mobile-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+            width: 100%;
+            max-width: 100%;
+        }
+        .mobile-metric {
+            display: block;
+            width: 100%;
+            min-width: 0;
+            padding: 7px 8px;
+            border: 0;
+            border-left: 3px solid #cbd5e1;
+            background: #f8fafc;
+            text-align: left;
+            font: inherit;
+            cursor: pointer;
+        }
+        .mobile-metric.active {
+            border-left-color: #ff4b4b;
+            background: #fff1f2;
+        }
+        .mobile-metric-label {
+            color: #64748b;
+            font-size: 10.5px;
+            font-weight: 750;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+        .mobile-metric-value {
+            margin-top: 3px;
+            color: #111827;
+            font-size: 12.5px;
+            font-weight: 900;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+            overflow-wrap: anywhere;
+        }
+        .mobile-metric-value.missing { color: #94a3b8; }
+        .mobile-empty {
+            padding: 28px 12px;
+            color: #64748b;
+            font-size: 12px;
+            text-align: center;
+        }
     }
 </style>
 </head>
@@ -829,11 +950,18 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     <button type="button" data-limit="all">전체</button>
     <button type="button" data-action="more">다음5개</button>
 </div>
-<div class="table-shell" id="table-shell">
-    <table id="custom-table">
-        <thead><tr id="header-row"></tr></thead>
-        <tbody id="table-body"></tbody>
-    </table>
+<div class="desktop-view">
+    <div class="table-shell" id="table-shell">
+        <table id="custom-table">
+            <thead><tr id="header-row"></tr></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+</div>
+<div class="mobile-view">
+    <div class="mobile-shell" id="mobile-shell">
+        <div id="mobile-list"></div>
+    </div>
 </div>
 <script>
     const allRows = __ROWS_JSON__;
@@ -970,6 +1098,75 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         });
     }
 
+    function renderMobileCards(rows) {
+        const list = document.getElementById("mobile-list");
+        list.replaceChildren();
+        if (!rows.length) {
+            const empty = document.createElement("div");
+            empty.className = "mobile-empty";
+            empty.textContent = "결과 없음";
+            list.appendChild(empty);
+            return;
+        }
+
+        rows.forEach((row, index) => {
+            const result = document.createElement("article");
+            result.className = "mobile-result";
+
+            const head = document.createElement("div");
+            head.className = "mobile-result-head";
+            const rank = document.createElement("span");
+            rank.className = "mobile-result-rank";
+            rank.textContent = String(index + 1);
+            const identity = document.createElement("div");
+            identity.className = "mobile-result-identity";
+            const name = document.createElement("div");
+            name.className = "mobile-result-name";
+            name.textContent = row.name || row.symbol || "-";
+            identity.appendChild(name);
+            if (row.symbol && row.symbol !== row.name) {
+                const symbol = document.createElement("div");
+                symbol.className = "mobile-result-symbol";
+                symbol.textContent = row.symbol;
+                identity.appendChild(symbol);
+            }
+            head.append(rank, identity);
+            result.appendChild(head);
+
+            if (!columns.length) {
+                const empty = document.createElement("div");
+                empty.className = "mobile-empty";
+                empty.textContent = "표시할 지표를 선택하세요.";
+                result.appendChild(empty);
+            } else {
+                const metrics = document.createElement("div");
+                metrics.className = "mobile-metrics";
+                columns.forEach((column) => {
+                    const active = state.sortId === column.id;
+                    const metric = document.createElement("button");
+                    metric.type = "button";
+                    metric.className = active ? "mobile-metric active" : "mobile-metric";
+                    metric.title = `${column.label} 정렬: 높은순, 낮은순, 기본순`;
+                    metric.setAttribute("aria-label", metric.title);
+                    metric.addEventListener("click", () => setSort(column.id));
+
+                    const label = document.createElement("div");
+                    label.className = "mobile-metric-label";
+                    const arrow = active ? (state.sortDir === "desc" ? "▼" : "▲") : "↕";
+                    label.textContent = `${column.label} ${arrow}`;
+                    const value = document.createElement("div");
+                    const display = row.display[column.id] || "-";
+                    value.className = display === "-" ? "mobile-metric-value missing" : "mobile-metric-value";
+                    value.textContent = display;
+                    metric.append(label, value);
+                    metrics.appendChild(metric);
+                });
+                result.appendChild(metrics);
+            }
+            list.appendChild(result);
+        });
+    }
+
     function updateCountControls() {
         document.querySelectorAll("button[data-limit]").forEach((button) => {
             const requested = button.dataset.limit;
@@ -986,6 +1183,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         table.style.minWidth = columns.length ? `${176 + columns.length * 132}px` : "100%";
         renderHeader();
         renderBody(rows);
+        renderMobileCards(rows);
         updateCountControls();
     }
 
@@ -3067,18 +3265,57 @@ def render_investment_lens_controls():
 def render_custom_metric_selector():
     data = pd.DataFrame(st.session_state.get("data", []))
     available = set(available_custom_metric_ids(data))
-    with st.container(key="custom_metric_selector"):
-        for group, metrics in CUSTOM_METRIC_GROUPS:
-            visible_metrics = [metric for metric in metrics if metric[0] in available]
-            if not visible_metrics:
-                continue
-            st.markdown(f'<div class="custom-metric-group-label">{escape_html(group)}</div>', unsafe_allow_html=True)
-            for row_start in range(0, len(visible_metrics), 5):
-                row_metrics = visible_metrics[row_start:row_start + 5]
-                columns = st.columns(len(row_metrics), gap="small")
-                for column, (metric_id, label, _) in zip(columns, row_metrics):
-                    with column:
-                        st.checkbox(label, key=f"custom_metric_{metric_id}")
+    selected_ids = [
+        metric_id
+        for metric_id in CUSTOM_METRIC_IDS
+        if metric_id in available and st.session_state.get(f"custom_metric_{metric_id}", False)
+    ]
+    selected_labels = [CUSTOM_METRIC_DEFS[metric_id]["label"] for metric_id in selected_ids]
+    if selected_labels:
+        preview_labels = selected_labels[:3]
+        selection_preview = " · ".join(preview_labels)
+        if len(selected_labels) > len(preview_labels):
+            selection_preview += f" 외 {len(selected_labels) - len(preview_labels)}개"
+    else:
+        selection_preview = "선택 없음"
+
+    with st.popover(
+        f"지표 선택 · {len(selected_ids)}개 · {selection_preview}",
+        width="stretch",
+        key="custom_metric_picker",
+    ):
+        st.caption("체크하면 맞춤 결과에 즉시 반영됩니다.")
+        section_groups = [
+            ("기업", {"기본", "가치", "수익성"}),
+            ("성장·재무", {"성장", "재무·현금", "배당"}),
+            ("시장·전망", {"가격", "업종", "컨센서스"}),
+        ]
+        visible_sections = []
+        for section_label, group_names in section_groups:
+            groups = [
+                (group, [metric for metric in metrics if metric[0] in available])
+                for group, metrics in CUSTOM_METRIC_GROUPS
+                if group in group_names
+            ]
+            groups = [(group, metrics) for group, metrics in groups if metrics]
+            if groups:
+                visible_sections.append((section_label, groups))
+
+        tabs = st.tabs([section_label for section_label, _ in visible_sections])
+        for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
+            with tab:
+                with st.container(key=f"custom_metric_selector_{section_index}"):
+                    for group, visible_metrics in groups:
+                        st.markdown(
+                            f'<div class="custom-metric-group-label">{escape_html(group)}</div>',
+                            unsafe_allow_html=True,
+                        )
+                        for row_start in range(0, len(visible_metrics), 2):
+                            row_metrics = visible_metrics[row_start:row_start + 2]
+                            columns = st.columns(2, gap="small")
+                            for column, (metric_id, label, _) in zip(columns, row_metrics):
+                                with column:
+                                    st.checkbox(label, key=f"custom_metric_{metric_id}")
 
 
 def render_custom_results(df, is_kr, current_lens):
