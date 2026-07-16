@@ -3262,6 +3262,12 @@ def render_investment_lens_controls():
     )
 
 
+def set_custom_metric_selection(metric_ids):
+    selected = set(metric_ids)
+    for metric_id in CUSTOM_METRIC_IDS:
+        st.session_state[f"custom_metric_{metric_id}"] = metric_id in selected
+
+
 def render_custom_metric_selector():
     data = pd.DataFrame(st.session_state.get("data", []))
     available = set(available_custom_metric_ids(data))
@@ -3279,43 +3285,69 @@ def render_custom_metric_selector():
     else:
         selection_preview = "선택 없음"
 
-    with st.popover(
-        f"지표 선택 · {len(selected_ids)}개 · {selection_preview}",
-        width="stretch",
-        key="custom_metric_picker",
-    ):
-        st.caption("체크하면 맞춤 결과에 즉시 반영됩니다.")
-        section_groups = [
-            ("기업", {"기본", "가치", "수익성"}),
-            ("성장·재무", {"성장", "재무·현금", "배당"}),
-            ("시장·전망", {"가격", "업종", "컨센서스"}),
-        ]
-        visible_sections = []
-        for section_label, group_names in section_groups:
-            groups = [
-                (group, [metric for metric in metrics if metric[0] in available])
-                for group, metrics in CUSTOM_METRIC_GROUPS
-                if group in group_names
-            ]
-            groups = [(group, metrics) for group, metrics in groups if metrics]
-            if groups:
-                visible_sections.append((section_label, groups))
+    with st.container(key="custom_metric_picker_wrap"):
+        with st.popover(
+            f"지표 선택 · {len(selected_ids)}개 · {selection_preview}",
+            width="stretch",
+            key="custom_metric_picker",
+        ):
+            with st.container(key="custom_metric_actions"):
+                action_columns = st.columns([1.1, 1, 1], gap="small")
+                with action_columns[0]:
+                    st.markdown(
+                        f'<div class="custom-metric-selected-count"><b>{len(selected_ids)}개</b> 선택</div>',
+                        unsafe_allow_html=True,
+                    )
+                with action_columns[1]:
+                    st.button(
+                        "기본값 복원",
+                        key="custom_metric_restore_defaults",
+                        icon=":material/refresh:",
+                        width="stretch",
+                        on_click=set_custom_metric_selection,
+                        args=(CUSTOM_DEFAULT_METRICS,),
+                    )
+                with action_columns[2]:
+                    st.button(
+                        "전체 해제",
+                        key="custom_metric_clear_all",
+                        icon=":material/deselect:",
+                        width="stretch",
+                        on_click=set_custom_metric_selection,
+                        args=((),),
+                    )
 
-        tabs = st.tabs([section_label for section_label, _ in visible_sections])
-        for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
-            with tab:
-                with st.container(key=f"custom_metric_selector_{section_index}"):
-                    for group, visible_metrics in groups:
-                        st.markdown(
-                            f'<div class="custom-metric-group-label">{escape_html(group)}</div>',
-                            unsafe_allow_html=True,
-                        )
-                        for row_start in range(0, len(visible_metrics), 2):
-                            row_metrics = visible_metrics[row_start:row_start + 2]
-                            columns = st.columns(2, gap="small")
-                            for column, (metric_id, label, _) in zip(columns, row_metrics):
-                                with column:
-                                    st.checkbox(label, key=f"custom_metric_{metric_id}")
+            section_groups = [
+                ("기업", {"기본", "가치", "수익성"}),
+                ("성장·재무", {"성장", "재무·현금", "배당"}),
+                ("시장·전망", {"가격", "업종", "컨센서스"}),
+            ]
+            visible_sections = []
+            for section_label, group_names in section_groups:
+                groups = [
+                    (group, [metric for metric in metrics if metric[0] in available])
+                    for group, metrics in CUSTOM_METRIC_GROUPS
+                    if group in group_names
+                ]
+                groups = [(group, metrics) for group, metrics in groups if metrics]
+                if groups:
+                    visible_sections.append((section_label, groups))
+
+            tabs = st.tabs([section_label for section_label, _ in visible_sections])
+            for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
+                with tab:
+                    with st.container(key=f"custom_metric_selector_{section_index}"):
+                        for group, visible_metrics in groups:
+                            st.markdown(
+                                f'<div class="custom-metric-group-label">{escape_html(group)}</div>',
+                                unsafe_allow_html=True,
+                            )
+                            for row_start in range(0, len(visible_metrics), 2):
+                                row_metrics = visible_metrics[row_start:row_start + 2]
+                                columns = st.columns(2, gap="small")
+                                for column, (metric_id, label, _) in zip(columns, row_metrics):
+                                    with column:
+                                        st.checkbox(label, key=f"custom_metric_{metric_id}")
 
 
 def render_custom_results(df, is_kr, current_lens):
@@ -4261,33 +4293,137 @@ st.markdown("""
             color: #111827;
             font-weight: 900;
         }
-        [class*="st-key-custom_metric_selector"] {
-            border-top: 1px solid #e2e8f0;
+        [class*="st-key-custom_metric_picker_wrap"] {
+            width: 100%;
+            max-width: 620px;
+            margin: 0 auto;
+        }
+        [class*="st-key-custom_metric_picker_wrap"] [data-testid="stPopover"],
+        [class*="st-key-custom_metric_picker_wrap"] [data-testid="stPopoverButton"] {
+            width: 100% !important;
+        }
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) {
+            width: min(620px, calc(100vw - 32px)) !important;
+            min-width: min(620px, calc(100vw - 32px)) !important;
+            max-width: min(620px, calc(100vw - 32px)) !important;
+            max-height: min(680px, calc(100vh - 24px)) !important;
+            border: 1px solid #dbe3ec !important;
+            border-radius: 8px !important;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18) !important;
+        }
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-list"] {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 4px !important;
+            width: 100% !important;
+            padding: 4px !important;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            background: #f8fafc;
+        }
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"] {
+            width: 100% !important;
+            min-height: 36px;
+            justify-content: center !important;
+            border-radius: 5px !important;
+            font-size: 0.78rem !important;
+            font-weight: 850 !important;
+        }
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"][aria-selected="true"] {
+            background: #ffffff !important;
+            color: #e11d48 !important;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+        }
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-highlight"],
+        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-border"] {
+            display: none !important;
+        }
+        [class*="st-key-custom_metric_actions"] {
+            padding-bottom: 8px;
+            margin-bottom: 5px;
             border-bottom: 1px solid #e2e8f0;
-            padding: 4px 0 6px;
-            margin-bottom: 8px;
+        }
+        [class*="st-key-custom_metric_actions"] [data-testid="stHorizontalBlock"] {
+            gap: 6px !important;
+            align-items: center !important;
+        }
+        [class*="st-key-custom_metric_actions"] [data-testid="stColumn"] {
+            min-width: 0 !important;
+        }
+        .custom-metric-selected-count {
+            display: flex;
+            align-items: center;
+            min-height: 34px;
+            color: #64748b;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        .custom-metric-selected-count b {
+            margin-right: 4px;
+            color: #e11d48;
+            font-size: 0.95rem;
+            font-weight: 900;
+        }
+        [class*="st-key-custom_metric_actions"] [data-testid="stButton"] button {
+            min-height: 34px;
+            height: 34px;
+            padding: 0 8px;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        [class*="st-key-custom_metric_selector"] {
+            padding: 2px 0 5px;
+            margin-bottom: 2px;
         }
         .custom-metric-group-label {
-            color: #475569;
-            font-size: 0.76rem;
+            color: #334155;
+            font-size: 0.74rem;
             font-weight: 900;
-            margin: 6px 0 1px 1px;
+            margin: 11px 0 4px 1px;
         }
         [class*="st-key-custom_metric_selector"] [data-testid="stHorizontalBlock"] {
-            gap: 5px !important;
+            gap: 7px !important;
         }
         [class*="st-key-custom_metric_selector"] [data-testid="stColumn"] {
             min-width: 0 !important;
         }
+        [class*="st-key-custom_metric_selector"] [data-testid="stElementContainer"],
         [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] {
-            min-height: 30px;
-            padding: 1px 0;
+            width: 100% !important;
+            min-height: 38px;
+            padding: 0;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label[data-baseweb="checkbox"] {
+            display: flex !important;
+            width: 100%;
+            min-height: 38px;
+            padding: 7px 9px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:hover {
+            border-color: #94a3b8;
+            background: #f8fafc;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label[data-baseweb="checkbox"]:has(input:checked) {
+            border-color: #fb7185;
+            background: #fff1f2;
+            box-shadow: inset 3px 0 0 #ff4b4b;
         }
         [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label p {
             color: #1f2937;
             font-size: 0.78rem;
             font-weight: 750;
             line-height: 1.2;
+        }
+        [class*="st-key-custom_metric_selector"] [data-testid="stCheckbox"] label:has(input:checked) p {
+            color: #9f1239;
+            font-weight: 900;
         }
         [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
@@ -4597,6 +4733,24 @@ st.markdown("""
                 width: 100% !important;
                 max-width: none !important;
                 padding: 0 !important;
+            }
+            [class*="st-key-custom_metric_actions"] [data-testid="stHorizontalBlock"] {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 5px !important;
+            }
+            [class*="st-key-custom_metric_actions"] [data-testid="stColumn"] {
+                width: 100% !important;
+                max-width: none !important;
+                padding: 0 !important;
+            }
+            [class*="st-key-custom_metric_actions"] [data-testid="stColumn"]:first-child {
+                grid-column: 1 / -1;
+                height: 24px !important;
+                min-height: 24px !important;
+            }
+            .custom-metric-selected-count {
+                min-height: 24px;
             }
             [class*="st-key-top_market_choice_"] button,
             [class*="st-key-top_view_choice_"] button,
