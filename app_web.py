@@ -4373,6 +4373,11 @@ st.markdown("""
             font-weight: 800;
             white-space: nowrap;
         }
+        [class*="st-key-custom_metric_actions"] [data-testid="stButton"] button:focus {
+            border-color: #94a3b8 !important;
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.22) !important;
+        }
         [class*="st-key-custom_metric_selector"] {
             padding: 2px 0 5px;
             margin-bottom: 2px;
