@@ -3433,6 +3433,25 @@ def toggle_header_tool(tool_name):
     st.session_state.active_header_tool = None if st.session_state.active_header_tool == tool_name else tool_name
 
 
+def close_header_tool():
+    st.session_state.active_header_tool = None
+
+
+def render_tool_panel_header(title, key_prefix):
+    with st.container(key=f"{key_prefix}_tool_panel_header"):
+        title_col, back_col = st.columns([3, 1.3], gap="small")
+        with title_col:
+            st.markdown(f'<div class="tool-panel-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+        with back_col:
+            st.button(
+                "분석 화면",
+                key=f"{key_prefix}_tool_back",
+                icon=":material/arrow_back:",
+                width="stretch",
+                on_click=close_header_tool,
+            )
+
+
 def select_ma_target(target_name):
     st.session_state.ma_target_selection = target_name
 
@@ -3573,7 +3592,7 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
 
 def render_moving_average_tool():
     with st.container(key="moving_average_panel"):
-        st.markdown('<div class="tool-panel-title">이동평균 확인</div>', unsafe_allow_html=True)
+        render_tool_panel_header("이동평균 확인", "moving_average")
         target_mode = st.session_state.ma_target_selection
         with st.container(key="ma_target_controls"):
             st.markdown('<div class="tool-field-label">대상</div>', unsafe_allow_html=True)
@@ -3695,9 +3714,16 @@ def _format_calculator_money(value, is_kr):
     return f"{float(value):,.0f}원" if is_kr else f"${float(value):,.2f}"
 
 
+def _format_calculator_quantity(value, is_kr):
+    number = float(value)
+    if is_kr or number.is_integer():
+        return f"{number:,.0f}주"
+    return f"{number:,.4f}".rstrip("0").rstrip(".") + "주"
+
+
 def render_average_cost_tool():
     with st.container(key="average_cost_panel"):
-        st.markdown('<div class="tool-panel-title">평균단가 계산기</div>', unsafe_allow_html=True)
+        render_tool_panel_header("평균단가 계산기", "average_cost")
         data = pd.DataFrame(st.session_state.get("data", []))
         if data.empty:
             st.info("선택할 종목 데이터가 없습니다.")
@@ -3726,12 +3752,48 @@ def render_average_cost_tool():
             st.session_state.average_cost_purchase_quantity = 0.0
             st.session_state.average_cost_purchase_amount = 0.0
 
+        price_step = 100.0 if is_kr else 0.01
+        price_format = "%.0f" if is_kr else "%.2f"
+        quantity_step = 1.0
+        quantity_format = "%.0f" if is_kr else "%.4f"
+        st.markdown('<div class="tool-section-title">내 보유 정보</div>', unsafe_allow_html=True)
+        holding_col, average_col = st.columns(2, gap="small")
+        with holding_col:
+            holding_quantity = st.number_input(
+                "보유 수량", min_value=0.0, step=quantity_step, format=quantity_format,
+                key="average_cost_holding_quantity",
+            )
+        with average_col:
+            current_average = st.number_input(
+                "현재 평균단가", min_value=0.0, step=price_step, format=price_format,
+                key="average_cost_current_average",
+            )
+
+        has_holding = holding_quantity > 0 and current_average > 0
+        current_investment = holding_quantity * current_average if has_holding else 0.0
+        current_value = holding_quantity * current_price if has_holding else 0.0
+        holding_profit = current_value - current_investment if has_holding else 0.0
+        holding_return = holding_profit / current_investment * 100 if current_investment > 0 else 0.0
+        holding_profit_class = "gain" if holding_profit > 0 else "loss" if holding_profit < 0 else "neutral"
+        holding_profit_text = (
+            f"{_format_calculator_money(holding_profit, is_kr)} · {holding_return:+.2f}%"
+            if has_holding else "-"
+        )
+        selected_name = selected_label.split(" · ")[0]
         st.markdown(
-            f'<div class="average-cost-current"><span>선택 종목</span><b>{html.escape(selected_label.split(" · ")[0])}</b>'
-            f'<strong>현재가 {_format_calculator_money(current_price, is_kr)}</strong></div>',
+            f"""
+            <div class="average-cost-current-title"><b>{html.escape(selected_name)}</b><span>현재 보유 상태</span></div>
+            <div class="average-cost-current">
+                <div><span>현재가</span><strong>{_format_calculator_money(current_price, is_kr)}</strong></div>
+                <div><span>보유 수량</span><strong>{_format_calculator_quantity(holding_quantity, is_kr)}</strong></div>
+                <div><span>평가금액</span><strong>{_format_calculator_money(current_value, is_kr) if has_holding else '-'}</strong></div>
+                <div><span>현재 손익</span><strong class="{holding_profit_class}">{holding_profit_text}</strong></div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
+        st.markdown('<div class="tool-section-title">추가 매수</div>', unsafe_allow_html=True)
         with st.container(key="average_cost_mode_controls"):
             st.markdown('<div class="tool-field-label">추가 매수 기준</div>', unsafe_allow_html=True)
             quantity_mode_col, amount_mode_col = st.columns(2, gap="small")
@@ -3748,32 +3810,11 @@ def render_average_cost_tool():
                     on_click=select_average_cost_mode, args=("금액 기준",),
                 )
 
-        price_step = 100.0 if is_kr else 0.01
-        price_format = "%.0f" if is_kr else "%.2f"
-        quantity_step = 1.0
-        quantity_format = "%.0f" if is_kr else "%.4f"
-        holding_col, average_col = st.columns(2, gap="small")
-        with holding_col:
-            holding_quantity = st.number_input(
-                "보유 수량", min_value=0.0, step=quantity_step, format=quantity_format,
-                key="average_cost_holding_quantity",
-            )
-        with average_col:
-            current_average = st.number_input(
-                "현재 평균단가", min_value=0.0, step=price_step, format=price_format,
-                key="average_cost_current_average",
-            )
-
-        purchase_price_col, purchase_value_col = st.columns(2, gap="small")
-        with purchase_price_col:
-            purchase_price = st.number_input(
-                "추가 매수가", min_value=0.0, step=price_step, format=price_format,
-                key="average_cost_purchase_price",
-            )
+        purchase_value_col, purchase_price_col = st.columns(2, gap="small")
         with purchase_value_col:
             if st.session_state.average_cost_mode == "수량 기준":
                 purchase_quantity = st.number_input(
-                    "추가 수량", min_value=0.0, step=quantity_step, format=quantity_format,
+                    "추가 매수 수량", min_value=0.0, step=quantity_step, format=quantity_format,
                     key="average_cost_purchase_quantity",
                 )
                 purchase_amount = None
@@ -3783,8 +3824,28 @@ def render_average_cost_tool():
                     key="average_cost_purchase_amount",
                 )
                 purchase_quantity = None
+        with purchase_price_col:
+            purchase_price = st.number_input(
+                "추가 매수가", min_value=0.0, step=price_step, format=price_format,
+                key="average_cost_purchase_price",
+            )
 
         purchase_value = purchase_quantity if purchase_quantity is not None else purchase_amount
+        if purchase_price > 0 and purchase_value and purchase_value > 0:
+            if purchase_quantity is not None:
+                preview_label = "추가 투자금"
+                preview_value = _format_calculator_money(purchase_quantity * purchase_price, is_kr)
+                preview_quantity = purchase_quantity
+            else:
+                preview_label = "매수 가능 수량"
+                preview_quantity = purchase_amount / purchase_price
+                preview_value = _format_calculator_quantity(preview_quantity, is_kr)
+            st.markdown(
+                f'<div class="average-cost-preview"><span>{preview_label} <b>{preview_value}</b></span>'
+                f'<span>추가 후 예상 수량 <b>{_format_calculator_quantity(holding_quantity + preview_quantity, is_kr)}</b></span></div>',
+                unsafe_allow_html=True,
+            )
+
         if holding_quantity <= 0 or current_average <= 0 or purchase_price <= 0 or not purchase_value or purchase_value <= 0:
             st.info("보유 정보와 추가 매수 값을 입력하면 새 평균단가가 바로 계산됩니다.")
             st.caption("수수료와 세금을 제외한 단순 계산입니다.")
@@ -3805,6 +3866,7 @@ def render_average_cost_tool():
         current_return = current_profit / total_cost * 100 if total_cost > 0 else 0.0
         break_even_move = (new_average / current_price - 1) * 100 if current_price > 0 else 0.0
         change_class = "lower" if average_change < 0 else "higher" if average_change > 0 else "flat"
+        profit_class = "gain" if current_profit > 0 else "loss" if current_profit < 0 else "neutral"
         break_even_text = (
             f"본전까지 {break_even_move:+.2f}%"
             if break_even_move > 0
@@ -3815,18 +3877,18 @@ def render_average_cost_tool():
             <div class="average-cost-result">
                 <div><span>새 평균단가</span><strong>{_format_calculator_money(new_average, is_kr)}</strong></div>
                 <div><span>평균단가 변화</span><strong class="{change_class}">{average_change:+.2f}%</strong></div>
-                <div><span>총 보유 수량</span><strong>{total_quantity:,.4f}</strong></div>
+                <div><span>총 보유 수량</span><strong>{_format_calculator_quantity(total_quantity, is_kr)}</strong></div>
                 <div><span>총 투자금</span><strong>{_format_calculator_money(total_cost, is_kr)}</strong></div>
             </div>
-            <div class="average-cost-foot {change_class}">
-                <b>현재가 기준 손익 {_format_calculator_money(current_profit, is_kr)} · {current_return:+.2f}%</b>
+            <div class="average-cost-foot">
+                <b class="{profit_class}">현재가 기준 손익 {_format_calculator_money(current_profit, is_kr)} · {current_return:+.2f}%</b>
                 <span>{html.escape(break_even_text)}</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
         if st.session_state.average_cost_mode == "금액 기준":
-            st.caption(f"추가 매수 가능 수량 {result['additional_quantity']:,.4f}주 · 수수료와 세금 제외")
+            st.caption(f"추가 매수 가능 수량 {_format_calculator_quantity(result['additional_quantity'], is_kr)} · 수수료와 세금 제외")
         else:
             st.caption("수수료와 세금을 제외한 단순 계산입니다.")
 
@@ -3897,6 +3959,7 @@ def _calendar_events_for_market(events):
 
 def render_event_calendar_tool():
     with st.container(key="event_calendar_panel"):
+        render_tool_panel_header("주요 일정 캘린더", "calendar")
         calendar_data = get_cached_event_calendar()
         events = _calendar_events_for_market(calendar_data.get("events") or [])
         month_text = st.session_state.calendar_month
@@ -5332,6 +5395,25 @@ st.markdown("""
             font-weight: 850;
             margin-bottom: 8px;
         }
+        [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] {
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        [class*="_tool_panel_header"] .tool-panel-title { margin-bottom: 0; }
+        [class*="_tool_panel_header"] button {
+            min-height: 34px;
+            padding: 0 8px;
+            color: #334155;
+            font-size: 0.74rem;
+        }
+        .tool-section-title {
+            margin: 12px 0 7px;
+            padding-top: 9px;
+            border-top: 1px solid #dbe4ee;
+            color: #111827;
+            font-size: 0.88rem;
+            font-weight: 850;
+        }
         .tool-field-label {
             margin: 3px 0 5px;
             color: #334155;
@@ -5417,23 +5499,63 @@ st.markdown("""
         }
         .ma-table-row b, .ma-table-row strong { color: #111827; }
         .ma-table-row em { font-style: normal; font-weight: 750; }
-        .ma-table-row .above, .ma-table-row .up { color: #138a4b; }
-        .ma-table-row .below, .ma-table-row .down { color: #dc3f45; }
+        .ma-table-row .above, .ma-table-row .up { color: #dc2626; }
+        .ma-table-row .below, .ma-table-row .down { color: #2563eb; }
         .ma-table-row .flat { color: #64748b; }
+        .average-cost-current-title {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin: 9px 0 5px;
+            color: #64748b;
+            font-size: 0.74rem;
+        }
+        .average-cost-current-title b { color: #111827; font-size: 0.88rem; }
         .average-cost-current {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
-            gap: 8px 12px;
-            align-items: center;
-            margin: 6px 0 10px;
-            padding: 9px 11px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin: 0 0 10px;
+            border-top: 1px solid #bae6cf;
+            border-bottom: 1px solid #bae6cf;
             border-left: 4px solid #137a4b;
-            background: #ecfdf3;
-            color: #475569;
-            font-size: 0.78rem;
+            background: #f7fcf9;
         }
-        .average-cost-current b { min-width: 0; color: #111827; font-size: 0.9rem; }
-        .average-cost-current strong { color: #137a4b; font-size: 0.9rem; white-space: nowrap; }
+        .average-cost-current > div {
+            min-width: 0;
+            padding: 10px 11px;
+            border-left: 1px solid #dcefe4;
+        }
+        .average-cost-current > div:first-child { border-left: 0; }
+        .average-cost-current span {
+            display: block;
+            margin-bottom: 3px;
+            color: #64748b;
+            font-size: 0.7rem;
+        }
+        .average-cost-current strong {
+            display: block;
+            color: #111827;
+            font-size: 0.88rem;
+            overflow-wrap: anywhere;
+        }
+        .average-cost-current strong.gain,
+        .average-cost-foot b.gain { color: #dc2626; }
+        .average-cost-current strong.loss,
+        .average-cost-foot b.loss { color: #2563eb; }
+        .average-cost-current strong.neutral,
+        .average-cost-foot b.neutral { color: #64748b; }
+        .average-cost-preview {
+            display: flex;
+            justify-content: space-between;
+            gap: 7px 14px;
+            margin-top: 7px;
+            padding: 8px 10px;
+            border-left: 3px solid #60a5fa;
+            background: #eff6ff;
+            color: #475569;
+            font-size: 0.74rem;
+        }
+        .average-cost-preview b { margin-left: 4px; color: #1d4ed8; }
         .average-cost-result {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5474,8 +5596,6 @@ st.markdown("""
             font-size: 0.76rem;
         }
         .average-cost-foot b { color: #111827; }
-        .average-cost-foot.lower b { color: #138a4b; }
-        .average-cost-foot.higher b { color: #dc3f45; }
         .calendar-month-title {
             min-height: 40px;
             display: flex;
@@ -5671,6 +5791,28 @@ st.markdown("""
             [class*="st-key-moving_average_panel"],
             [class*="st-key-event_calendar_panel"],
             [class*="st-key-average_cost_panel"] { padding: 11px 8px 13px; }
+            [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 5px !important;
+            }
+            [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+                width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+            }
+            [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                flex: 3 1 0 !important;
+            }
+            [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+                flex: 1.3 1 0 !important;
+            }
+            [class*="_tool_panel_header"] button {
+                padding: 0 5px;
+                font-size: 0.7rem;
+                white-space: nowrap;
+            }
             [class*="st-key-ma_target_controls"] [data-testid="stHorizontalBlock"],
             [class*="st-key-average_cost_mode_controls"] [data-testid="stHorizontalBlock"] {
                 display: flex !important;
@@ -5717,11 +5859,11 @@ st.markdown("""
             }
             .ma-table-row > span, .ma-table-row > em { font-size: 0.75rem; }
             .average-cost-current {
-                grid-template-columns: auto minmax(0, 1fr);
-                gap: 4px 8px;
-                padding: 8px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-            .average-cost-current strong { grid-column: 1 / -1; }
+            .average-cost-current > div:nth-child(3) { border-left: 0; border-top: 1px solid #dcefe4; }
+            .average-cost-current > div:nth-child(4) { border-top: 1px solid #dcefe4; }
+            .average-cost-preview { align-items: flex-start; flex-direction: column; }
             .average-cost-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .average-cost-result > div:nth-child(3) { border-left: 0; border-top: 1px solid #e5eaf0; }
             .average-cost-result > div:nth-child(4) { border-top: 1px solid #e5eaf0; }
