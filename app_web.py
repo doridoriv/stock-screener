@@ -3426,7 +3426,7 @@ def toggle_header_tool(tool_name):
 
 def render_analysis_header():
     with st.container(key="analysis_header_tools"):
-        title_col, moving_col, calendar_col = st.columns([5, 1.2, 1], gap="small")
+        title_col, moving_col, calendar_col = st.columns([1.45, 1, 0.9], gap="small")
         with title_col:
             st.header(f"🎯 {get_market_text()} 분석")
         with moving_col:
@@ -3557,6 +3557,25 @@ def render_moving_average_tool():
             width="stretch",
         )
 
+        market_text = get_market_text()
+        data = pd.DataFrame()
+        selected_label = ""
+        selected_symbol = ""
+        is_kr = st.session_state.selected_market.startswith("한국")
+        if target_mode == "종목":
+            data = pd.DataFrame(st.session_state.get("data", []))
+            if data.empty:
+                st.info("선택할 종목 데이터가 없습니다.")
+                return
+            options = {}
+            for _, row in data.iterrows():
+                symbol = _normalize_tool_symbol(row.get("symbol"), is_kr)
+                name = str(row.get("name") or symbol)
+                options[f"{name} · {symbol}"] = symbol
+            labels = list(options.keys())
+            selected_label = st.selectbox("종목 선택", labels, key=f"ma_stock_choice_{market_text}")
+            selected_symbol = options[selected_label]
+
         period_options = sorted(set(moving_average_data.QUICK_PERIODS) | set(st.session_state.ma_custom_periods))
         selected_periods = st.pills(
             "기간",
@@ -3590,7 +3609,6 @@ def render_moving_average_tool():
             st.info("확인할 이동평균 기간을 하나 이상 선택하세요.")
             return
 
-        market_text = get_market_text()
         if target_mode == "원·달러 환율":
             fx_data = (get_cached_market_panel() or {}).get("usdkrw")
             if not fx_data or not fx_data.get("values"):
@@ -3603,19 +3621,6 @@ def render_moving_average_tool():
             )
             return
 
-        data = pd.DataFrame(st.session_state.get("data", []))
-        if data.empty:
-            st.info("선택할 종목 데이터가 없습니다.")
-            return
-        is_kr = st.session_state.selected_market.startswith("한국")
-        options = {}
-        for _, row in data.iterrows():
-            symbol = _normalize_tool_symbol(row.get("symbol"), is_kr)
-            name = str(row.get("name") or symbol)
-            options[f"{name} · {symbol}"] = symbol
-        labels = list(options.keys())
-        selected_label = st.selectbox("종목", labels, key=f"ma_stock_choice_{market_text}")
-        selected_symbol = options[selected_label]
         payload = get_cached_price_history(market_text)
         history = moving_average_data.get_symbol_history(payload, selected_symbol) if payload else None
         if history:
@@ -4608,7 +4613,7 @@ st.markdown("""
         }
         [class*="st-key-custom_metric_picker_wrap"] {
             width: 100%;
-            max-width: 620px;
+            max-width: 580px;
             margin: 0 auto;
         }
         [class*="st-key-custom_metric_picker_wrap"] [data-testid="stPopover"],
@@ -5030,6 +5035,8 @@ st.markdown("""
         }
         [class*="st-key-analysis_header_tools"] [data-testid="stHorizontalBlock"] {
             align-items: center;
+            width: 100%;
+            max-width: 620px;
         }
         [class*="st-key-analysis_header_tools"] h2 {
             margin: 0;
@@ -5038,6 +5045,26 @@ st.markdown("""
         [class*="st-key-analysis_header_tools"] button {
             min-height: 40px;
             white-space: nowrap;
+        }
+        [class*="st-key-toggle_moving_average_tool"] button {
+            color: #1d4ed8 !important;
+            border-color: #93c5fd !important;
+            background: #eff6ff !important;
+        }
+        [class*="st-key-toggle_calendar_tool"] button {
+            color: #c2410c !important;
+            border-color: #fdba74 !important;
+            background: #fff7ed !important;
+        }
+        [class*="st-key-toggle_moving_average_tool"] button[kind="primary"] {
+            color: #ffffff !important;
+            border-color: #2563eb !important;
+            background: #2563eb !important;
+        }
+        [class*="st-key-toggle_calendar_tool"] button[kind="primary"] {
+            color: #ffffff !important;
+            border-color: #c2410c !important;
+            background: #c2410c !important;
         }
         [class*="st-key-moving_average_panel"],
         [class*="st-key-event_calendar_panel"] {
