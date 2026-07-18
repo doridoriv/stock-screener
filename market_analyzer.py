@@ -10,6 +10,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import CACHE_DIR
+import moving_average_data
 
 # 시장판은 "가져온 데이터가 있으면 최대한 표시"를 목표로 한다.
 # 핵심은 강세/약세를 절대값이 아니라 위험선호(risk-on) 방향으로 해석하는 것.
@@ -19,7 +20,7 @@ INDICATORS = [
     {"label": "반도체", "symbol": "SOXX", "bullish": True, "weight": 25, "group": "semiconductor"},
     {"label": "S&P500", "symbol": "SPY", "bullish": True, "weight": 15, "group": "broad"},
     {"label": "금융", "symbol": "XLF", "bullish": True, "weight": 10, "group": "financial"},
-    {"label": "장기채", "symbol": "TLT", "bullish": False, "weight": 10, "group": "defensive"},
+    {"label": "미국 장기채", "symbol": "TLT", "bullish": True, "weight": 10, "group": "rates"},
     {"label": "달러인덱스", "symbol": "DX-Y.NYB", "bullish": False, "weight": 10, "group": "macro"},
     {"label": "미국10년물", "symbol": "^TNX", "bullish": False, "weight": 5, "group": "macro"},
 ]
@@ -61,29 +62,41 @@ def _trend_metrics(close: pd.Series) -> Dict[str, float]:
     }
 
 def _risk_score_from_metrics(metrics: Dict[str, float], bullish: bool) -> int:
-    score = 50
+    score, _ = _score_breakdown(metrics, bullish)
+    return score
 
+
+def _score_breakdown(metrics: Dict[str, float], bullish: bool) -> tuple[int, list[dict]]:
+    direction = 1 if bullish else -1
     latest = metrics["latest"]
-    ma20 = metrics["ma20"]
-    ma60 = metrics["ma60"]
-    ret20 = metrics["ret20"]
-    ret60 = metrics["ret60"]
-
-    if pd.notna(ma20):
-        score += 15 if latest >= ma20 else -15
-    if pd.notna(ma60):
-        score += 15 if latest >= ma60 else -15
-    if pd.notna(ret20):
-        score += 10 if ret20 >= 0 else -10
-    if pd.notna(ret60):
-        score += 10 if ret60 >= 0 else -10
-
-    score = max(0, min(100, score))
-
-    if not bullish:
-        score = 100 - score
-
-    return int(max(0, min(100, score)))
+    checks = [
+        ("20일선", latest, metrics["ma20"], 15, "above"),
+        ("60일선", latest, metrics["ma60"], 15, "above"),
+        ("20일 수익률", metrics["ret20"], 0, 10, "positive"),
+        ("60일 수익률", metrics["ret60"], 0, 10, "positive"),
+    ]
+    parts = []
+    score = 50
+    for label, value, reference, weight, check_type in checks:
+        if pd.isna(value) or pd.isna(reference):
+            continue
+        passed = value >= reference
+        raw_points = weight if passed else -weight
+        points = raw_points * direction
+        score += points
+        if check_type == "above":
+            result = "위" if passed else "아래"
+            value_text = f"{float(value):,.2f} / {float(reference):,.2f}"
+        else:
+            result = "상승" if passed else "하락"
+            value_text = f"{float(value):+.2f}%"
+        parts.append({
+            "label": label,
+            "result": result,
+            "value_text": value_text,
+            "points": int(points),
+        })
+    return int(max(0, min(100, score))), parts
 
 def _state_from_score(score: float) -> str:
     if score >= 80:
@@ -126,12 +139,12 @@ def _impact_text(label: str, risk_score: Optional[float]) -> str:
         if neutral:
             return "금융주 방향성 중립"
         return "금융주 수급 부담"
-    if label == "장기채":
+    if label == "미국 장기채":
         if favorable:
-            return "금리 부담 완화 신호"
+            return "장기금리 부담 완화 신호"
         if neutral:
             return "금리 부담 중립"
-        return "금리 상승 부담"
+        return "장기금리 상승 부담"
     if label == "달러인덱스":
         if favorable:
             return "달러 약세로 수급 부담 완화"
@@ -218,7 +231,7 @@ def build_market_panel() -> Dict[str, object]:
             continue
 
         metrics = _trend_metrics(close)
-        risk_score = _risk_score_from_metrics(metrics, bullish=item["bullish"])
+        risk_score, score_parts = _score_breakdown(metrics, bullish=item["bullish"])
         raw_trend = _raw_trend(metrics)
 
         if risk_score >= 65:
@@ -243,12 +256,15 @@ def build_market_panel() -> Dict[str, object]:
             "effect": effect,
             "risk_score": risk_score,
             "latest": metrics["latest"],
+            "ma20": metrics["ma20"],
+            "ma60": metrics["ma60"],
             "ret20": metrics["ret20"],
             "ret60": metrics["ret60"],
             "latest_text": _format_latest(item["label"], metrics["latest"]),
             "ret20_text": _format_pct(metrics["ret20"]),
             "ret60_text": _format_pct(metrics["ret60"]),
             "score_impact": score_impact,
+            "score_parts": score_parts,
             "meaning": _impact_text(item["label"], risk_score),
             "available": True,
             "weight": item["weight"],
@@ -290,6 +306,30 @@ def build_market_panel() -> Dict[str, object]:
         key=lambda r: (r.get("score_impact", 0) < 0, -abs(r.get("score_impact", 0)))
     )
 
+    usdkrw = None
+    usdkrw_close = _download_close("KRW=X", period="2y")
+    if usdkrw_close is not None and not usdkrw_close.empty:
+        fx_result = moving_average_data.calculate_moving_average_rows(
+            usdkrw_close.tolist(),
+            moving_average_data.DEFAULT_PERIODS,
+        )
+        usdkrw = {
+            "symbol": "KRW=X",
+            "name": "원·달러 환율",
+            "data_date": pd.to_datetime(usdkrw_close.index[-1]).strftime("%Y-%m-%d"),
+            "dates": [
+                pd.to_datetime(index).strftime("%Y-%m-%d")
+                for index in usdkrw_close.index[-moving_average_data.HISTORY_ROWS:]
+            ],
+            "values": [
+                round(float(value), 6)
+                for value in usdkrw_close.iloc[-moving_average_data.HISTORY_ROWS:]
+            ],
+            "close": fx_result["close"],
+            "rows": fx_result["rows"],
+            "source": "Yahoo Finance (KRW=X)",
+        }
+
     return {
         "market_score": market_score,
         "market_state": market_state,
@@ -300,6 +340,7 @@ def build_market_panel() -> Dict[str, object]:
         "evidence_rows": evidence_rows,
         "total_weight": total_weight,
         "used_weight": used_weight,
+        "usdkrw": usdkrw,
         "collected_at": datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d %H:%M KST"),
         "source": "yfinance",
     }

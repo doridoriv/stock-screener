@@ -2,6 +2,7 @@ import os
 import html
 import glob
 import json
+import calendar as month_calendar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -10,11 +11,13 @@ import streamlit.components.v1 as components
 
 import analyzer
 import diagnostics
+import event_calendar
 import market_analyzer
+import moving_average_data
 import supplemental_data
 from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
-MARKET_PANEL_CACHE_VERSION = 2
+MARKET_PANEL_CACHE_VERSION = 3
 MARKET_LABEL_TO_VALUE = {
     "코스피": "한국(코스피)",
     "코스닥": "한국(코스닥)",
@@ -265,6 +268,16 @@ def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
         return cached_panel
     return market_analyzer.build_market_panel()
 
+
+@st.cache_data(ttl=1800)
+def get_cached_event_calendar():
+    return event_calendar.load_event_calendar_cache() or {"events": [], "sources": {}}
+
+
+@st.cache_data(ttl=1800)
+def get_cached_price_history(market_text):
+    return moving_average_data.load_market_price_history(market_text)
+
 # ==========================================
 # 1. 페이지 및 세션 상태 초기화 (사이드바 자동 제어)
 # ==========================================
@@ -325,6 +338,21 @@ else:
 # 사이드바 초기 상태를 세션에 저장 (기본값: 닫힘)
 if "sidebar_state" not in st.session_state:
     st.session_state.sidebar_state = "collapsed"
+
+if "active_header_tool" not in st.session_state:
+    st.session_state.active_header_tool = None
+
+if "ma_custom_periods" not in st.session_state:
+    st.session_state.ma_custom_periods = []
+
+if "ma_custom_period_input" not in st.session_state:
+    st.session_state.ma_custom_period_input = 50
+
+if "calendar_month" not in st.session_state:
+    st.session_state.calendar_month = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m")
+
+if "calendar_selected_date" not in st.session_state:
+    st.session_state.calendar_selected_date = None
 
 # 시장 교체 시 캐시 데이터를 자동 로드하여 사용자 편의성 제공
 def get_market_text(market=None):
@@ -2755,13 +2783,13 @@ def split_market_summary(summary):
 def render_mobile_market_notes(market_data):
     score = clean_number(market_data.get("market_score"))
     state = market_data.get("score_state") or market_data.get("market_state") or "확인 중"
-    summary = market_data.get("summary", "시장환경 요약을 확인 중입니다.")
+    summary = market_data.get("summary", "글로벌 시장 신호를 확인 중입니다.")
     score_text = f"{score:.1f}점" if score is not None else "N/A"
     st.markdown(
         f"""
         <div class="mobile-market-card">
             <div class="mobile-market-top">
-                <b>시장환경 한눈에 보기</b>
+                <b>글로벌 시장 신호</b>
                 <span>자세히 보기 ›</span>
             </div>
             <div class="mobile-market-state">상태: <b>{escape_html(state)}</b></div>
@@ -3124,7 +3152,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
         render_mobile_section("2. 핵심 근거", [
             ("좋은 이유", " · ".join(good_reasons[:3]) if good_reasons else "추가 확인", "성장성, 수익성, 재무 안정성 중 확인된 강점입니다."),
             ("싼 이유", " · ".join(cheap_reasons[:3]) if cheap_reasons else "추가 확인", "가격 매력은 수치 탭에서 구체적으로 확인할 수 있습니다."),
-            ("시장환경", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", "시장 방향과 업종 흐름을 함께 반영한 판단입니다."),
+            ("시장 신호", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", "시장 방향과 업종 흐름을 함께 반영한 판단입니다."),
         ])
         render_mobile_section("3. 확인 필요", [
             ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
@@ -3392,181 +3420,466 @@ def render_top_choice_panel():
             render_investment_lens_controls()
 
 
-def render_market_environment_panel(title="2단계: 시장환경 점검"):
+def toggle_header_tool(tool_name):
+    st.session_state.active_header_tool = None if st.session_state.active_header_tool == tool_name else tool_name
+
+
+def render_analysis_header():
+    with st.container(key="analysis_header_tools"):
+        title_col, moving_col, calendar_col = st.columns([5, 1.2, 1], gap="small")
+        with title_col:
+            st.header(f"🎯 {get_market_text()} 분석")
+        with moving_col:
+            st.button(
+                "이동평균",
+                key="toggle_moving_average_tool",
+                icon=":material/show_chart:",
+                type="primary" if st.session_state.active_header_tool == "moving_average" else "secondary",
+                width="stretch",
+                on_click=toggle_header_tool,
+                args=("moving_average",),
+            )
+        with calendar_col:
+            st.button(
+                "캘린더",
+                key="toggle_calendar_tool",
+                icon=":material/calendar_month:",
+                type="primary" if st.session_state.active_header_tool == "calendar" else "secondary",
+                width="stretch",
+                on_click=toggle_header_tool,
+                args=("calendar",),
+            )
+
+
+def _normalize_tool_symbol(value, is_kr):
+    text = str(value or "").strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text.zfill(6) if is_kr and text.isdigit() else text.upper()
+
+
+def _add_custom_ma_period():
+    period = int(st.session_state.get("ma_custom_period_input", 50))
+    if period < moving_average_data.MIN_PERIOD or period > moving_average_data.MAX_PERIOD:
+        return
+    custom = set(st.session_state.get("ma_custom_periods", []))
+    custom.add(period)
+    st.session_state.ma_custom_periods = sorted(custom)
+    selected = set(st.session_state.get("ma_period_selection", moving_average_data.DEFAULT_PERIODS))
+    selected.add(period)
+    st.session_state.ma_period_selection = sorted(selected)
+
+
+def _format_ma_price(value, target_mode, is_kr):
+    if value is None or pd.isna(value):
+        return "-"
+    number = float(value)
+    if target_mode == "원·달러 환율":
+        return f"{number:,.2f}원"
+    if is_kr:
+        return f"{number:,.0f}원"
+    return f"${number:,.2f}"
+
+
+def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, source=""):
+    rows = result.get("rows") or []
+    close = result.get("close")
+    if close is None or not rows:
+        st.info("선택한 기간을 계산할 일봉 데이터가 아직 충분하지 않습니다.")
+        return
+
+    above_count = sum(1 for row in rows if row.get("distance_pct") is not None and row["distance_pct"] >= 0)
+    nearest = min(
+        (row for row in rows if row.get("distance_pct") is not None),
+        key=lambda row: abs(row["distance_pct"]),
+        default=None,
+    )
+    alignment = moving_average_data.summarize_alignment(rows)
+    if target_mode == "원·달러 환율":
+        reference = next((row for row in rows if row["period"] == 60), rows[0])
+        currency_state = "원화 약세" if (reference.get("distance_pct") or 0) >= 0 else "원화 강세"
+        summary = f"{currency_state} · {alignment}"
+    else:
+        summary = f"{len(rows)}개 중 {above_count}개 이동평균선 위 · {alignment}"
+    if nearest:
+        summary += f" · 가장 가까운 선 {nearest['period']}일선 {nearest['distance_pct']:+.2f}%"
+
+    source_text = f" · {source}" if source else ""
+    st.markdown(
+        f"""
+        <div class="ma-result-head">
+            <div><b>{html.escape(str(name))}</b><span>{html.escape(str(symbol))}</span></div>
+            <strong>{_format_ma_price(close, target_mode, is_kr)}</strong>
+            <small>{html.escape(str(data_date or '기준일 미확인'))} 일봉 기준{html.escape(source_text)}</small>
+            <p>{html.escape(summary)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    row_html = ""
+    for row in rows:
+        distance = row.get("distance_pct")
+        position = "위" if distance is not None and distance >= 0 else "아래"
+        position_class = "above" if position == "위" else "below"
+        direction = row.get("direction") or "확인 중"
+        direction_class = "up" if direction == "상승 중" else "down" if direction == "하락 중" else "flat"
+        distance_text = f"{distance:+.2f}% {position}" if distance is not None else "-"
+        row_html += f"""
+        <div class="ma-table-row">
+            <b>{row['period']}일선</b>
+            <strong>{_format_ma_price(row.get('average'), target_mode, is_kr)}</strong>
+            <span class="{position_class}">{html.escape(distance_text)}</span>
+            <em class="{direction_class}">{html.escape(direction)}</em>
+        </div>
+        """
+    st.markdown(
+        f"""
+        <div class="ma-table">
+            <div class="ma-table-header"><span>이동평균선</span><span>평균 가격</span><span>종가 대비</span><span>선 방향</span></div>
+            {row_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_moving_average_tool():
+    with st.container(key="moving_average_panel"):
+        st.markdown('<div class="tool-panel-title">이동평균 확인</div>', unsafe_allow_html=True)
+        target_mode = st.pills(
+            "대상",
+            ["종목", "원·달러 환율"],
+            default="종목",
+            key="ma_target_selection",
+            selection_mode="single",
+            required=True,
+            width="stretch",
+        )
+
+        period_options = sorted(set(moving_average_data.QUICK_PERIODS) | set(st.session_state.ma_custom_periods))
+        selected_periods = st.pills(
+            "기간",
+            period_options,
+            default=list(moving_average_data.DEFAULT_PERIODS),
+            key="ma_period_selection",
+            selection_mode="multi",
+            format_func=lambda period: f"{period}일",
+            width="stretch",
+        )
+        add_input_col, add_button_col = st.columns([3, 1], gap="small")
+        with add_input_col:
+            st.number_input(
+                "사용자 기간",
+                min_value=moving_average_data.MIN_PERIOD,
+                max_value=moving_average_data.MAX_PERIOD,
+                step=1,
+                key="ma_custom_period_input",
+                label_visibility="collapsed",
+            )
+        with add_button_col:
+            st.button(
+                "기간 추가",
+                key="add_custom_ma_period",
+                icon=":material/add:",
+                width="stretch",
+                on_click=_add_custom_ma_period,
+            )
+
+        if not selected_periods:
+            st.info("확인할 이동평균 기간을 하나 이상 선택하세요.")
+            return
+
+        market_text = get_market_text()
+        if target_mode == "원·달러 환율":
+            fx_data = (get_cached_market_panel() or {}).get("usdkrw")
+            if not fx_data or not fx_data.get("values"):
+                st.info("원·달러 일봉은 다음 정기 수집이 완료되면 표시됩니다.")
+                return
+            result = moving_average_data.calculate_moving_average_rows(fx_data["values"], selected_periods)
+            _render_ma_result(
+                "원·달러 환율", "USD/KRW", fx_data.get("data_date"), result,
+                target_mode, True, fx_data.get("source", ""),
+            )
+            return
+
+        data = pd.DataFrame(st.session_state.get("data", []))
+        if data.empty:
+            st.info("선택할 종목 데이터가 없습니다.")
+            return
+        is_kr = st.session_state.selected_market.startswith("한국")
+        options = {}
+        for _, row in data.iterrows():
+            symbol = _normalize_tool_symbol(row.get("symbol"), is_kr)
+            name = str(row.get("name") or symbol)
+            options[f"{name} · {symbol}"] = symbol
+        labels = list(options.keys())
+        selected_label = st.selectbox("종목", labels, key=f"ma_stock_choice_{market_text}")
+        selected_symbol = options[selected_label]
+        payload = get_cached_price_history(market_text)
+        history = moving_average_data.get_symbol_history(payload, selected_symbol) if payload else None
+        if history:
+            result = moving_average_data.calculate_moving_average_rows(history["values"], selected_periods)
+            _render_ma_result(
+                history.get("name", selected_label), selected_symbol, history.get("data_date"),
+                result, target_mode, is_kr,
+            )
+            return
+
+        selected_row = data[data["symbol"].apply(lambda value: _normalize_tool_symbol(value, is_kr)) == selected_symbol]
+        fallback_rows = []
+        close = None
+        if not selected_row.empty:
+            row = selected_row.iloc[0]
+            close = pd.to_numeric(pd.Series([row.get("price")]), errors="coerce").iloc[0]
+            for period in selected_periods:
+                value = pd.to_numeric(pd.Series([row.get(f"ma{period}")]), errors="coerce").iloc[0]
+                if pd.notna(value) and pd.notna(close):
+                    fallback_rows.append({
+                        "period": int(period), "average": float(value),
+                        "distance_pct": (float(close) - float(value)) / float(value) * 100,
+                        "direction": "다음 수집 후 확인",
+                    })
+        if fallback_rows:
+            _render_ma_result(selected_label.split(" · ")[0], selected_symbol, row.get("data_date"), {"close": close, "rows": fallback_rows}, target_mode, is_kr)
+            st.caption("전체 기간과 선 방향은 다음 정기 수집 후 자동으로 채워집니다.")
+        else:
+            st.info("종목 일봉은 다음 정기 수집이 완료되면 표시됩니다.")
+
+
+def _shift_calendar_month(month_text, delta):
+    current = datetime.strptime(month_text, "%Y-%m")
+    month_index = current.year * 12 + current.month - 1 + delta
+    return f"{month_index // 12:04d}-{month_index % 12 + 1:02d}"
+
+
+def _calendar_events_for_market(events):
+    current_market = get_market_text()
+    filtered = []
+    for event in events:
+        if event.get("category") == "실적":
+            if current_market == "미국":
+                filtered.append(event)
+            continue
+        if current_market == "미국" and event.get("market") == "한국":
+            continue
+        filtered.append(event)
+    return filtered
+
+
+def render_event_calendar_tool():
+    with st.container(key="event_calendar_panel"):
+        calendar_data = get_cached_event_calendar()
+        events = _calendar_events_for_market(calendar_data.get("events") or [])
+        month_text = st.session_state.calendar_month
+        month_start = datetime.strptime(f"{month_text}-01", "%Y-%m-%d").date()
+        year, month = month_start.year, month_start.month
+        range_start_month = str(calendar_data.get("range_start") or month_text)[:7]
+        range_end_month = str(calendar_data.get("range_end") or month_text)[:7]
+        can_go_previous = _shift_calendar_month(month_text, -1) >= range_start_month
+        can_go_next = _shift_calendar_month(month_text, 1) <= range_end_month
+
+        previous_col, title_col, next_col = st.columns([1, 3, 1], gap="small")
+        with previous_col:
+            if st.button(
+                "이전", key="calendar_previous", icon=":material/chevron_left:",
+                width="stretch", disabled=not can_go_previous,
+            ):
+                st.session_state.calendar_month = _shift_calendar_month(month_text, -1)
+                st.session_state.calendar_selected_date = None
+                st.rerun()
+        with title_col:
+            st.markdown(f'<div class="calendar-month-title">{year}년 {month}월</div>', unsafe_allow_html=True)
+        with next_col:
+            if st.button(
+                "다음", key="calendar_next", icon=":material/chevron_right:", icon_position="right",
+                width="stretch", disabled=not can_go_next,
+            ):
+                st.session_state.calendar_month = _shift_calendar_month(month_text, 1)
+                st.session_state.calendar_selected_date = None
+                st.rerun()
+
+        st.markdown(
+            '<div class="calendar-weekdays"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>',
+            unsafe_allow_html=True,
+        )
+        by_date = {}
+        for event in events:
+            by_date.setdefault(event.get("date"), []).append(event)
+        weeks = month_calendar.Calendar(firstweekday=0).monthdayscalendar(year, month)
+        for week_index, week in enumerate(weeks):
+            columns = st.columns(7, gap="small")
+            for day_index, day_number in enumerate(week):
+                with columns[day_index]:
+                    if day_number == 0:
+                        st.markdown('<div class="calendar-empty-day"></div>', unsafe_allow_html=True)
+                        continue
+                    date_text = f"{year:04d}-{month:02d}-{day_number:02d}"
+                    count = len(by_date.get(date_text, []))
+                    label = f"{day_number}\n{count}건" if count else str(day_number)
+                    active = st.session_state.calendar_selected_date == date_text
+                    if st.button(
+                        label,
+                        key=f"calendar_day_{date_text}",
+                        type="primary" if active else "secondary",
+                        width="stretch",
+                    ):
+                        st.session_state.calendar_selected_date = date_text
+                        st.rerun()
+
+        month_events = [event for event in events if str(event.get("date", "")).startswith(month_text)]
+        selected_date = st.session_state.calendar_selected_date
+        if selected_date and selected_date.startswith(month_text):
+            detail_events = by_date.get(selected_date, [])
+            detail_title = datetime.strptime(selected_date, "%Y-%m-%d").strftime("%m월 %d일")
+        else:
+            detail_events = month_events
+            detail_title = f"{month}월 주요 일정"
+
+        st.markdown(f'<div class="calendar-detail-title">{html.escape(detail_title)}</div>', unsafe_allow_html=True)
+        if not detail_events:
+            st.info("현재 공식 발표처에서 확정된 일정이 없습니다.")
+        else:
+            event_rows = []
+            for event in detail_events:
+                category = str(event.get("category", "일정"))
+                source_url = html.escape(str(event.get("source_url", "")), quote=True)
+                source = html.escape(str(event.get("source", "공식 발표처")))
+                source_link = f'<a href="{source_url}" target="_blank">{source}</a>' if source_url else source
+                event_rows.append(
+                    f'<div class="calendar-event category-{html.escape(category)}">'
+                    f'<span>{html.escape(category)}</span>'
+                    f'<div><b>{html.escape(str(event.get("title", "주요 일정")))}</b>'
+                    f'<small>{html.escape(str(event.get("date", "")))} · '
+                    f'{html.escape(str(event.get("time_kst") or "시간 미정"))} · {source_link}</small></div>'
+                    '</div>'
+                )
+            event_html = "".join(event_rows)
+            st.markdown(f'<div class="calendar-event-list">{event_html}</div>', unsafe_allow_html=True)
+        collected_at = calendar_data.get("collected_at")
+        if collected_at:
+            st.caption(f"확정 일정 기준 · 마지막 수집 {collected_at}")
+
+
+def render_active_header_tool():
+    if st.session_state.active_header_tool == "moving_average":
+        render_moving_average_tool()
+    elif st.session_state.active_header_tool == "calendar":
+        render_event_calendar_tool()
+
+
+def render_market_environment_panel(title="2단계: 글로벌 시장 신호"):
     st.subheader(title)
     try:
         market_data = get_cached_market_panel()
+        market_score = float(market_data.get("market_score", 50))
+        score_state = market_data.get("score_state") or "중립"
+        market_state = market_data.get("market_state") or "중립"
+        score_class = "favorable" if market_score >= 65 else "burden" if market_score < 50 else "neutral"
+        headline, positive_summary, negative_summary = split_market_summary(market_data.get("summary", ""))
+        summary_parts = [part for part in [headline, f"우호: {positive_summary}" if positive_summary else "", f"부담: {negative_summary}" if negative_summary else ""] if part]
+        st.markdown(
+            f"""
+            <div class="market-signal-summary {score_class}">
+                <div><span>글로벌 시장 신호</span><b>{html.escape(score_state)} · {market_score:.1f}점</b></div>
+                <p>{html.escape(' · '.join(summary_parts) or market_state)}</p>
+                <small>{html.escape(str(market_data.get('collected_at', '수집시각 미확인')))}</small>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        state_color = "🔴 위험회피 (Risk-Off)"
-        if market_data["market_state"] == "위험선호":
-            state_color = "🟢 위험선호 (Risk-On)"
-        elif market_data["market_state"] == "중립":
-            state_color = "🟡 중립 (Neutral)"
-
-        col_m1, col_m2 = st.columns([1, 4])
-        with col_m1:
-            st.metric(
-                label="시장환경 점수",
-                value=f"{market_data['market_score']}점",
-                delta=market_data.get("score_state", market_data["market_state"])
-            )
-        with col_m2:
-            source_text = market_data.get("collected_at", "미지정")
-            headline, positive_summary, negative_summary = split_market_summary(market_data.get("summary", ""))
-            summary_lines = [f"**상태:** {state_color}"]
-            if headline:
-                summary_lines.append(f"**요약:** {headline}")
-            if positive_summary:
-                summary_lines.append(f"**우호 요인:** {positive_summary}")
-            if negative_summary:
-                summary_lines.append(f"**부담 요인:** {negative_summary}")
-            summary_lines.append(f"**시장환경 수집시각:** `{source_text}`")
-            st.info(
-                "  \n".join(summary_lines)
-            )
+        with st.expander("근거 보기", expanded=False):
             st.markdown(
                 """
                 <div class="market-score-guide">
-                    <span>80+ 매우우호</span><span>65+ 우호</span><b>50 평균</b><span>35- 부담</span><span>20- 매우부담</span>
+                    <span>80+ 매우우호</span><span>65+ 우호</span><b>50 중립</b><span>35+ 부담</span><span>35 미만 매우부담</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-        def format_market_value(label, value):
-            if value is None or pd.isna(value):
-                return "-"
-            if label == "미국10년물":
-                return f"{float(value):.2f}%"
-            if label == "달러인덱스":
-                return f"{float(value):.1f}"
-            if float(value) >= 100:
-                return f"{float(value):,.1f}"
-            return f"{float(value):.2f}"
-
-        def format_market_pct(value):
-            if value is None or pd.isna(value):
-                return "-"
-            return f"{float(value):+.2f}%"
-
-        def market_meaning(label, score):
-            if score is None or pd.isna(score):
-                return "판단 보류"
-            favorable = float(score) >= 65
-            neutral = 50 <= float(score) < 65
-            if label == "나스닥":
-                return "성장주 위험선호 양호" if favorable else "성장주 방향성 제한" if neutral else "성장주 투자심리 부담"
-            if label == "반도체":
-                return "반도체 종목에 우호적" if favorable else "반도체 모멘텀 중립" if neutral else "반도체 종목에 부담"
-            if label == "S&P500":
-                return "미국 대형주 흐름 양호" if favorable else "대형주 흐름 중립" if neutral else "대형주 시장 체력 약함"
-            if label == "금융":
-                return "금융주 수급 우호" if favorable else "금융주 방향성 중립" if neutral else "금융주 수급 부담"
-            if label == "장기채":
-                return "금리 부담 완화 신호" if favorable else "금리 부담 중립" if neutral else "금리 상승 부담"
-            if label == "달러인덱스":
-                return "달러 약세로 수급 부담 완화" if favorable else "달러 영향 중립" if neutral else "달러 강세로 외국인 수급 부담"
-            if label == "미국10년물":
-                return "고PER 할인 부담 완화" if favorable else "밸류에이션 부담 중립" if neutral else "고PER 종목 할인 요인"
-            return "시장환경 참고 지표"
-
-        def evidence_display_row(row):
-            label = row.get("label")
-            score = row.get("risk_score")
-            weight = row.get("weight") or 0
-            total_weight = market_data.get("total_weight") or 100
-            influence = 0
-            if total_weight:
-                influence = round(float(weight) / float(total_weight) * 100)
-            score_impact = row.get("score_impact")
-            if score_impact is None and score is not None:
-                score_impact = round((float(score) - 50) * float(weight) / float(total_weight), 1)
-            return {
-                "항목": label,
-                "현재값": row.get("latest_text") or format_market_value(label, row.get("latest")),
-                "20일": row.get("ret20_text") or format_market_pct(row.get("ret20")),
-                "60일": row.get("ret60_text") or format_market_pct(row.get("ret60")),
-                "평가": row.get("effect") or "-",
-                "점수영향": f"{score_impact:+.1f}" if score_impact is not None else "-",
-                "영향도": f"{influence:.0f}%",
-                "의미": row.get("meaning") or market_meaning(label, score),
-            }
-
-        evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
-        if evidence_rows:
-            evidence_df = pd.DataFrame([evidence_display_row(row) for row in evidence_rows])
-            driver_df = evidence_df.copy()
-            driver_df["_abs_impact"] = driver_df["점수영향"].astype(str).str.replace("+", "", regex=False).str.replace("점", "", regex=False)
-            driver_df["_abs_impact"] = pd.to_numeric(driver_df["_abs_impact"], errors="coerce").abs().fillna(0)
-            top_drivers = driver_df.sort_values("_abs_impact", ascending=False).head(4)
-            driver_html = "".join(
-                [
-                    f"<span><b>{escape_html(item['항목'])}</b> {escape_html(item['점수영향'])}점 · 영향도 {escape_html(item['영향도'])}</span>"
-                    for _, item in top_drivers.iterrows()
-                ]
-            )
-            st.markdown(
-                f"""
-                <div class="market-driver-strip">
-                    <strong>점수 영향 상위</strong>
-                    {driver_html}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            def color_market_evidence(val):
-                text = str(val)
-                if text in ["우호", "매우 우호"] or text.startswith("+"):
-                    return "color: #FF4B4B; font-weight: bold;"
-                if text in ["부담", "매우 부담", "비우호"] or text.startswith("-"):
-                    return "color: #2563EB; font-weight: bold;"
-                return "color: #64748B;"
-
-            st.caption("시장환경 근거표")
-            if st.session_state.table_view_mode == "모바일 보기":
-                evidence_cards_html = ""
-                for _, item in evidence_df.iterrows():
-                    impact_text = str(item.get("점수영향", "-"))
-                    impact_class = "positive" if impact_text.startswith("+") else "negative" if impact_text.startswith("-") else "neutral"
-                    evidence_cards_html += f"""
-                    <div class="mobile-evidence-card">
-                        <div class="mobile-evidence-line mobile-evidence-line-main">
-                            <b>{escape_html(item.get("항목", "시장환경"))}</b>
-                            <span>{escape_html(item.get("의미", ""))}</span>
-                        </div>
-                        <div class="mobile-evidence-line mobile-evidence-line-data">
-                            <strong>{escape_html(item.get("평가", "-"))} <span class="{impact_class}">{escape_html(impact_text)}점</span></strong>
-                            <em>영향도 {escape_html(item.get("영향도", "-"))}</em>
-                            <em>현재 {escape_html(item.get("현재값", "-"))}</em>
-                            <em>20일 {escape_html(item.get("20일", "-"))}</em>
-                            <em>60일 {escape_html(item.get("60일", "-"))}</em>
-                        </div>
-                    </div>
-                    """
+            fx_data = market_data.get("usdkrw") or {}
+            fx_rows = fx_data.get("rows") or []
+            if fx_data.get("close") is not None and fx_rows:
+                fx_reference = next((row for row in fx_rows if row.get("period") == 60), fx_rows[0])
+                fx_distance = fx_reference.get("distance_pct")
+                fx_state = "원화 약세" if fx_distance is not None and fx_distance >= 0 else "원화 강세"
+                distance_text = f"{fx_distance:+.2f}%" if fx_distance is not None else "-"
                 st.markdown(
                     f"""
-                    <div class="mobile-market-evidence-box">
-                        {evidence_cards_html}
+                    <div class="fx-reference-strip">
+                        <b>원·달러 {float(fx_data['close']):,.2f}원</b>
+                        <span>60일선 대비 {distance_text}</span>
+                        <strong>{fx_state}</strong>
+                        <em>점수 미반영 참고지표</em>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
-            else:
-                evidence_style = evidence_df.style
-                evidence_style_method = evidence_style.map if hasattr(evidence_style, "map") else evidence_style.applymap
-                evidence_style = evidence_style_method(color_market_evidence, subset=["평가", "점수영향"])
-                st.dataframe(
-                    evidence_style,
-                    width="stretch",
-                    hide_index=True,
+
+            evidence_rows = market_data.get("evidence_rows") or market_data.get("rows") or []
+            evidence_cards = []
+            total_weight = float(market_data.get("total_weight") or 100)
+            for row in evidence_rows:
+                if not row.get("available", True):
+                    continue
+                label = str(row.get("label") or "시장 지표")
+                symbol = str(row.get("symbol") or "")
+                score = row.get("risk_score")
+                weight = float(row.get("weight") or 0)
+                ratio = weight / total_weight * 100 if total_weight else 0
+                score_impact = row.get("score_impact")
+                if score_impact is None and score is not None:
+                    score_impact = (float(score) - 50) * weight / total_weight
+                impact_text = f"{float(score_impact):+.1f}점" if score_impact is not None else "반영 대기"
+                effect = str(row.get("effect") or "판단 보류")
+                effect_class = "favorable" if effect == "우호" else "burden" if effect == "부담" else "neutral"
+                latest_text = row.get("latest_text")
+                if not latest_text and row.get("latest") is not None:
+                    latest_text = f"{float(row['latest']):,.2f}"
+
+                part_html = ""
+                score_parts = row.get("score_parts") or []
+                for part in score_parts:
+                    points = int(part.get("points") or 0)
+                    point_class = "positive" if points > 0 else "negative" if points < 0 else "neutral"
+                    label_text = str(part.get("label") or "기준")
+                    if "수익률" in label_text:
+                        criterion_text = f"{label_text.replace(' 수익률', '')} {part.get('value_text', '-')}"
+                    else:
+                        criterion_text = f"{label_text} {part.get('result', '')} ({part.get('value_text', '-')})"
+                    part_html += f'<span>{html.escape(criterion_text)} <b class="{point_class}">{points:+d}점</b></span>'
+                if not part_html:
+                    ret20 = row.get("ret20_text") or "-"
+                    ret60 = row.get("ret60_text") or "-"
+                    part_html = f'<span>현재 {html.escape(str(latest_text or "-"))}</span><span>20일 {html.escape(str(ret20))}</span><span>60일 {html.escape(str(ret60))}</span><span>상세 배점은 다음 정기 수집 후 표시</span>'
+
+                evidence_cards.append(
+                    '<div class="market-evidence-item">'
+                    '<div class="market-evidence-main">'
+                    f'<b>{html.escape(label)} <small>{html.escape(symbol)}</small></b>'
+                    f'<strong class="{effect_class}">{html.escape(effect)}</strong>'
+                    f'<span>현재 {html.escape(str(latest_text or "-"))}</span>'
+                    f'<em>전체 {html.escape(impact_text)}</em>'
+                    f'<p>{html.escape(str(row.get("meaning") or "시장 참고 지표"))}</p>'
+                    '</div>'
+                    f'<div class="market-evidence-points">{part_html}</div>'
+                    f'<div class="market-evidence-formula">지표 '
+                    f'{html.escape(str(score if score is not None else "-"))}점 × 반영 {ratio:.0f}% '
+                    f'→ 전체 {html.escape(impact_text)}</div>'
+                    '</div>'
                 )
-        else:
-            st.caption("시장환경 근거표: 표시할 지표 데이터가 아직 없습니다.")
+
+            if evidence_cards:
+                evidence_html = "".join(evidence_cards)
+                st.markdown(f'<div class="market-evidence-box">{evidence_html}</div>', unsafe_allow_html=True)
+            else:
+                st.info("표시할 시장 근거 데이터가 아직 없습니다.")
 
         return market_data
     except Exception as e:
-        st.error(f"시장 분석 패널 로드 오류: {e}")
+        st.error(f"시장 신호 패널 로드 오류: {e}")
         return {}
 
 
@@ -4715,8 +5028,275 @@ st.markdown("""
             font-size: 0.85rem;
             line-height: 1.4;
         }
+        [class*="st-key-analysis_header_tools"] [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+        [class*="st-key-analysis_header_tools"] h2 {
+            margin: 0;
+            padding: 0;
+        }
+        [class*="st-key-analysis_header_tools"] button {
+            min-height: 40px;
+            white-space: nowrap;
+        }
+        [class*="st-key-moving_average_panel"],
+        [class*="st-key-event_calendar_panel"] {
+            border-top: 1px solid #dbe4ee;
+            border-bottom: 1px solid #dbe4ee;
+            background: #f8fafc;
+            padding: 14px 16px 16px;
+            margin: 8px 0 14px;
+        }
+        .tool-panel-title {
+            color: #111827;
+            font-size: 1rem;
+            font-weight: 850;
+            margin-bottom: 8px;
+        }
+        .ma-result-head {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 4px 14px;
+            align-items: baseline;
+            margin: 12px 0 8px;
+            padding: 11px 12px;
+            border: 1px solid #dbe4ee;
+            background: #ffffff;
+        }
+        .ma-result-head div { min-width: 0; }
+        .ma-result-head div b { color: #111827; font-size: 1rem; }
+        .ma-result-head div span { color: #64748b; font-size: 0.78rem; margin-left: 7px; }
+        .ma-result-head > strong { color: #111827; font-size: 1.08rem; }
+        .ma-result-head small { color: #64748b; font-size: 0.74rem; }
+        .ma-result-head p {
+            grid-column: 1 / -1;
+            margin: 3px 0 0;
+            color: #334155;
+            font-size: 0.82rem;
+            line-height: 1.4;
+        }
+        .ma-table {
+            border: 1px solid #dbe4ee;
+            background: #ffffff;
+            overflow: hidden;
+        }
+        .ma-table-header,
+        .ma-table-row {
+            display: grid;
+            grid-template-columns: minmax(90px, 0.7fr) minmax(120px, 1fr) minmax(110px, 0.9fr) minmax(90px, 0.7fr);
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+        }
+        .ma-table-header {
+            background: #edf2f7;
+            color: #475569;
+            font-size: 0.74rem;
+            font-weight: 750;
+        }
+        .ma-table-row {
+            min-height: 46px;
+            border-top: 1px solid #edf2f7;
+            color: #334155;
+            font-size: 0.84rem;
+        }
+        .ma-table-row b, .ma-table-row strong { color: #111827; }
+        .ma-table-row em { font-style: normal; font-weight: 750; }
+        .ma-table-row .above, .ma-table-row .up { color: #138a4b; }
+        .ma-table-row .below, .ma-table-row .down { color: #dc3f45; }
+        .ma-table-row .flat { color: #64748b; }
+        .calendar-month-title {
+            min-height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #111827;
+            font-size: 1rem;
+            font-weight: 850;
+        }
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 6px;
+            margin: 8px 0 5px;
+            color: #64748b;
+            font-size: 0.72rem;
+            font-weight: 750;
+            text-align: center;
+        }
+        [class*="st-key-calendar_day_"] button {
+            min-height: 58px;
+            height: 58px;
+            padding: 4px 2px;
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+        .calendar-empty-day { min-height: 58px; }
+        .calendar-detail-title {
+            margin: 14px 0 7px;
+            color: #111827;
+            font-size: 0.9rem;
+            font-weight: 850;
+        }
+        .calendar-event-list {
+            border-top: 1px solid #dbe4ee;
+            background: #ffffff;
+        }
+        .calendar-event {
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            padding: 10px 11px;
+            border: 1px solid #dbe4ee;
+            border-top: 0;
+        }
+        .calendar-event > span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 25px;
+            border-radius: 4px;
+            background: #eef2f7;
+            color: #334155;
+            font-size: 0.7rem;
+            font-weight: 800;
+        }
+        .calendar-event div { min-width: 0; }
+        .calendar-event b { display: block; color: #111827; font-size: 0.84rem; }
+        .calendar-event small { display: block; margin-top: 3px; color: #64748b; font-size: 0.72rem; }
+        .calendar-event a { color: #2563eb; text-decoration: none; }
+        .market-signal-summary {
+            display: grid;
+            grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            border-left: 4px solid #94a3b8;
+            background: #f8fafc;
+            padding: 11px 13px;
+            margin-bottom: 8px;
+        }
+        .market-signal-summary.favorable { border-left-color: #169c54; background: #f1fbf5; }
+        .market-signal-summary.burden { border-left-color: #e24a4f; background: #fff5f5; }
+        .market-signal-summary div span { display: block; color: #64748b; font-size: 0.72rem; }
+        .market-signal-summary div b { display: block; color: #111827; font-size: 1rem; }
+        .market-signal-summary p { margin: 0; color: #334155; font-size: 0.8rem; line-height: 1.4; }
+        .market-signal-summary small { color: #64748b; font-size: 0.7rem; white-space: nowrap; }
+        .fx-reference-strip {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 7px 14px;
+            border: 1px solid #dbe4ee;
+            background: #f8fafc;
+            padding: 9px 11px;
+            margin: 9px 0;
+            color: #475569;
+            font-size: 0.78rem;
+        }
+        .fx-reference-strip b { color: #111827; }
+        .fx-reference-strip strong { color: #2563eb; }
+        .fx-reference-strip em { margin-left: auto; color: #64748b; font-style: normal; font-size: 0.7rem; }
+        .market-evidence-box {
+            border: 1px solid #dbe4ee;
+            background: #ffffff;
+        }
+        .market-evidence-item {
+            padding: 11px 12px;
+            border-top: 1px solid #e5eaf0;
+        }
+        .market-evidence-item:first-child { border-top: 0; }
+        .market-evidence-main {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 5px 11px;
+        }
+        .market-evidence-main > b { color: #111827; font-size: 0.9rem; }
+        .market-evidence-main > b small { color: #64748b; font-size: 0.68rem; margin-left: 3px; }
+        .market-evidence-main > strong { font-size: 0.78rem; }
+        .market-evidence-main > strong.favorable { color: #138a4b; }
+        .market-evidence-main > strong.burden { color: #dc3f45; }
+        .market-evidence-main > strong.neutral { color: #64748b; }
+        .market-evidence-main > span { color: #475569; font-size: 0.76rem; }
+        .market-evidence-main > em { color: #111827; font-size: 0.76rem; font-style: normal; font-weight: 800; }
+        .market-evidence-main > p { margin: 0 0 0 auto; color: #475569; font-size: 0.76rem; }
+        .market-evidence-points {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px 13px;
+            margin-top: 7px;
+            color: #475569;
+            font-size: 0.73rem;
+        }
+        .market-evidence-points b { font-weight: 850; }
+        .market-evidence-points b.positive { color: #138a4b; }
+        .market-evidence-points b.negative { color: #dc3f45; }
+        .market-evidence-points b.neutral { color: #64748b; }
+        .market-evidence-formula {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
         @media (max-width: 720px) {
             .block-container { padding-bottom: 5rem; }
+            [class*="st-key-analysis_header_tools"] [data-testid="stHorizontalBlock"] {
+                display: grid !important;
+                grid-template-columns: minmax(118px, 1fr) minmax(94px, auto) minmax(82px, auto) !important;
+                gap: 5px !important;
+            }
+            [class*="st-key-analysis_header_tools"] [data-testid="stColumn"] {
+                width: 100% !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+            }
+            [class*="st-key-analysis_header_tools"] h2 { font-size: 1.35rem; }
+            [class*="st-key-analysis_header_tools"] button { padding: 0 5px; font-size: 0.72rem; }
+            [class*="st-key-moving_average_panel"],
+            [class*="st-key-event_calendar_panel"] { padding: 11px 8px 13px; }
+            [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 3px !important;
+            }
+            [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+                flex: 1 1 0 !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+            }
+            [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"]:has(.calendar-month-title) {
+                gap: 6px !important;
+            }
+            [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"]:has(.calendar-month-title) > [data-testid="stColumn"] {
+                flex-grow: 1.2 !important;
+            }
+            [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"]:has(.calendar-month-title) > [data-testid="stColumn"]:nth-child(2) {
+                flex-grow: 1.7 !important;
+            }
+            .ma-result-head { grid-template-columns: minmax(0, 1fr) auto; padding: 9px; }
+            .ma-result-head > strong { font-size: 0.92rem; }
+            .ma-table-header { display: none; }
+            .ma-table-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 5px 10px;
+                min-height: 62px;
+                padding: 8px 10px;
+            }
+            .ma-table-row > span, .ma-table-row > em { font-size: 0.75rem; }
+            .calendar-weekdays { gap: 3px; }
+            [class*="st-key-calendar_day_"] button { min-height: 48px; height: 48px; font-size: 0.68rem; }
+            .calendar-empty-day { min-height: 48px; }
+            .calendar-event { grid-template-columns: 48px minmax(0, 1fr); padding: 9px 8px; gap: 8px; }
+            .market-signal-summary { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 8px; padding: 9px; }
+            .market-signal-summary p { grid-column: 1 / -1; }
+            .market-signal-summary small { font-size: 0.64rem; }
+            .fx-reference-strip em { width: 100%; margin-left: 0; }
+            .market-evidence-item { padding: 10px 9px; }
+            .market-evidence-main > p { width: 100%; margin-left: 0; }
+            .market-evidence-points { gap: 5px 9px; line-height: 1.35; }
             .price-update-banner {
                 gap: 6px;
                 min-height: 34px;
@@ -4782,12 +5362,13 @@ with st.sidebar:
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
-st.header(f"🎯 {get_market_text()} 분석")
+render_analysis_header()
 render_price_update_banner()
+render_active_header_tool()
 if st.session_state.table_view_mode == "맞춤 보기":
     st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 선택 지표 비교")
 else:
-    st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 시장환경 → 3단계 부진 원인")
+    st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 글로벌 시장 신호 → 3단계 부진 원인")
 render_top_choice_panel()
 
 st.divider()
@@ -5155,7 +5736,7 @@ if st.session_state.data:
             st.dataframe(formatted_styled_df, width="stretch", height=820, hide_index=True, column_config=col_config)
 
     st.divider()
-    market_panel_title = "시장환경 점검" if st.session_state.table_view_mode == "맞춤 보기" else "2단계: 시장환경 점검"
+    market_panel_title = "글로벌 시장 신호" if st.session_state.table_view_mode == "맞춤 보기" else "2단계: 글로벌 시장 신호"
     market_data = render_market_environment_panel(market_panel_title)
 
     if st.session_state.table_view_mode == "PC 보기":
@@ -5199,7 +5780,7 @@ if st.session_state.data:
         st.markdown("**핵심 원인 TOP 3**")
         st.dataframe(pd.DataFrame(blocker_diagnosis["top_blockers"]), width="stretch", hide_index=True)
     
-        tab_review, tab_reasons, tab_missing, tab_market = st.tabs(["전체 수치 검토", "상세 원인·수치", "부족한 데이터", "시장환경 연결"])
+        tab_review, tab_reasons, tab_missing, tab_market = st.tabs(["전체 수치 검토", "상세 원인·수치", "부족한 데이터", "시장 신호 연결"])
         with tab_review:
             st.dataframe(pd.DataFrame(diagnostics.build_metric_review(selected_row)), width="stretch", hide_index=True)
         with tab_reasons:
@@ -5213,7 +5794,7 @@ if st.session_state.data:
                 market_rows = diagnostics.market_context_review(market_data)
             else:
                 market_rows = [{
-                    "구분": "시장환경",
+                    "구분": "시장 신호",
                     "항목": market_data.get("score_state", market_data.get("market_state", "미확인")),
                     "해석": market_data.get("summary", "진단 모듈 업데이트 대기"),
                 }]

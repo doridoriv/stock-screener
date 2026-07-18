@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 
 import analyzer
+import event_calendar
 import market_analyzer
 from config import CACHE_DIR, FIXED_TOP_N
 
@@ -139,6 +140,28 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [WARN] 시장환경 캐시 저장 실패: {e}")
+
+    try:
+        us_symbols = []
+        us_names = {}
+        us_cache = analyzer.find_latest_valid_cache("미국")
+        if us_cache and os.path.exists(us_cache):
+            us_df = pd.read_csv(us_cache)
+            if "symbol" in us_df.columns:
+                us_symbols = us_df["symbol"].dropna().astype(str).str.upper().tolist()
+                if "name" in us_df.columns:
+                    us_names = {
+                        str(row["symbol"]).upper(): str(row["name"])
+                        for _, row in us_df[["symbol", "name"]].dropna(subset=["symbol"]).iterrows()
+                    }
+        calendar_data = event_calendar.save_event_calendar_cache(us_symbols, us_names)
+        print(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[OK] 주요 일정 캐시 저장 완료: {event_calendar.EVENT_CALENDAR_CACHE_FILE} "
+            f"({len(calendar_data.get('events', []))}건)"
+        )
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [WARN] 주요 일정 캐시 저장 실패: {e}")
      
     print("=========================================================")
     if results and all(results):

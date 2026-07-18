@@ -20,6 +20,7 @@ import krx_client
 import nxt_client
 import opendart_client
 import supplemental_data
+import moving_average_data
 
 from config import (
     DEFAULT_US_TICKERS,
@@ -1236,6 +1237,17 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             target_date_str = actual_market_date
             cache_file = _get_daily_cache_path(market_text, target_date_str)
 
+        if save_cache:
+            try:
+                moving_average_data.save_market_price_history(
+                    market_text,
+                    closes,
+                    base_df,
+                    datetime.strptime(target_date_str, "%Y%m%d").strftime("%Y-%m-%d"),
+                )
+            except Exception as e:
+                print(f"[WARN] {market_text} 이동평균 일봉 캐시 저장 실패: {e}")
+
         # On exchange holidays the calendar-derived date can be newer than the
         # last real close. Reuse that trading day's validated cache instead of
         # publishing a duplicate snapshot under a false date.
@@ -1290,6 +1302,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
         price_basis = price_sources.apply(lambda source: normalize_price_source(source, is_kr_market))
 
+        ma20 = closes.rolling(window=20).mean().iloc[-1]
+        ma60 = closes.rolling(window=60).mean().iloc[-1]
+        ma120 = closes.rolling(window=120).mean().iloc[-1]
         ma200 = closes.rolling(window=200).mean().iloc[-1]
         diff_val = ((current_prices - ma200) / ma200) * 100
         peak = closes.max()
@@ -1305,6 +1320,9 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
 
         tech_df = pd.DataFrame({
             'price': current_prices, 
+            'ma20': ma20,
+            'ma60': ma60,
+            'ma120': ma120,
             'ma200': ma200, 
             'diff': diff_val, 
             'peak': peak, 

@@ -1,6 +1,6 @@
 import logging
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 
 import analyzer
+import event_calendar
+import market_analyzer
+import moving_average_data
 import opendart_client
 
 
@@ -82,6 +85,49 @@ class CacheCorrectnessTests(unittest.TestCase):
         self.assertEqual(normalized.loc[0, "cashflow_status"], "통화 단위 확인 필요")
         self.assertTrue(pd.isna(normalized.loc[0, "operating_cashflow"]))
         self.assertTrue(pd.isna(normalized.loc[0, "free_cashflow"]))
+
+
+class MarketToolCorrectnessTests(unittest.TestCase):
+    def test_moving_average_rows_use_close_and_trading_day_windows(self):
+        result = moving_average_data.calculate_moving_average_rows(range(1, 241), [20, 60, 120, 200])
+        self.assertEqual(result["close"], 240.0)
+        self.assertEqual([row["period"] for row in result["rows"]], [20, 60, 120, 200])
+        self.assertAlmostEqual(result["rows"][0]["average"], 230.5)
+        self.assertEqual(result["rows"][0]["direction"], "상승 중")
+        self.assertEqual(moving_average_data.summarize_alignment(result["rows"]), "정배열")
+
+    def test_market_score_breakdown_matches_final_score(self):
+        metrics = {"latest": 110.0, "ma20": 100.0, "ma60": 120.0, "ret20": 5.0, "ret60": -2.0}
+        score, parts = market_analyzer._score_breakdown(metrics, bullish=True)
+        self.assertEqual(score, 50)
+        self.assertEqual(sum(part["points"] for part in parts), 0)
+        inverse_score, inverse_parts = market_analyzer._score_breakdown(
+            {"latest": 130.0, "ma20": 100.0, "ma60": 110.0, "ret20": 2.0, "ret60": 3.0},
+            bullish=False,
+        )
+        self.assertEqual(inverse_score, 0)
+        self.assertEqual(sum(part["points"] for part in inverse_parts), -50)
+
+    def test_long_bond_direction_matches_rate_burden_explanation(self):
+        long_bond = next(item for item in market_analyzer.INDICATORS if item["symbol"] == "TLT")
+        self.assertTrue(long_bond["bullish"])
+        self.assertIn("완화", market_analyzer._impact_text("미국 장기채", 80))
+
+    def test_fomc_release_is_converted_to_kst_calendar_date(self):
+        events = event_calendar.collect_fomc_events(date(2026, 7, 1), date(2026, 8, 5))
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["date"], "2026-07-30")
+        self.assertEqual(events[0]["time_kst"], "03:00 KST")
+
+    def test_official_calendar_fallback_keeps_core_releases_available(self):
+        events = event_calendar.collect_official_schedule_fallback_events(
+            date(2026, 7, 1), date(2026, 8, 31)
+        )
+        titles_by_date = {(event["date"], event["title"]) for event in events}
+        self.assertIn(("2026-08-12", "미국 소비자물가지수(CPI)"), titles_by_date)
+        self.assertIn(("2026-08-07", "미국 고용보고서"), titles_by_date)
+        self.assertIn(("2026-07-30", "미국 GDP 발표"), titles_by_date)
+        self.assertTrue(all(event["time_kst"].endswith("KST") for event in events))
 
     def test_peer_comparison_uses_leave_one_out_median(self):
         source = pd.DataFrame({
