@@ -18,6 +18,7 @@ import supplemental_data
 from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
 MARKET_PANEL_CACHE_VERSION = 3
+PRICE_HISTORY_CACHE_VERSION = 2
 MARKET_LABEL_TO_VALUE = {
     "코스피": "한국(코스피)",
     "코스닥": "한국(코스닥)",
@@ -275,7 +276,7 @@ def get_cached_event_calendar():
 
 
 @st.cache_data(ttl=1800)
-def get_cached_price_history(market_text):
+def get_cached_price_history(market_text, cache_version=PRICE_HISTORY_CACHE_VERSION):
     return moving_average_data.load_market_price_history(market_text)
 
 # ==========================================
