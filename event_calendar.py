@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
+import yfinance as yf
+from yfinance.calendars import CalendarQuery
 
 from config import CACHE_DIR, REQUEST_TIMEOUT
 
@@ -96,6 +98,7 @@ def _event(
     name: str = "",
     detail: str = "",
     importance: str = "주요",
+    status: str = "확정",
 ) -> dict:
     return {
         "id": _event_id(event_date, category, symbol, title),
@@ -108,7 +111,7 @@ def _event(
         "name": name,
         "detail": detail,
         "importance": importance,
-        "status": "확정",
+        "status": status,
         "source": source,
         "source_url": source_url,
     }
@@ -332,37 +335,150 @@ def collect_finnhub_earnings(
     )
     response.raise_for_status()
     payload = response.json()
-    rows = payload.get("earningsCalendar") or []
+    if payload.get("error"):
+        raise RuntimeError(f"Finnhub earnings calendar error: {payload['error']}")
+    rows = payload.get("earningsCalendar")
+    if not isinstance(rows, list):
+        raise ValueError("Finnhub earnings calendar response is missing earningsCalendar")
     events = []
     for row in rows:
         symbol = str(row.get("symbol", "")).upper()
-        event_date = str(row.get("date", ""))
+        raw_event_date = str(row.get("date", ""))
         if symbol not in allowed:
             continue
         try:
-            day = date.fromisoformat(event_date)
+            day = date.fromisoformat(raw_event_date)
         except ValueError:
             continue
         if not (start <= day <= end):
             continue
         hour = str(row.get("hour", "")).lower()
         time_label = "장 시작 전" if hour == "bmo" else "장 마감 후" if hour == "amc" else "시간 미정"
+        event_date = (day + timedelta(days=1)).isoformat() if hour == "amc" else day.isoformat()
         name = (names or {}).get(symbol, symbol)
         estimate = row.get("epsEstimate")
         detail = f"예상 EPS {estimate}" if estimate is not None else "실적 발표 예정"
         events.append(_event(
             event_date, f"{name} 실적 발표", "실적", "미국", "Finnhub", "https://finnhub.io/",
-            time_kst=time_label, symbol=symbol, name=name, detail=detail, importance="기업",
+            time_kst=time_label, symbol=symbol, name=name, detail=detail, importance="기업", status="예상",
         ))
+    return events
+
+
+def _calendar_query_for_tickers(tickers: list[str], start: date, end: date) -> CalendarQuery:
+    ticker_operands = [CalendarQuery("eq", ["ticker", ticker]) for ticker in tickers]
+    ticker_query = ticker_operands[0] if len(ticker_operands) == 1 else CalendarQuery("or", ticker_operands)
+    return CalendarQuery(
+        "and",
+        [
+            ticker_query,
+            CalendarQuery(
+                "or",
+                [
+                    CalendarQuery("eq", ["eventtype", "EAD"]),
+                    CalendarQuery("eq", ["eventtype", "ERA"]),
+                ],
+            ),
+            CalendarQuery("gte", ["startdatetime", start.isoformat()]),
+            CalendarQuery("lte", ["startdatetime", end.isoformat()]),
+        ],
+    )
+
+
+def _format_eps_estimate(value: object) -> str:
+    number = pd.to_numeric(value, errors="coerce")
+    if pd.isna(number):
+        return ""
+    number = float(number)
+    return f"{number:,.0f}" if abs(number) >= 100 else f"{number:,.2f}"
+
+
+def collect_yahoo_earnings(
+    start: date,
+    end: date,
+    earnings_universes: Optional[dict[str, list[dict]]] = None,
+    calendar_client=None,
+) -> list[dict]:
+    records_by_ticker = {}
+    for market, records in (earnings_universes or {}).items():
+        for record in records or []:
+            yahoo_symbol = str(record.get("yahoo_symbol") or record.get("symbol") or "").strip().upper()
+            symbol = str(record.get("symbol") or "").strip().upper()
+            if not yahoo_symbol or not symbol:
+                continue
+            records_by_ticker[yahoo_symbol] = {
+                "market": market,
+                "symbol": symbol,
+                "name": str(record.get("name") or symbol),
+            }
+    if not records_by_ticker:
+        return []
+
+    if calendar_client is None:
+        yf.set_tz_cache_location(os.path.join(CACHE_DIR, "yfinance_runtime"))
+        calendar_client = yf.Calendars()
+
+    events = []
+    tickers = sorted(records_by_ticker)
+    chunk_size = 35
+    for offset in range(0, len(tickers), chunk_size):
+        chunk = tickers[offset:offset + chunk_size]
+        query = _calendar_query_for_tickers(chunk, start, end)
+        frame = calendar_client._get_data(
+            "sp_earnings", query, limit=100, offset=0, force=True,
+        )
+        if frame is None or frame.empty:
+            continue
+        for yahoo_symbol, row in frame.iterrows():
+            yahoo_symbol = str(yahoo_symbol).strip().upper()
+            metadata = records_by_ticker.get(yahoo_symbol)
+            if not metadata:
+                continue
+            timestamp = pd.to_datetime(row.get("Event Start Date"), errors="coerce", utc=True)
+            if pd.isna(timestamp):
+                continue
+            local = timestamp.to_pydatetime().astimezone(KST)
+            event_day = local.date()
+            if not (start <= event_day <= end + timedelta(days=1)):
+                continue
+
+            timing = str(row.get("Timing") or "").upper()
+            timing_label = {"BMO": "장 시작 전", "AMC": "장 마감 후", "TNS": "시간 미정"}.get(timing, "시간 미정")
+            time_label = timing_label if timing_label == "시간 미정" else f"{local.strftime('%H:%M KST')} · {timing_label}"
+            raw_event_name = str(row.get("Event Name") or "")
+            quarter_match = re.search(r"Q(\d)\s+(\d{4})", raw_event_name, re.IGNORECASE)
+            detail_parts = []
+            if quarter_match:
+                detail_parts.append(f"{quarter_match.group(2)}년 {quarter_match.group(1)}분기")
+            estimate = _format_eps_estimate(row.get("EPS Estimate"))
+            if estimate:
+                detail_parts.append(f"예상 EPS {estimate}")
+            detail = " · ".join(detail_parts) or "실적 발표 예정"
+            name = metadata["name"]
+            source_url = f"https://finance.yahoo.com/quote/{yahoo_symbol}/"
+            events.append(_event(
+                event_day.isoformat(), f"{name} 실적 발표", "실적", metadata["market"],
+                "Yahoo Finance", source_url, time_kst=time_label,
+                symbol=metadata["symbol"], name=name, detail=detail,
+                importance="기업", status="예상",
+            ))
     return events
 
 
 def _deduplicate(events: Iterable[dict]) -> list[dict]:
     unique = {}
+    source_priority = {"Yahoo Finance": 1, "Finnhub": 2}
     for event in events:
         if not event.get("date") or not event.get("title"):
             continue
-        unique[event.get("id") or _event_id(event["date"], event["title"])] = event
+        if event.get("category") == "실적" and event.get("symbol"):
+            identity = _event_id(event["date"], event["category"], event["symbol"])
+        else:
+            identity = event.get("id") or _event_id(event["date"], event["title"])
+        current = unique.get(identity)
+        if current and source_priority.get(current.get("source"), 0) > source_priority.get(event.get("source"), 0):
+            continue
+        unique[identity] = event
     return sorted(unique.values(), key=lambda event: (event["date"], event.get("time_kst", ""), event["title"]))
 
 
@@ -370,6 +486,7 @@ def save_event_calendar_cache(
     us_symbols: Iterable[str] = (),
     us_names: Optional[dict[str, str]] = None,
     path: str = EVENT_CALENDAR_CACHE_FILE,
+    earnings_universes: Optional[dict[str, list[dict]]] = None,
 ) -> dict:
     today = datetime.now(KST).date()
     start = today - timedelta(days=365)
@@ -382,11 +499,24 @@ def save_event_calendar_cache(
         "BLS official schedule": f"ok:{sum(event['source'].startswith('U.S. Bureau of Labor Statistics') for event in official_fallbacks)}",
         "BEA official schedule": f"ok:{sum(event['source'].startswith('U.S. Bureau of Economic Analysis') for event in official_fallbacks)}",
     }
+    earnings_universes = dict(earnings_universes or {})
+    if not earnings_universes.get("미국") and us_symbols:
+        earnings_universes["미국"] = [
+            {"symbol": str(symbol).upper(), "yahoo_symbol": str(symbol).upper(), "name": (us_names or {}).get(str(symbol).upper(), str(symbol).upper())}
+            for symbol in us_symbols
+        ]
+    earnings_start = max(start, today - timedelta(days=30))
+    earnings_end = min(end, today + timedelta(days=90))
     collectors = [
         ("BLS", lambda: collect_bls_events(start, end)),
         ("BEA", lambda: collect_bea_events(start, end)),
-        ("Finnhub", lambda: collect_finnhub_earnings(start, min(end, today + timedelta(days=90)), us_symbols, us_names)),
+        ("Yahoo Finance", lambda: collect_yahoo_earnings(earnings_start, earnings_end, earnings_universes)),
     ]
+    token = os.getenv("FINNHUB_API_KEY", "").strip()
+    if token:
+        collectors.append(("Finnhub", lambda: collect_finnhub_earnings(today, earnings_end, us_symbols, us_names, token)))
+    else:
+        sources["Finnhub"] = "disabled:no_api_key"
     for source, collector in collectors:
         try:
             collected = collector()
@@ -396,7 +526,7 @@ def save_event_calendar_cache(
             sources[source] = f"error:{type(exc).__name__}"
 
     payload = {
-        "version": 1,
+        "version": 2,
         "collected_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
         "range_start": start.isoformat(),
         "range_end": end.isoformat(),

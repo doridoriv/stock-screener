@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import average_cost
 import analyzer
 import diagnostics
 import event_calendar
@@ -19,6 +20,7 @@ from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
 MARKET_PANEL_CACHE_VERSION = 3
 PRICE_HISTORY_CACHE_VERSION = 2
+EVENT_CALENDAR_CACHE_VERSION = 2
 MARKET_LABEL_TO_VALUE = {
     "코스피": "한국(코스피)",
     "코스닥": "한국(코스닥)",
@@ -271,7 +273,7 @@ def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
 
 
 @st.cache_data(ttl=1800)
-def get_cached_event_calendar():
+def get_cached_event_calendar(cache_version=EVENT_CALENDAR_CACHE_VERSION):
     return event_calendar.load_event_calendar_cache() or {"events": [], "sources": {}}
 
 
@@ -348,6 +350,12 @@ if "ma_custom_periods" not in st.session_state:
 
 if "ma_custom_period_input" not in st.session_state:
     st.session_state.ma_custom_period_input = 50
+
+if "ma_target_selection" not in st.session_state:
+    st.session_state.ma_target_selection = "종목"
+
+if "average_cost_mode" not in st.session_state:
+    st.session_state.average_cost_mode = "수량 기준"
 
 if "calendar_month" not in st.session_state:
     st.session_state.calendar_month = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m")
@@ -3425,9 +3433,17 @@ def toggle_header_tool(tool_name):
     st.session_state.active_header_tool = None if st.session_state.active_header_tool == tool_name else tool_name
 
 
+def select_ma_target(target_name):
+    st.session_state.ma_target_selection = target_name
+
+
+def select_average_cost_mode(mode_name):
+    st.session_state.average_cost_mode = mode_name
+
+
 def render_analysis_header():
     with st.container(key="analysis_header_tools"):
-        title_col, moving_col, calendar_col = st.columns([1.45, 1, 0.9], gap="small")
+        title_col, moving_col, calendar_col, average_col = st.columns([1.7, 1, 0.9, 1], gap="small")
         with title_col:
             st.header(f"🎯 {get_market_text()} 분석")
         with moving_col:
@@ -3449,6 +3465,16 @@ def render_analysis_header():
                 width="stretch",
                 on_click=toggle_header_tool,
                 args=("calendar",),
+            )
+        with average_col:
+            st.button(
+                "평균단가",
+                key="toggle_average_cost_tool",
+                icon=":material/calculate:",
+                type="primary" if st.session_state.active_header_tool == "average_cost" else "secondary",
+                width="stretch",
+                on_click=toggle_header_tool,
+                args=("average_cost",),
             )
 
 
@@ -3548,15 +3574,22 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
 def render_moving_average_tool():
     with st.container(key="moving_average_panel"):
         st.markdown('<div class="tool-panel-title">이동평균 확인</div>', unsafe_allow_html=True)
-        target_mode = st.pills(
-            "대상",
-            ["종목", "원·달러 환율"],
-            default="종목",
-            key="ma_target_selection",
-            selection_mode="single",
-            required=True,
-            width="stretch",
-        )
+        target_mode = st.session_state.ma_target_selection
+        with st.container(key="ma_target_controls"):
+            st.markdown('<div class="tool-field-label">대상</div>', unsafe_allow_html=True)
+            stock_target_col, fx_target_col = st.columns(2, gap="small")
+            with stock_target_col:
+                st.button(
+                    "종목", key="ma_target_stock", width="stretch",
+                    type="primary" if target_mode == "종목" else "secondary",
+                    on_click=select_ma_target, args=("종목",),
+                )
+            with fx_target_col:
+                st.button(
+                    "원·달러 환율", key="ma_target_fx", width="stretch",
+                    type="primary" if target_mode == "원·달러 환율" else "secondary",
+                    on_click=select_ma_target, args=("원·달러 환율",),
+                )
 
         market_text = get_market_text()
         data = pd.DataFrame()
@@ -3653,6 +3686,195 @@ def render_moving_average_tool():
             st.info("종목 일봉은 다음 정기 수집이 완료되면 표시됩니다.")
 
 
+def _calculator_number(value):
+    number = pd.to_numeric(value, errors="coerce")
+    return float(number) if pd.notna(number) else 0.0
+
+
+def _format_calculator_money(value, is_kr):
+    return f"{float(value):,.0f}원" if is_kr else f"${float(value):,.2f}"
+
+
+def render_average_cost_tool():
+    with st.container(key="average_cost_panel"):
+        st.markdown('<div class="tool-panel-title">평균단가 계산기</div>', unsafe_allow_html=True)
+        data = pd.DataFrame(st.session_state.get("data", []))
+        if data.empty:
+            st.info("선택할 종목 데이터가 없습니다.")
+            return
+
+        market_text = get_market_text()
+        is_kr = st.session_state.selected_market.startswith("한국")
+        options = {}
+        for _, row in data.iterrows():
+            symbol = _normalize_tool_symbol(row.get("symbol"), is_kr)
+            name = str(row.get("name") or symbol)
+            options[f"{name} · {symbol}"] = row.to_dict()
+        labels = list(options)
+        selected_label = st.selectbox(
+            "종목 선택", labels, key=f"average_cost_stock_choice_{market_text}",
+        )
+        selected_row = options[selected_label]
+        selected_symbol = _normalize_tool_symbol(selected_row.get("symbol"), is_kr)
+        current_price = _calculator_number(selected_row.get("price"))
+        marker = f"{market_text}:{selected_symbol}"
+        if st.session_state.get("average_cost_last_symbol") != marker:
+            st.session_state.average_cost_last_symbol = marker
+            st.session_state.average_cost_holding_quantity = 0.0
+            st.session_state.average_cost_current_average = current_price
+            st.session_state.average_cost_purchase_price = current_price
+            st.session_state.average_cost_purchase_quantity = 0.0
+            st.session_state.average_cost_purchase_amount = 0.0
+
+        st.markdown(
+            f'<div class="average-cost-current"><span>선택 종목</span><b>{html.escape(selected_label.split(" · ")[0])}</b>'
+            f'<strong>현재가 {_format_calculator_money(current_price, is_kr)}</strong></div>',
+            unsafe_allow_html=True,
+        )
+
+        with st.container(key="average_cost_mode_controls"):
+            st.markdown('<div class="tool-field-label">추가 매수 기준</div>', unsafe_allow_html=True)
+            quantity_mode_col, amount_mode_col = st.columns(2, gap="small")
+            with quantity_mode_col:
+                st.button(
+                    "수량 기준", key="average_cost_quantity_mode", width="stretch",
+                    type="primary" if st.session_state.average_cost_mode == "수량 기준" else "secondary",
+                    on_click=select_average_cost_mode, args=("수량 기준",),
+                )
+            with amount_mode_col:
+                st.button(
+                    "금액 기준", key="average_cost_amount_mode", width="stretch",
+                    type="primary" if st.session_state.average_cost_mode == "금액 기준" else "secondary",
+                    on_click=select_average_cost_mode, args=("금액 기준",),
+                )
+
+        price_step = 100.0 if is_kr else 0.01
+        price_format = "%.0f" if is_kr else "%.2f"
+        quantity_step = 1.0
+        quantity_format = "%.0f" if is_kr else "%.4f"
+        holding_col, average_col = st.columns(2, gap="small")
+        with holding_col:
+            holding_quantity = st.number_input(
+                "보유 수량", min_value=0.0, step=quantity_step, format=quantity_format,
+                key="average_cost_holding_quantity",
+            )
+        with average_col:
+            current_average = st.number_input(
+                "현재 평균단가", min_value=0.0, step=price_step, format=price_format,
+                key="average_cost_current_average",
+            )
+
+        purchase_price_col, purchase_value_col = st.columns(2, gap="small")
+        with purchase_price_col:
+            purchase_price = st.number_input(
+                "추가 매수가", min_value=0.0, step=price_step, format=price_format,
+                key="average_cost_purchase_price",
+            )
+        with purchase_value_col:
+            if st.session_state.average_cost_mode == "수량 기준":
+                purchase_quantity = st.number_input(
+                    "추가 수량", min_value=0.0, step=quantity_step, format=quantity_format,
+                    key="average_cost_purchase_quantity",
+                )
+                purchase_amount = None
+            else:
+                purchase_amount = st.number_input(
+                    "추가 매수금액", min_value=0.0, step=price_step, format=price_format,
+                    key="average_cost_purchase_amount",
+                )
+                purchase_quantity = None
+
+        purchase_value = purchase_quantity if purchase_quantity is not None else purchase_amount
+        if holding_quantity <= 0 or current_average <= 0 or purchase_price <= 0 or not purchase_value or purchase_value <= 0:
+            st.info("보유 정보와 추가 매수 값을 입력하면 새 평균단가가 바로 계산됩니다.")
+            st.caption("수수료와 세금을 제외한 단순 계산입니다.")
+            return
+
+        result = average_cost.calculate_average_cost(
+            holding_quantity,
+            current_average,
+            purchase_price,
+            purchase_quantity=purchase_quantity,
+            purchase_amount=purchase_amount,
+        )
+        total_quantity = result["total_quantity"]
+        total_cost = result["total_cost"]
+        new_average = result["new_average_price"]
+        average_change = result["average_change_pct"]
+        current_profit = current_price * total_quantity - total_cost
+        current_return = current_profit / total_cost * 100 if total_cost > 0 else 0.0
+        break_even_move = (new_average / current_price - 1) * 100 if current_price > 0 else 0.0
+        change_class = "lower" if average_change < 0 else "higher" if average_change > 0 else "flat"
+        break_even_text = (
+            f"본전까지 {break_even_move:+.2f}%"
+            if break_even_move > 0
+            else f"현재가가 새 평균단가보다 {abs(break_even_move):.2f}% 높음"
+        )
+        st.markdown(
+            f"""
+            <div class="average-cost-result">
+                <div><span>새 평균단가</span><strong>{_format_calculator_money(new_average, is_kr)}</strong></div>
+                <div><span>평균단가 변화</span><strong class="{change_class}">{average_change:+.2f}%</strong></div>
+                <div><span>총 보유 수량</span><strong>{total_quantity:,.4f}</strong></div>
+                <div><span>총 투자금</span><strong>{_format_calculator_money(total_cost, is_kr)}</strong></div>
+            </div>
+            <div class="average-cost-foot {change_class}">
+                <b>현재가 기준 손익 {_format_calculator_money(current_profit, is_kr)} · {current_return:+.2f}%</b>
+                <span>{html.escape(break_even_text)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.session_state.average_cost_mode == "금액 기준":
+            st.caption(f"추가 매수 가능 수량 {result['additional_quantity']:,.4f}주 · 수수료와 세금 제외")
+        else:
+            st.caption("수수료와 세금을 제외한 단순 계산입니다.")
+
+
+CALENDAR_CATEGORY_THEME = {
+    "금리": ("rate", "#2563eb", "#eff6ff"),
+    "물가": ("prices", "#dc2626", "#fef2f2"),
+    "고용": ("jobs", "#7c3aed", "#f5f3ff"),
+    "성장": ("growth", "#15803d", "#f0fdf4"),
+    "실적": ("earnings", "#ea580c", "#fff7ed"),
+}
+CALENDAR_DEFAULT_THEME = ("other", "#64748b", "#f8fafc")
+
+
+def _calendar_category_theme(category):
+    return CALENDAR_CATEGORY_THEME.get(str(category), CALENDAR_DEFAULT_THEME)
+
+
+def _calendar_day_styles(by_date):
+    rules = []
+    for date_text, day_events in by_date.items():
+        themes = []
+        for event in day_events:
+            theme = _calendar_category_theme(event.get("category"))
+            if theme not in themes:
+                themes.append(theme)
+        if not themes:
+            continue
+        segment_size = 100 / len(themes)
+        stops = []
+        for index, (_, color, _) in enumerate(themes):
+            start = index * segment_size
+            finish = (index + 1) * segment_size
+            stops.extend([f"{color} {start:.2f}%", f"{color} {finish:.2f}%"])
+        strip = f"linear-gradient(to right, {', '.join(stops)})"
+        _, primary_color, primary_background = themes[0]
+        selector = f'[class*="st-key-calendar_day_{date_text}"] button'
+        rules.append(
+            f'{selector} {{ background-image: {strip} !important; background-size: 100% 4px !important; '
+            'background-position: bottom !important; background-repeat: no-repeat !important; font-weight: 800 !important; }}'
+        )
+        rules.append(
+            f'{selector}:not([kind="primary"]) {{ background-color: {primary_background} !important; '
+            f'border-color: {primary_color} !important; color: #111827 !important; }}'
+        )
+    return "\n".join(rules)
+
+
 def _shift_calendar_month(month_text, delta):
     current = datetime.strptime(month_text, "%Y-%m")
     month_index = current.year * 12 + current.month - 1 + delta
@@ -3664,7 +3886,7 @@ def _calendar_events_for_market(events):
     filtered = []
     for event in events:
         if event.get("category") == "실적":
-            if current_market == "미국":
+            if event.get("market") == current_market:
                 filtered.append(event)
             continue
         if current_market == "미국" and event.get("market") == "한국":
@@ -3705,13 +3927,21 @@ def render_event_calendar_tool():
                 st.session_state.calendar_selected_date = None
                 st.rerun()
 
+        by_date = {}
+        for event in events:
+            by_date.setdefault(event.get("date"), []).append(event)
+        day_styles = _calendar_day_styles(by_date)
+        if day_styles:
+            st.markdown(f"<style>{day_styles}</style>", unsafe_allow_html=True)
+        legend_items = "".join(
+            f'<span><i style="background:{color}"></i>{html.escape(category)}</span>'
+            for category, (_, color, _) in CALENDAR_CATEGORY_THEME.items()
+        )
+        st.markdown(f'<div class="calendar-legend">{legend_items}</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="calendar-weekdays"><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span><span>일</span></div>',
             unsafe_allow_html=True,
         )
-        by_date = {}
-        for event in events:
-            by_date.setdefault(event.get("date"), []).append(event)
         weeks = month_calendar.Calendar(firstweekday=0).monthdayscalendar(year, month)
         for week_index, week in enumerate(weeks):
             columns = st.columns(7, gap="small")
@@ -3749,15 +3979,22 @@ def render_event_calendar_tool():
             event_rows = []
             for event in detail_events:
                 category = str(event.get("category", "일정"))
+                category_slug = _calendar_category_theme(category)[0]
+                status = str(event.get("status") or "확정")
+                status_class = "confirmed" if status == "확정" else "estimated"
                 source_url = html.escape(str(event.get("source_url", "")), quote=True)
                 source = html.escape(str(event.get("source", "공식 발표처")))
                 source_link = f'<a href="{source_url}" target="_blank">{source}</a>' if source_url else source
+                detail = str(event.get("detail") or "").strip()
+                detail_html = f'<small class="calendar-event-detail">{html.escape(detail)}</small>' if detail else ""
                 event_rows.append(
-                    f'<div class="calendar-event category-{html.escape(category)}">'
+                    f'<div class="calendar-event category-{category_slug}">'
                     f'<span>{html.escape(category)}</span>'
-                    f'<div><b>{html.escape(str(event.get("title", "주요 일정")))}</b>'
+                    f'<div><b>{html.escape(str(event.get("title", "주요 일정")))}'
+                    f'<em class="calendar-status {status_class}">{html.escape(status)}</em></b>'
                     f'<small>{html.escape(str(event.get("date", "")))} · '
-                    f'{html.escape(str(event.get("time_kst") or "시간 미정"))} · {source_link}</small></div>'
+                    f'{html.escape(str(event.get("time_kst") or "시간 미정"))} · {source_link}</small>'
+                    f'{detail_html}</div>'
                     '</div>'
                 )
             event_html = "".join(event_rows)
@@ -3772,6 +4009,8 @@ def render_active_header_tool():
         render_moving_average_tool()
     elif st.session_state.active_header_tool == "calendar":
         render_event_calendar_tool()
+    elif st.session_state.active_header_tool == "average_cost":
+        render_average_cost_tool()
 
 
 def render_market_environment_panel(title="2단계: 글로벌 시장 신호"):
@@ -5037,11 +5276,12 @@ st.markdown("""
         [class*="st-key-analysis_header_tools"] [data-testid="stHorizontalBlock"] {
             align-items: center;
             width: 100%;
-            max-width: 620px;
+            max-width: 760px;
         }
         [class*="st-key-analysis_header_tools"] h2 {
             margin: 0;
             padding: 0;
+            white-space: nowrap;
         }
         [class*="st-key-analysis_header_tools"] button {
             min-height: 40px;
@@ -5057,6 +5297,11 @@ st.markdown("""
             border-color: #fdba74 !important;
             background: #fff7ed !important;
         }
+        [class*="st-key-toggle_average_cost_tool"] button {
+            color: #137a4b !important;
+            border-color: #86d4ad !important;
+            background: #f0fdf4 !important;
+        }
         [class*="st-key-toggle_moving_average_tool"] button[kind="primary"] {
             color: #ffffff !important;
             border-color: #2563eb !important;
@@ -5067,8 +5312,14 @@ st.markdown("""
             border-color: #c2410c !important;
             background: #c2410c !important;
         }
+        [class*="st-key-toggle_average_cost_tool"] button[kind="primary"] {
+            color: #ffffff !important;
+            border-color: #137a4b !important;
+            background: #137a4b !important;
+        }
         [class*="st-key-moving_average_panel"],
-        [class*="st-key-event_calendar_panel"] {
+        [class*="st-key-event_calendar_panel"],
+        [class*="st-key-average_cost_panel"] {
             border-top: 1px solid #dbe4ee;
             border-bottom: 1px solid #dbe4ee;
             background: #f8fafc;
@@ -5080,6 +5331,42 @@ st.markdown("""
             font-size: 1rem;
             font-weight: 850;
             margin-bottom: 8px;
+        }
+        .tool-field-label {
+            margin: 3px 0 5px;
+            color: #334155;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+        [class*="st-key-ma_target_stock"] button,
+        [class*="st-key-ma_target_fx"] button,
+        [class*="st-key-average_cost_quantity_mode"] button,
+        [class*="st-key-average_cost_amount_mode"] button {
+            background: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        [class*="st-key-ma_target_stock"] button[kind="primary"],
+        [class*="st-key-ma_target_fx"] button[kind="primary"] {
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+            color: #ffffff !important;
+        }
+        [class*="st-key-average_cost_quantity_mode"] button[kind="primary"],
+        [class*="st-key-average_cost_amount_mode"] button[kind="primary"] {
+            background: #137a4b !important;
+            border-color: #137a4b !important;
+            color: #ffffff !important;
+        }
+        [class*="st-key-ma_stock_choice_"] [data-baseweb="select"] > div {
+            border-color: #60a5fa !important;
+            background: #eff6ff !important;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08);
+        }
+        [class*="st-key-average_cost_stock_choice_"] [data-baseweb="select"] > div {
+            border-color: #5fc08e !important;
+            background: #f0fdf4 !important;
+            box-shadow: 0 0 0 1px rgba(19, 122, 75, 0.08);
         }
         .ma-result-head {
             display: grid;
@@ -5133,6 +5420,62 @@ st.markdown("""
         .ma-table-row .above, .ma-table-row .up { color: #138a4b; }
         .ma-table-row .below, .ma-table-row .down { color: #dc3f45; }
         .ma-table-row .flat { color: #64748b; }
+        .average-cost-current {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            gap: 8px 12px;
+            align-items: center;
+            margin: 6px 0 10px;
+            padding: 9px 11px;
+            border-left: 4px solid #137a4b;
+            background: #ecfdf3;
+            color: #475569;
+            font-size: 0.78rem;
+        }
+        .average-cost-current b { min-width: 0; color: #111827; font-size: 0.9rem; }
+        .average-cost-current strong { color: #137a4b; font-size: 0.9rem; white-space: nowrap; }
+        .average-cost-result {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-top: 12px;
+            border-top: 1px solid #dbe4ee;
+            border-bottom: 1px solid #dbe4ee;
+            background: #ffffff;
+        }
+        .average-cost-result > div {
+            min-width: 0;
+            padding: 11px 12px;
+            border-left: 1px solid #e5eaf0;
+        }
+        .average-cost-result > div:first-child { border-left: 0; }
+        .average-cost-result span {
+            display: block;
+            margin-bottom: 4px;
+            color: #64748b;
+            font-size: 0.72rem;
+        }
+        .average-cost-result strong {
+            display: block;
+            color: #111827;
+            font-size: 0.94rem;
+            overflow-wrap: anywhere;
+        }
+        .average-cost-result strong.lower { color: #138a4b; }
+        .average-cost-result strong.higher { color: #dc3f45; }
+        .average-cost-result strong.flat { color: #64748b; }
+        .average-cost-foot {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px 14px;
+            align-items: center;
+            padding: 9px 11px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.76rem;
+        }
+        .average-cost-foot b { color: #111827; }
+        .average-cost-foot.lower b { color: #138a4b; }
+        .average-cost-foot.higher b { color: #dc3f45; }
         .calendar-month-title {
             min-height: 40px;
             display: flex;
@@ -5142,6 +5485,18 @@ st.markdown("""
             font-size: 1rem;
             font-weight: 850;
         }
+        .calendar-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px 13px;
+            margin: 4px 0 8px;
+            color: #475569;
+            font-size: 0.7rem;
+            font-weight: 750;
+        }
+        .calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .calendar-legend i { width: 8px; height: 8px; border-radius: 50%; }
         .calendar-weekdays {
             display: grid;
             grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -5158,6 +5513,10 @@ st.markdown("""
             padding: 4px 2px;
             font-size: 0.75rem;
             line-height: 1.2;
+        }
+        [class*="st-key-calendar_day_"] button p {
+            white-space: pre-line !important;
+            word-break: keep-all !important;
         }
         .calendar-empty-day { min-height: 58px; }
         .calendar-detail-title {
@@ -5179,6 +5538,11 @@ st.markdown("""
             border: 1px solid #dbe4ee;
             border-top: 0;
         }
+        .calendar-event.category-rate { border-left: 4px solid #2563eb; }
+        .calendar-event.category-prices { border-left: 4px solid #dc2626; }
+        .calendar-event.category-jobs { border-left: 4px solid #7c3aed; }
+        .calendar-event.category-growth { border-left: 4px solid #15803d; }
+        .calendar-event.category-earnings { border-left: 4px solid #ea580c; }
         .calendar-event > span {
             display: inline-flex;
             align-items: center;
@@ -5190,10 +5554,29 @@ st.markdown("""
             font-size: 0.7rem;
             font-weight: 800;
         }
+        .calendar-event.category-rate > span { background: #eff6ff; color: #1d4ed8; }
+        .calendar-event.category-prices > span { background: #fef2f2; color: #b91c1c; }
+        .calendar-event.category-jobs > span { background: #f5f3ff; color: #6d28d9; }
+        .calendar-event.category-growth > span { background: #f0fdf4; color: #15803d; }
+        .calendar-event.category-earnings > span { background: #fff7ed; color: #c2410c; }
         .calendar-event div { min-width: 0; }
-        .calendar-event b { display: block; color: #111827; font-size: 0.84rem; }
+        .calendar-event b { display: flex; align-items: center; gap: 7px; color: #111827; font-size: 0.84rem; }
         .calendar-event small { display: block; margin-top: 3px; color: #64748b; font-size: 0.72rem; }
+        .calendar-event small.calendar-event-detail { color: #334155; }
         .calendar-event a { color: #2563eb; text-decoration: none; }
+        .calendar-status {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            min-height: 20px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.64rem;
+            font-style: normal;
+            font-weight: 800;
+        }
+        .calendar-status.confirmed { background: #ecfdf3; color: #137a4b; }
+        .calendar-status.estimated { background: #fff7ed; color: #c2410c; }
         .market-signal-summary {
             display: grid;
             grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto;
@@ -5271,7 +5654,7 @@ st.markdown("""
             .block-container { padding-bottom: 5rem; }
             [class*="st-key-analysis_header_tools"] [data-testid="stHorizontalBlock"] {
                 display: grid !important;
-                grid-template-columns: minmax(118px, 1fr) minmax(94px, auto) minmax(82px, auto) !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
                 gap: 5px !important;
             }
             [class*="st-key-analysis_header_tools"] [data-testid="stColumn"] {
@@ -5279,10 +5662,29 @@ st.markdown("""
                 min-width: 0 !important;
                 padding: 0 !important;
             }
-            [class*="st-key-analysis_header_tools"] h2 { font-size: 1.35rem; }
+            [class*="st-key-analysis_header_tools"] [data-testid="stColumn"]:first-child {
+                grid-column: 1 / -1;
+                padding-bottom: 4px !important;
+            }
+            [class*="st-key-analysis_header_tools"] h2 { margin-bottom: 3px; font-size: 1.35rem; }
             [class*="st-key-analysis_header_tools"] button { padding: 0 5px; font-size: 0.72rem; }
             [class*="st-key-moving_average_panel"],
-            [class*="st-key-event_calendar_panel"] { padding: 11px 8px 13px; }
+            [class*="st-key-event_calendar_panel"],
+            [class*="st-key-average_cost_panel"] { padding: 11px 8px 13px; }
+            [class*="st-key-ma_target_controls"] [data-testid="stHorizontalBlock"],
+            [class*="st-key-average_cost_mode_controls"] [data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 5px !important;
+            }
+            [class*="st-key-ma_target_controls"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+            [class*="st-key-average_cost_mode_controls"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+                flex: 1 1 0 !important;
+                width: 0 !important;
+                min-width: 0 !important;
+                padding: 0 !important;
+            }
             [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"] {
                 display: flex !important;
                 flex-direction: row !important;
@@ -5314,6 +5716,17 @@ st.markdown("""
                 padding: 8px 10px;
             }
             .ma-table-row > span, .ma-table-row > em { font-size: 0.75rem; }
+            .average-cost-current {
+                grid-template-columns: auto minmax(0, 1fr);
+                gap: 4px 8px;
+                padding: 8px;
+            }
+            .average-cost-current strong { grid-column: 1 / -1; }
+            .average-cost-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .average-cost-result > div:nth-child(3) { border-left: 0; border-top: 1px solid #e5eaf0; }
+            .average-cost-result > div:nth-child(4) { border-top: 1px solid #e5eaf0; }
+            .average-cost-foot { align-items: flex-start; flex-direction: column; }
+            .calendar-legend { justify-content: flex-start; gap: 4px 10px; }
             .calendar-weekdays { gap: 3px; }
             [class*="st-key-calendar_day_"] button { min-height: 48px; height: 48px; font-size: 0.68rem; }
             .calendar-empty-day { min-height: 48px; }

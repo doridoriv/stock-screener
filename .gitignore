@@ -12,3 +12,5 @@ __pycache__/
 
 # Generated API caches
 cache/dart_corp_codes.csv
+cache/yf_runtime/
+cache/yfinance_runtime/

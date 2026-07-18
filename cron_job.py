@@ -27,6 +27,43 @@ def _env_int(name, default, minimum=1, maximum=FIXED_TOP_N):
     return max(minimum, min(parsed, maximum))
 
 
+def load_earnings_universes():
+    universes = {}
+    market_settings = [
+        ("코스피", ".KS"),
+        ("코스닥", ".KQ"),
+        ("미국", ""),
+    ]
+    for market, suffix in market_settings:
+        cache_file = analyzer.find_latest_valid_cache(market)
+        if not cache_file or not os.path.exists(cache_file):
+            continue
+        data = pd.read_csv(cache_file, dtype={"symbol": "string"})
+        if "symbol" not in data.columns:
+            continue
+        records = []
+        for _, row in data.iterrows():
+            raw_symbol_value = row.get("symbol")
+            if pd.isna(raw_symbol_value):
+                continue
+            raw_symbol = str(raw_symbol_value).strip()
+            if raw_symbol.endswith(".0"):
+                raw_symbol = raw_symbol[:-2]
+            symbol = raw_symbol.zfill(6) if suffix else raw_symbol.upper()
+            if not symbol:
+                continue
+            raw_name = row.get("name")
+            name = symbol if pd.isna(raw_name) else str(raw_name).strip() or symbol
+            records.append({
+                "symbol": symbol,
+                "yahoo_symbol": f"{symbol}{suffix}",
+                "name": name,
+            })
+        if records:
+            universes[market] = records
+    return universes
+
+
 def run_auto_screening(market, top_n=FIXED_TOP_N, force_scrape=None, save_cache=None):
     """
     웹 UI 없이 백그라운드에서 지정된 시장의 데이터를 수집하고
@@ -142,19 +179,13 @@ if __name__ == "__main__":
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [WARN] 시장환경 캐시 저장 실패: {e}")
 
     try:
-        us_symbols = []
-        us_names = {}
-        us_cache = analyzer.find_latest_valid_cache("미국")
-        if us_cache and os.path.exists(us_cache):
-            us_df = pd.read_csv(us_cache)
-            if "symbol" in us_df.columns:
-                us_symbols = us_df["symbol"].dropna().astype(str).str.upper().tolist()
-                if "name" in us_df.columns:
-                    us_names = {
-                        str(row["symbol"]).upper(): str(row["name"])
-                        for _, row in us_df[["symbol", "name"]].dropna(subset=["symbol"]).iterrows()
-                    }
-        calendar_data = event_calendar.save_event_calendar_cache(us_symbols, us_names)
+        earnings_universes = load_earnings_universes()
+        us_records = earnings_universes.get("미국", [])
+        us_symbols = [record["symbol"] for record in us_records]
+        us_names = {record["symbol"]: record["name"] for record in us_records}
+        calendar_data = event_calendar.save_event_calendar_cache(
+            us_symbols, us_names, earnings_universes=earnings_universes,
+        )
         print(
             f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
             f"[OK] 주요 일정 캐시 저장 완료: {event_calendar.EVENT_CALENDAR_CACHE_FILE} "

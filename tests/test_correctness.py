@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+import average_cost
 import analyzer
 import event_calendar
 import market_analyzer
@@ -128,6 +129,45 @@ class MarketToolCorrectnessTests(unittest.TestCase):
         self.assertIn(("2026-08-07", "미국 고용보고서"), titles_by_date)
         self.assertIn(("2026-07-30", "미국 GDP 발표"), titles_by_date)
         self.assertTrue(all(event["time_kst"].endswith("KST") for event in events))
+
+    def test_yahoo_earnings_are_converted_to_kst_and_marked_expected(self):
+        class FakeCalendar:
+            def _get_data(self, *args, **kwargs):
+                return pd.DataFrame(
+                    [{
+                        "Event Name": "Q3 2026 Earnings Announcement",
+                        "Event Start Date": pd.Timestamp("2026-07-30 20:00:00+00:00"),
+                        "Timing": "AMC",
+                        "EPS Estimate": 1.89,
+                    }],
+                    index=pd.Index(["AAPL"], name="Symbol"),
+                )
+
+        events = event_calendar.collect_yahoo_earnings(
+            date(2026, 7, 18),
+            date(2026, 10, 18),
+            {"미국": [{"symbol": "AAPL", "yahoo_symbol": "AAPL", "name": "애플"}]},
+            calendar_client=FakeCalendar(),
+        )
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["date"], "2026-07-31")
+        self.assertEqual(events[0]["status"], "예상")
+        self.assertEqual(events[0]["time_kst"], "05:00 KST · 장 마감 후")
+        self.assertIn("예상 EPS 1.89", events[0]["detail"])
+
+    def test_average_cost_supports_quantity_and_amount_modes(self):
+        by_quantity = average_cost.calculate_average_cost(
+            10, 100, 80, purchase_quantity=10,
+        )
+        self.assertEqual(by_quantity["total_quantity"], 20)
+        self.assertEqual(by_quantity["new_average_price"], 90)
+        self.assertAlmostEqual(by_quantity["average_change_pct"], -10)
+
+        by_amount = average_cost.calculate_average_cost(
+            10, 100, 80, purchase_amount=400,
+        )
+        self.assertEqual(by_amount["additional_quantity"], 5)
+        self.assertAlmostEqual(by_amount["new_average_price"], 1400 / 15)
 
     def test_peer_comparison_uses_leave_one_out_median(self):
         source = pd.DataFrame({
