@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-07-24 22:17 KST",
-  "range_start": "2025-07-24",
-  "range_end": "2027-07-24",
+  "collected_at": "2026-07-25 13:47 KST",
+  "range_start": "2025-07-25",
+  "range_end": "2027-07-25",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -860,6 +860,21 @@
       "source_url": "https://finance.yahoo.com/quote/TSLA/"
     },
     {
+      "id": "2026-07-24|실적|axp|american express company 실적 발표",
+      "date": "2026-07-24",
+      "title": "American Express Company 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "AXP",
+      "name": "American Express Company",
+      "detail": "예상 EPS 4.40",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/AXP/"
+    },
+    {
       "id": "2026-07-24|실적|intc|intel corporation 실적 발표",
       "date": "2026-07-24",
       "title": "Intel Corporation 실적 발표",
@@ -873,6 +888,36 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/INTC/"
+    },
+    {
+      "id": "2026-07-24|실적|nee|nextera energy, inc. 실적 발표",
+      "date": "2026-07-24",
+      "title": "NextEra Energy, Inc. 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "NEE",
+      "name": "NextEra Energy, Inc.",
+      "detail": "예상 EPS 1.11",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/NEE/"
+    },
+    {
+      "id": "2026-07-24|실적|086790|하나금융지주 실적 발표",
+      "date": "2026-07-24",
+      "title": "하나금융지주 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "086790",
+      "name": "하나금융지주",
+      "detail": "예상 EPS 4,512",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/086790.KS/"
     },
     {
       "id": "2026-07-27|실적|011070|lg이노텍 실적 발표",
@@ -3770,6 +3815,66 @@
       "source_url": "https://finance.yahoo.com/quote/TSLA/"
     },
     {
+      "id": "2026-10-22|실적|hon|honeywell international inc. 실적 발표",
+      "date": "2026-10-22",
+      "title": "Honeywell International Inc. 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "HON",
+      "name": "Honeywell International Inc.",
+      "detail": "2026년 3분기 · 예상 EPS 2.16",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/HON/"
+    },
+    {
+      "id": "2026-10-22|실적|tmus|t-mobile us, inc. 실적 발표",
+      "date": "2026-10-22",
+      "title": "T-Mobile US, Inc. 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "TMUS",
+      "name": "T-Mobile US, Inc.",
+      "detail": "2026년 3분기 · 예상 EPS 2.96",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/TMUS/"
+    },
+    {
+      "id": "2026-10-22|실적|unp|union pacific corporation 실적 발표",
+      "date": "2026-10-22",
+      "title": "Union Pacific Corporation 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "UNP",
+      "name": "Union Pacific Corporation",
+      "detail": "2026년 3분기 · 예상 EPS 3.45",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/UNP/"
+    },
+    {
+      "id": "2026-10-22|실적|010120|ls electric 실적 발표",
+      "date": "2026-10-22",
+      "title": "LS ELECTRIC 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "010120",
+      "name": "LS ELECTRIC",
+      "detail": "2026년 3분기 · 예상 EPS 951",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/010120.KS/"
+    },
+    {
       "id": "2026-10-22|실적|intc|intel corporation 실적 발표",
       "date": "2026-10-22",
       "title": "Intel Corporation 실적 발표",
@@ -3809,6 +3914,36 @@
       "symbol": "PG",
       "name": "프록터앤갬블",
       "detail": "예상 EPS 2.0422",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-10-23|실적|intc|intel corporation 실적 발표",
+      "date": "2026-10-23",
+      "title": "Intel Corporation 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "05:00 KST · 장 마감 후",
+      "symbol": "INTC",
+      "name": "Intel Corporation",
+      "detail": "2026년 3분기 · 예상 EPS 0.39",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/INTC/"
+    },
+    {
+      "id": "2026-10-23|실적|axp|american express company 실적 발표",
+      "date": "2026-10-23",
+      "title": "American Express Company 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 시작 전",
+      "symbol": "AXP",
+      "name": "American Express Company",
+      "detail": "예상 EPS 4.6412",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
@@ -4077,7 +4212,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:183",
-    "Finnhub": "ok:49"
+    "Yahoo Finance": "ok:191",
+    "Finnhub": "ok:50"
   }
 }
