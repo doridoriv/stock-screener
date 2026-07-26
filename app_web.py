@@ -3439,17 +3439,17 @@ def close_header_tool():
 
 def render_tool_panel_header(title, key_prefix):
     with st.container(key=f"{key_prefix}_tool_panel_header"):
-        title_col, back_col = st.columns([3, 1.3], gap="small")
-        with title_col:
-            st.markdown(f'<div class="tool-panel-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+        back_col, title_col = st.columns([0.8, 4.2], gap="small")
         with back_col:
             st.button(
-                "분석 화면",
+                "시작 화면",
                 key=f"{key_prefix}_tool_back",
                 icon=":material/arrow_back:",
                 width="stretch",
                 on_click=close_header_tool,
             )
+        with title_col:
+            st.markdown(f'<div class="tool-panel-title">{html.escape(title)}</div>', unsafe_allow_html=True)
 
 
 def select_ma_target(target_name):
@@ -3458,6 +3458,15 @@ def select_ma_target(target_name):
 
 def select_average_cost_mode(mode_name):
     st.session_state.average_cost_mode = mode_name
+
+
+def toggle_calendar_date(date_text):
+    current = st.session_state.get("calendar_selected_date")
+    st.session_state.calendar_selected_date = None if current == date_text else date_text
+
+
+def clear_calendar_date():
+    st.session_state.calendar_selected_date = None
 
 
 def render_analysis_header():
@@ -3548,7 +3557,9 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
     else:
         summary = f"{len(rows)}개 중 {above_count}개 이동평균선 위 · {alignment}"
     if nearest:
-        summary += f" · 가장 가까운 선 {nearest['period']}일선 {nearest['distance_pct']:+.2f}%"
+        nearest_distance = nearest["distance_pct"]
+        nearest_position = "위" if nearest_distance >= 0 else "아래"
+        summary += f" · 가장 가까운 선 {nearest['period']}일선 {abs(nearest_distance):.2f}% {nearest_position}"
 
     source_text = f" · {source}" if source else ""
     st.markdown(
@@ -3570,7 +3581,7 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
         position_class = "above" if position == "위" else "below"
         direction = row.get("direction") or "확인 중"
         direction_class = "up" if direction == "상승 중" else "down" if direction == "하락 중" else "flat"
-        distance_text = f"{distance:+.2f}% {position}" if distance is not None else "-"
+        distance_text = f"{abs(distance):.2f}% {position}" if distance is not None else "-"
         row_html += f"""
         <div class="ma-table-row">
             <b>{row['period']}일선</b>
@@ -3582,7 +3593,7 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
     st.markdown(
         f"""
         <div class="ma-table">
-            <div class="ma-table-header"><span>이동평균선</span><span>평균 가격</span><span>종가 대비</span><span>선 방향</span></div>
+            <div class="ma-table-header"><span>이동평균선</span><span>평균 가격</span><span>이평선 대비 종가</span><span>선 방향</span></div>
             {row_html}
         </div>
         """,
@@ -3786,6 +3797,7 @@ def render_average_cost_tool():
             <div class="average-cost-current">
                 <div><span>현재가</span><strong>{_format_calculator_money(current_price, is_kr)}</strong></div>
                 <div><span>보유 수량</span><strong>{_format_calculator_quantity(holding_quantity, is_kr)}</strong></div>
+                <div><span>총 매수금액</span><strong>{_format_calculator_money(current_investment, is_kr) if has_holding else '-'}</strong></div>
                 <div><span>평가금액</span><strong>{_format_calculator_money(current_value, is_kr) if has_holding else '-'}</strong></div>
                 <div><span>현재 손익</span><strong class="{holding_profit_class}">{holding_profit_text}</strong></div>
             </div>
@@ -4017,25 +4029,46 @@ def render_event_calendar_tool():
                     count = len(by_date.get(date_text, []))
                     label = f"{day_number}\n{count}건" if count else str(day_number)
                     active = st.session_state.calendar_selected_date == date_text
-                    if st.button(
+                    st.button(
                         label,
                         key=f"calendar_day_{date_text}",
                         type="primary" if active else "secondary",
                         width="stretch",
-                    ):
-                        st.session_state.calendar_selected_date = date_text
-                        st.rerun()
+                        on_click=toggle_calendar_date,
+                        args=(date_text,),
+                    )
 
         month_events = [event for event in events if str(event.get("date", "")).startswith(month_text)]
         selected_date = st.session_state.calendar_selected_date
         if selected_date and selected_date.startswith(month_text):
             detail_events = by_date.get(selected_date, [])
-            detail_title = datetime.strptime(selected_date, "%Y-%m-%d").strftime("%m월 %d일")
+            selected_day = datetime.strptime(selected_date, "%Y-%m-%d")
+            detail_title = f"{selected_day.month}월 {selected_day.day}일 일정"
         else:
             detail_events = month_events
             detail_title = f"{month}월 주요 일정"
 
-        st.markdown(f'<div class="calendar-detail-title">{html.escape(detail_title)}</div>', unsafe_allow_html=True)
+        with st.container(key="calendar_detail_header"):
+            if selected_date and selected_date.startswith(month_text):
+                detail_title_col, month_all_col = st.columns([3, 1.4], gap="small")
+                with detail_title_col:
+                    st.markdown(
+                        f'<div class="calendar-detail-title">{html.escape(detail_title)}</div>',
+                        unsafe_allow_html=True,
+                    )
+                with month_all_col:
+                    st.button(
+                        f"{month}월 전체 보기",
+                        key="calendar_show_month",
+                        icon=":material/calendar_view_month:",
+                        width="stretch",
+                        on_click=clear_calendar_date,
+                    )
+            else:
+                st.markdown(
+                    f'<div class="calendar-detail-title">{html.escape(detail_title)}</div>',
+                    unsafe_allow_html=True,
+                )
         if not detail_events:
             st.info("현재 공식 발표처에서 확정된 일정이 없습니다.")
         else:
@@ -5513,7 +5546,7 @@ st.markdown("""
         .average-cost-current-title b { color: #111827; font-size: 0.88rem; }
         .average-cost-current {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             margin: 0 0 10px;
             border-top: 1px solid #bae6cf;
             border-bottom: 1px solid #bae6cf;
@@ -5644,6 +5677,23 @@ st.markdown("""
             color: #111827;
             font-size: 0.9rem;
             font-weight: 850;
+        }
+        [class*="st-key-calendar_detail_header"]:has([data-testid="stHorizontalBlock"]) {
+            margin: 14px 0 7px;
+        }
+        [class*="st-key-calendar_detail_header"] [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+        [class*="st-key-calendar_detail_header"]:has([data-testid="stHorizontalBlock"]) .calendar-detail-title {
+            margin: 0;
+        }
+        [class*="st-key-calendar_show_month"] button {
+            min-height: 34px;
+            padding: 0 8px;
+            border-color: #fdba74 !important;
+            background: #fff7ed !important;
+            color: #c2410c !important;
+            font-size: 0.72rem;
         }
         .calendar-event-list {
             border-top: 1px solid #dbe4ee;
@@ -5803,10 +5853,10 @@ st.markdown("""
                 padding: 0 !important;
             }
             [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-                flex: 3 1 0 !important;
+                flex: 1.3 1 0 !important;
             }
             [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
-                flex: 1.3 1 0 !important;
+                flex: 3 1 0 !important;
             }
             [class*="_tool_panel_header"] button {
                 padding: 0 5px;
@@ -5848,6 +5898,12 @@ st.markdown("""
             [class*="st-key-event_calendar_panel"] [data-testid="stHorizontalBlock"]:has(.calendar-month-title) > [data-testid="stColumn"]:nth-child(2) {
                 flex-grow: 1.7 !important;
             }
+            [class*="st-key-event_calendar_panel"] [class*="st-key-calendar_detail_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
+                flex: 3 1 0 !important;
+            }
+            [class*="st-key-event_calendar_panel"] [class*="st-key-calendar_detail_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
+                flex: 1.4 1 0 !important;
+            }
             .ma-result-head { grid-template-columns: minmax(0, 1fr) auto; padding: 9px; }
             .ma-result-head > strong { font-size: 0.92rem; }
             .ma-table-header { display: none; }
@@ -5863,6 +5919,11 @@ st.markdown("""
             }
             .average-cost-current > div:nth-child(3) { border-left: 0; border-top: 1px solid #dcefe4; }
             .average-cost-current > div:nth-child(4) { border-top: 1px solid #dcefe4; }
+            .average-cost-current > div:nth-child(5) {
+                grid-column: 1 / -1;
+                border-top: 1px solid #dcefe4;
+                border-left: 0;
+            }
             .average-cost-preview { align-items: flex-start; flex-direction: column; }
             .average-cost-result { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .average-cost-result > div:nth-child(3) { border-left: 0; border-top: 1px solid #e5eaf0; }
