@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-07-29 13:50 KST",
+  "collected_at": "2026-07-29 22:33 KST",
   "range_start": "2025-07-29",
   "range_end": "2027-07-29",
   "events": [
@@ -1010,64 +1010,19 @@
       "source_url": "https://finance.yahoo.com/quote/KO/"
     },
     {
-      "id": "2026-07-29|실적|adp|adp 실적 발표",
-      "date": "2026-07-29",
-      "title": "ADP 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "ADP",
-      "name": "ADP",
-      "detail": "2026년 4분기 · 예상 EPS 2.60",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ADP/"
-    },
-    {
       "id": "2026-07-29|실적|bsx|bsx 실적 발표",
       "date": "2026-07-29",
       "title": "BSX 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
+      "time_kst": "시간 미정",
       "symbol": "BSX",
       "name": "BSX",
-      "detail": "2026년 2분기 · 예상 EPS 0.83",
+      "detail": "예상 EPS 0.83",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/BSX/"
-    },
-    {
-      "id": "2026-07-29|실적|pg|프록터앤갬블 실적 발표",
-      "date": "2026-07-29",
-      "title": "프록터앤갬블 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "PG",
-      "name": "프록터앤갬블",
-      "detail": "2026년 4분기 · 예상 EPS 1.41",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PG/"
-    },
-    {
-      "id": "2026-07-29|실적|009540|hd한국조선해양 실적 발표",
-      "date": "2026-07-29",
-      "title": "HD한국조선해양 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "009540",
-      "name": "HD한국조선해양",
-      "detail": "2026년 2분기 · 예상 EPS 11,882",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/009540.KS/"
     },
     {
       "id": "2026-07-29|실적|klac|klac 실적 발표",
@@ -1100,6 +1055,21 @@
       "source_url": "https://finance.yahoo.com/quote/MDLZ/"
     },
     {
+      "id": "2026-07-29|실적|000660|sk하이닉스 실적 발표",
+      "date": "2026-07-29",
+      "title": "SK하이닉스 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "000660",
+      "name": "SK하이닉스",
+      "detail": "예상 EPS 70,975",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/000660.KS/"
+    },
+    {
       "id": "2026-07-29|실적|wm|wm 실적 발표",
       "date": "2026-07-29",
       "title": "WM 실적 발표",
@@ -1130,21 +1100,6 @@
       "source_url": "https://finance.yahoo.com/quote/V/"
     },
     {
-      "id": "2026-07-29|실적|028260|삼성물산 실적 발표",
-      "date": "2026-07-29",
-      "title": "삼성물산 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "028260",
-      "name": "삼성물산",
-      "detail": "2026년 2분기 · 예상 EPS 3,136",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/028260.KS/"
-    },
-    {
       "id": "2026-07-29|실적|005930|삼성전자 실적 발표",
       "date": "2026-07-29",
       "title": "삼성전자 실적 발표",
@@ -1158,21 +1113,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/005930.KS/"
-    },
-    {
-      "id": "2026-07-29|실적|259960|크래프톤 실적 발표",
-      "date": "2026-07-29",
-      "title": "크래프톤 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "259960",
-      "name": "크래프톤",
-      "detail": "2026년 2분기 · 예상 EPS 3,548",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/259960.KS/"
     },
     {
       "id": "2026-07-30|금리|fomc 금리결정",
@@ -2058,6 +1998,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/138930.KS/"
+    },
+    {
+      "id": "2026-08-06|실적|035760|cj enm 실적 발표",
+      "date": "2026-08-06",
+      "title": "CJ ENM 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "035760",
+      "name": "CJ ENM",
+      "detail": "2026년 2분기",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/035760.KQ/"
     },
     {
       "id": "2026-08-06|실적|033780|kt&g 실적 발표",
@@ -2983,7 +2938,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "PEP",
       "name": "펩시코",
-      "detail": "2026년 3분기 · 예상 EPS 2.30",
+      "detail": "2026년 3분기 · 예상 EPS 2.43",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3318,6 +3273,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/RTX/"
+    },
+    {
+      "id": "2026-10-20|실적|ko|코카콜라 실적 발표",
+      "date": "2026-10-20",
+      "title": "코카콜라 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "KO",
+      "name": "코카콜라",
+      "detail": "2026년 3분기 · 예상 EPS 0.88",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/KO/"
     },
     {
       "id": "2026-10-20|실적|lrcx|lrcx 실적 발표",
@@ -3678,6 +3648,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/UNP/"
+    },
+    {
+      "id": "2026-10-22|실적|267260|hd현대일렉트릭 실적 발표",
+      "date": "2026-10-22",
+      "title": "HD현대일렉트릭 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "267260",
+      "name": "HD현대일렉트릭",
+      "detail": "2026년 3분기 · 예상 EPS 7,143",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/267260.KS/"
     },
     {
       "id": "2026-10-22|실적|010120|ls electric 실적 발표",
