@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-07-31 14:02 KST",
+  "collected_at": "2026-07-31 22:25 KST",
   "range_start": "2025-07-31",
   "range_end": "2027-07-31",
   "events": [
@@ -1385,64 +1385,19 @@
       "source_url": "https://finance.yahoo.com/quote/005935.KS/"
     },
     {
-      "id": "2026-07-31|실적|abbv|abbvie inc. 실적 발표",
-      "date": "2026-07-31",
-      "title": "AbbVie Inc. 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "ABBV",
-      "name": "AbbVie Inc.",
-      "detail": "2026년 2분기 · 예상 EPS 3.61",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ABBV/"
-    },
-    {
       "id": "2026-07-31|실적|lin|linde plc 실적 발표",
       "date": "2026-07-31",
       "title": "Linde plc 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
+      "time_kst": "시간 미정",
       "symbol": "LIN",
       "name": "Linde plc",
-      "detail": "2026년 2분기 · 예상 EPS 4.39",
+      "detail": "예상 EPS 4.12",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/LIN/"
-    },
-    {
-      "id": "2026-07-31|실적|cvx|쉐브론 실적 발표",
-      "date": "2026-07-31",
-      "title": "쉐브론 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "CVX",
-      "name": "쉐브론",
-      "detail": "2026년 2분기 · 예상 EPS 5.57",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CVX/"
-    },
-    {
-      "id": "2026-07-31|실적|xom|엑슨모빌 실적 발표",
-      "date": "2026-07-31",
-      "title": "엑슨모빌 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "XOM",
-      "name": "엑슨모빌",
-      "detail": "2026년 2분기 · 예상 EPS 3.63",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/XOM/"
     },
     {
       "id": "2026-07-31|실적|syk|stryker corporation 실적 발표",
@@ -1458,6 +1413,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/SYK/"
+    },
+    {
+      "id": "2026-07-31|실적|cvx|쉐브론 실적 발표",
+      "date": "2026-07-31",
+      "title": "쉐브론 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "CVX",
+      "name": "쉐브론",
+      "detail": "예상 EPS 5.60",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/CVX/"
     },
     {
       "id": "2026-07-31|실적|amzn|아마존 실적 발표",
@@ -1488,51 +1458,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/AAPL/"
-    },
-    {
-      "id": "2026-07-31|실적|247540|에코프로비엠 실적 발표",
-      "date": "2026-07-31",
-      "title": "에코프로비엠 실적 발표",
-      "category": "실적",
-      "market": "코스닥",
-      "time_kst": "시간 미정",
-      "symbol": "247540",
-      "name": "에코프로비엠",
-      "detail": "2026년 2분기 · 예상 EPS 28.19",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/247540.KQ/"
-    },
-    {
-      "id": "2026-07-31|실적|012450|한화에어로스페이스 실적 발표",
-      "date": "2026-07-31",
-      "title": "한화에어로스페이스 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "012450",
-      "name": "한화에어로스페이스",
-      "detail": "2026년 2분기 · 예상 EPS 10,335",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/012450.KS/"
-    },
-    {
-      "id": "2026-07-31|실적|000720|현대건설 실적 발표",
-      "date": "2026-07-31",
-      "title": "현대건설 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "000720",
-      "name": "현대건설",
-      "detail": "2026년 2분기 · 예상 EPS 1,066",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/000720.KS/"
     },
     {
       "id": "2026-08-03|실적|010950|s-oil 실적 발표",
@@ -1925,21 +1850,6 @@
       "source_url": "https://finance.yahoo.com/quote/138930.KS/"
     },
     {
-      "id": "2026-08-06|실적|035760|cj enm 실적 발표",
-      "date": "2026-08-06",
-      "title": "CJ ENM 실적 발표",
-      "category": "실적",
-      "market": "코스닥",
-      "time_kst": "시간 미정",
-      "symbol": "035760",
-      "name": "CJ ENM",
-      "detail": "2026년 2분기",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/035760.KQ/"
-    },
-    {
       "id": "2026-08-06|실적|033780|kt&g 실적 발표",
       "date": "2026-08-06",
       "title": "KT&G 실적 발표",
@@ -1968,21 +1878,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/032640.KS/"
-    },
-    {
-      "id": "2026-08-06|실적|051910|lg화학 실적 발표",
-      "date": "2026-08-06",
-      "title": "LG화학 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "051910",
-      "name": "LG화학",
-      "detail": "2026년 2분기 · 예상 EPS -637",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/051910.KS/"
     },
     {
       "id": "2026-08-06|실적|016360|삼성증권 실적 발표",
@@ -2803,7 +2698,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "PEP",
       "name": "펩시코",
-      "detail": "2026년 3분기 · 예상 EPS 2.43",
+      "detail": "2026년 3분기 · 예상 EPS 2.30",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3725,6 +3620,21 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2026-10-26|실적|005490|posco홀딩스 실적 발표",
+      "date": "2026-10-26",
+      "title": "POSCO홀딩스 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "005490",
+      "name": "POSCO홀딩스",
+      "detail": "2026년 3분기 · 예상 EPS 5,848",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/005490.KS/"
+    },
+    {
       "id": "2026-10-26|실적|regn|regn 실적 발표",
       "date": "2026-10-26",
       "title": "REGN 실적 발표",
@@ -4145,6 +4055,21 @@
       "source_url": "https://finance.yahoo.com/quote/ADP/"
     },
     {
+      "id": "2026-10-28|실적|regn|regn 실적 발표",
+      "date": "2026-10-28",
+      "title": "REGN 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "REGN",
+      "name": "REGN",
+      "detail": "2026년 3분기 · 예상 EPS 13.96",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/REGN/"
+    },
+    {
       "id": "2026-10-28|실적|gild|gild 실적 발표",
       "date": "2026-10-28",
       "title": "GILD 실적 발표",
@@ -4158,6 +4083,21 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-10-28|실적|006400|삼성sdi 실적 발표",
+      "date": "2026-10-28",
+      "title": "삼성SDI 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "006400",
+      "name": "삼성SDI",
+      "detail": "2026년 3분기 · 예상 EPS 1,716",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/006400.KS/"
     },
     {
       "id": "2026-10-28|실적|005930|삼성전자 실적 발표",
@@ -4812,7 +4752,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:209",
+    "Yahoo Finance": "ok:205",
     "Finnhub": "ok:65"
   }
 }
