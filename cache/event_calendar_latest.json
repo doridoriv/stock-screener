@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-08-07 13:16 KST",
+  "collected_at": "2026-08-07 21:28 KST",
   "range_start": "2025-08-07",
   "range_end": "2027-08-07",
   "events": [
@@ -1693,7 +1693,7 @@
       "time_kst": "시간 미정",
       "symbol": "PH",
       "name": "PH",
-      "detail": "예상 EPS 8.32",
+      "detail": "예상 EPS 8.27",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3553,7 +3553,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "CAT",
       "name": "Caterpillar, Inc.",
-      "detail": "2026년 3분기 · 예상 EPS 6.89",
+      "detail": "2026년 3분기 · 예상 EPS 6.62",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3658,7 +3658,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "LLY",
       "name": "일라이릴리",
-      "detail": "2026년 3분기 · 예상 EPS 9.72",
+      "detail": "2026년 3분기 · 예상 EPS 9.48",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3928,7 +3928,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "GILD",
       "name": "GILD",
-      "detail": "2026년 3분기 · 예상 EPS 2.18",
+      "detail": "2026년 3분기 · 예상 EPS 2.21",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4018,7 +4018,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "CVX",
       "name": "쉐브론",
-      "detail": "2026년 3분기 · 예상 EPS 4.50",
+      "detail": "2026년 3분기 · 예상 EPS 4.52",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4295,6 +4295,21 @@
       "source_url": "https://finance.yahoo.com/quote/PFE/"
     },
     {
+      "id": "2026-11-03|실적|zts|zts 실적 발표",
+      "date": "2026-11-03",
+      "title": "ZTS 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "ZTS",
+      "name": "ZTS",
+      "detail": "2026년 3분기 · 예상 EPS 1.85",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ZTS/"
+    },
+    {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
       "date": "2026-11-03",
       "title": "카카오페이 실적 발표",
@@ -4303,7 +4318,7 @@
       "time_kst": "시간 미정",
       "symbol": "377300",
       "name": "카카오페이",
-      "detail": "2026년 3분기 · 예상 EPS 234",
+      "detail": "2026년 3분기 · 예상 EPS 194",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4323,6 +4338,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/259960.KS/"
+    },
+    {
+      "id": "2026-11-03|실적|145020|휴젤 실적 발표",
+      "date": "2026-11-03",
+      "title": "휴젤 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "145020",
+      "name": "휴젤",
+      "detail": "2026년 3분기 · 예상 EPS 2,653",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/145020.KQ/"
     },
     {
       "id": "2026-11-03|실적|amd|amd 실적 발표",
@@ -4378,7 +4408,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "AMD",
       "name": "AMD",
-      "detail": "2026년 3분기 · 예상 EPS 1.93",
+      "detail": "2026년 3분기 · 예상 EPS 1.86",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4398,6 +4428,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/AMGN/"
+    },
+    {
+      "id": "2026-11-04|실적|032640|lg유플러스 실적 발표",
+      "date": "2026-11-04",
+      "title": "LG유플러스 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "032640",
+      "name": "LG유플러스",
+      "detail": "2026년 3분기 · 예상 EPS 427",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/032640.KS/"
     },
     {
       "id": "2026-11-04|실적|ph|ph 실적 발표",
@@ -4737,7 +4782,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:246",
+    "Yahoo Finance": "ok:249",
     "Finnhub": "ok:13"
   }
 }
