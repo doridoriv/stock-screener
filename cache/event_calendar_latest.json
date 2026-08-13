@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-08-13 12:46 KST",
+  "collected_at": "2026-08-13 21:26 KST",
   "range_start": "2025-08-13",
   "range_end": "2027-08-13",
   "events": [
@@ -1790,6 +1790,21 @@
       "source_url": "https://www.bls.gov/schedule/news_release/cpi.htm"
     },
     {
+      "id": "2026-08-12|실적|056190|sfa 실적 발표",
+      "date": "2026-08-12",
+      "title": "SFA 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "056190",
+      "name": "SFA",
+      "detail": "예상 EPS 647",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/056190.KQ/"
+    },
+    {
       "id": "2026-08-12|실적|042660|한화오션 실적 발표",
       "date": "2026-08-12",
       "title": "한화오션 실적 발표",
@@ -1865,6 +1880,21 @@
       "source_url": "https://finance.yahoo.com/quote/003550.KS/"
     },
     {
+      "id": "2026-08-13|실적|373220|lg에너지솔루션 실적 발표",
+      "date": "2026-08-13",
+      "title": "LG에너지솔루션 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "373220",
+      "name": "LG에너지솔루션",
+      "detail": "예상 EPS 879",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/373220.KS/"
+    },
+    {
       "id": "2026-08-13|실적|402340|sk스퀘어 실적 발표",
       "date": "2026-08-13",
       "title": "SK스퀘어 실적 발표",
@@ -1923,6 +1953,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/CSCO/"
+    },
+    {
+      "id": "2026-08-13|실적|095610|테스 실적 발표",
+      "date": "2026-08-13",
+      "title": "테스 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "095610",
+      "name": "테스",
+      "detail": "예상 EPS 1,126",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/095610.KQ/"
     },
     {
       "id": "2026-08-14|실적|amat|applied materials, inc. 실적 발표",
@@ -3740,21 +3785,6 @@
       "source_url": "https://finance.yahoo.com/quote/090430.KS/"
     },
     {
-      "id": "2026-10-29|실적|128940|한미약품 실적 발표",
-      "date": "2026-10-29",
-      "title": "한미약품 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "128940",
-      "name": "한미약품",
-      "detail": "2026년 3분기",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/128940.KS/"
-    },
-    {
       "id": "2026-10-29|실적|000720|현대건설 실적 발표",
       "date": "2026-10-29",
       "title": "현대건설 실적 발표",
@@ -4640,6 +4670,21 @@
       "source_url": "https://finance.yahoo.com/quote/036570.KS/"
     },
     {
+      "id": "2026-11-10|실적|010060|oci홀딩스 실적 발표",
+      "date": "2026-11-10",
+      "title": "OCI홀딩스 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "010060",
+      "name": "OCI홀딩스",
+      "detail": "2026년 3분기",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/010060.KS/"
+    },
+    {
       "id": "2026-11-10|실적|csco|시스코 시스템즈 실적 발표",
       "date": "2026-11-10",
       "title": "시스코 시스템즈 실적 발표",
@@ -4872,7 +4917,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:263",
+    "Yahoo Finance": "ok:266",
     "Finnhub": "ok:5"
   }
 }
