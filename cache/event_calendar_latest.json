@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-12 21:28 KST",
-  "range_start": "2025-08-12",
-  "range_end": "2027-08-12",
+  "collected_at": "2026-08-13 12:46 KST",
+  "range_start": "2025-08-13",
+  "range_end": "2027-08-13",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -1790,34 +1790,19 @@
       "source_url": "https://www.bls.gov/schedule/news_release/cpi.htm"
     },
     {
-      "id": "2026-08-12|실적|011200|hmm 실적 발표",
+      "id": "2026-08-12|실적|042660|한화오션 실적 발표",
       "date": "2026-08-12",
-      "title": "HMM 실적 발표",
+      "title": "한화오션 실적 발표",
       "category": "실적",
       "market": "코스피",
       "time_kst": "시간 미정",
-      "symbol": "011200",
-      "name": "HMM",
-      "detail": "2026년 2분기",
+      "symbol": "042660",
+      "name": "한화오션",
+      "detail": "예상 EPS 1,402",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/011200.KS/"
-    },
-    {
-      "id": "2026-08-12|실적|015760|한국전력 실적 발표",
-      "date": "2026-08-12",
-      "title": "한국전력 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "015760",
-      "name": "한국전력",
-      "detail": "2026년 2분기 · 예상 EPS 1,599",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/015760.KS/"
+      "source_url": "https://finance.yahoo.com/quote/042660.KS/"
     },
     {
       "id": "2026-08-13|금리|한국은행 기준금리 결정",
@@ -1835,21 +1820,6 @@
       "source_url": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=201265&nttId=10094300"
     },
     {
-      "id": "2026-08-13|실적|csco|시스코 시스템즈 실적 발표",
-      "date": "2026-08-13",
-      "title": "시스코 시스템즈 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "CSCO",
-      "name": "시스코 시스템즈",
-      "detail": "2026년 4분기 · 예상 EPS 1.17",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CSCO/"
-    },
-    {
       "id": "2026-08-13|실적|005830|db손해보험 실적 발표",
       "date": "2026-08-13",
       "title": "DB손해보험 실적 발표",
@@ -1865,19 +1835,19 @@
       "source_url": "https://finance.yahoo.com/quote/005830.KS/"
     },
     {
-      "id": "2026-08-13|실적|030200|kt 실적 발표",
+      "id": "2026-08-13|실적|011200|hmm 실적 발표",
       "date": "2026-08-13",
-      "title": "KT 실적 발표",
+      "title": "HMM 실적 발표",
       "category": "실적",
       "market": "코스피",
       "time_kst": "시간 미정",
-      "symbol": "030200",
-      "name": "KT",
-      "detail": "2026년 2분기 · 예상 EPS 1,544",
+      "symbol": "011200",
+      "name": "HMM",
+      "detail": "2026년 2분기",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/030200.KS/"
+      "source_url": "https://finance.yahoo.com/quote/011200.KS/"
     },
     {
       "id": "2026-08-13|실적|003550|lg 실적 발표",
@@ -1893,21 +1863,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/003550.KS/"
-    },
-    {
-      "id": "2026-08-13|실적|034730|sk 실적 발표",
-      "date": "2026-08-13",
-      "title": "SK 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "034730",
-      "name": "SK",
-      "detail": "2026년 2분기 · 예상 EPS 49,938",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/034730.KS/"
     },
     {
       "id": "2026-08-13|실적|402340|sk스퀘어 실적 발표",
@@ -1955,6 +1910,21 @@
       "source_url": "https://finance.yahoo.com/quote/000810.KS/"
     },
     {
+      "id": "2026-08-13|실적|csco|시스코 시스템즈 실적 발표",
+      "date": "2026-08-13",
+      "title": "시스코 시스템즈 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "CSCO",
+      "name": "시스코 시스템즈",
+      "detail": "예상 EPS 1.17",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/CSCO/"
+    },
+    {
       "id": "2026-08-14|실적|amat|applied materials, inc. 실적 발표",
       "date": "2026-08-14",
       "title": "Applied Materials, Inc. 실적 발표",
@@ -1968,6 +1938,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/AMAT/"
+    },
+    {
+      "id": "2026-08-14|실적|034730|sk 실적 발표",
+      "date": "2026-08-14",
+      "title": "SK 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "034730",
+      "name": "SK",
+      "detail": "2026년 2분기 · 예상 EPS 49,938",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/034730.KS/"
     },
     {
       "id": "2026-08-18|실적|hd|홈디포 실적 발표",
@@ -4175,21 +4160,6 @@
       "source_url": "https://finance.yahoo.com/quote/145020.KQ/"
     },
     {
-      "id": "2026-11-03|실적|mcd|mcdonald's corporation 실적 발표",
-      "date": "2026-11-03",
-      "title": "McDonald's Corporation 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 시작 전",
-      "symbol": "MCD",
-      "name": "McDonald's Corporation",
-      "detail": "예상 EPS 3.4406",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2026-11-04|실적|amd|amd 실적 발표",
       "date": "2026-11-04",
       "title": "AMD 실적 발표",
@@ -4295,21 +4265,6 @@
       "source_url": "https://finance.yahoo.com/quote/009830.KS/"
     },
     {
-      "id": "2026-11-04|실적|qcom|qualcomm incorporated 실적 발표",
-      "date": "2026-11-04",
-      "title": "QUALCOMM Incorporated 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 마감 후",
-      "symbol": "QCOM",
-      "name": "QUALCOMM Incorporated",
-      "detail": "예상 EPS 2.2187",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2026-11-04|실적|cop|conocophillips 실적 발표",
       "date": "2026-11-04",
       "title": "ConocoPhillips 실적 발표",
@@ -4398,6 +4353,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/078930.KS/"
+    },
+    {
+      "id": "2026-11-05|실적|030200|kt 실적 발표",
+      "date": "2026-11-05",
+      "title": "KT 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "030200",
+      "name": "KT",
+      "detail": "2026년 3분기 · 예상 EPS 1,374",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/030200.KS/"
     },
     {
       "id": "2026-11-05|실적|033780|kt&g 실적 발표",
@@ -4655,6 +4625,21 @@
       "source_url": "https://www.bls.gov/schedule/news_release/cpi.htm"
     },
     {
+      "id": "2026-11-10|실적|036570|nc 실적 발표",
+      "date": "2026-11-10",
+      "title": "NC 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "036570",
+      "name": "NC",
+      "detail": "2026년 3분기 · 예상 EPS 4,906",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/036570.KS/"
+    },
+    {
       "id": "2026-11-10|실적|csco|시스코 시스템즈 실적 발표",
       "date": "2026-11-10",
       "title": "시스코 시스템즈 실적 발표",
@@ -4683,6 +4668,21 @@
       "status": "확정",
       "source": "한국은행",
       "source_url": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=201265&nttId=10094300"
+    },
+    {
+      "id": "2026-11-12|실적|dis|walt disney company (the) 실적 발표",
+      "date": "2026-11-12",
+      "title": "Walt Disney Company (The) 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "DIS",
+      "name": "Walt Disney Company (The)",
+      "detail": "예상 EPS 1.6798",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
     },
     {
       "id": "2026-11-25|성장|미국 gdp 발표",
@@ -4872,7 +4872,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:262",
-    "Finnhub": "ok:6"
+    "Yahoo Finance": "ok:263",
+    "Finnhub": "ok:5"
   }
 }
