@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-08-18 11:41 KST",
+  "collected_at": "2026-08-18 21:10 KST",
   "range_start": "2025-08-18",
   "range_end": "2027-08-18",
   "events": [
@@ -1685,6 +1685,21 @@
       "source_url": "https://finance.yahoo.com/quote/353200.KS/"
     },
     {
+      "id": "2026-08-13|실적|213420|덕산네오룩스 실적 발표",
+      "date": "2026-08-13",
+      "title": "덕산네오룩스 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "213420",
+      "name": "덕산네오룩스",
+      "detail": "예상 EPS 643",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/213420.KQ/"
+    },
+    {
       "id": "2026-08-13|실적|csco|시스코 시스템즈 실적 발표",
       "date": "2026-08-13",
       "title": "시스코 시스템즈 실적 발표",
@@ -2448,21 +2463,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/290650.KQ/"
-    },
-    {
-      "id": "2026-08-14|실적|271560|오리온 실적 발표",
-      "date": "2026-08-14",
-      "title": "오리온 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "271560",
-      "name": "오리온",
-      "detail": "예상 EPS 2,395",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/271560.KS/"
     },
     {
       "id": "2026-08-14|실적|232140|와이씨 실적 발표",
@@ -4685,6 +4685,21 @@
       "source_url": "https://finance.yahoo.com/quote/090430.KS/"
     },
     {
+      "id": "2026-10-29|실적|128940|한미약품 실적 발표",
+      "date": "2026-10-29",
+      "title": "한미약품 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "128940",
+      "name": "한미약품",
+      "detail": "2026년 3분기",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/128940.KS/"
+    },
+    {
       "id": "2026-10-29|실적|000720|현대건설 실적 발표",
       "date": "2026-10-29",
       "title": "현대건설 실적 발표",
@@ -4963,7 +4978,7 @@
       "time_kst": "시간 미정",
       "symbol": "010950",
       "name": "S-Oil",
-      "detail": "2026년 3분기 · 예상 EPS 1,296",
+      "detail": "2026년 3분기 · 예상 EPS 3,797",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5743,7 +5758,7 @@
       "time_kst": "시간 미정",
       "symbol": "402340",
       "name": "SK스퀘어",
-      "detail": "2026년 3분기 · 예상 EPS 86,131",
+      "detail": "2026년 3분기 · 예상 EPS 84,663",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5967,7 +5982,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:338",
+    "Yahoo Finance": "ok:339",
     "Finnhub": "ok:5"
   }
 }
