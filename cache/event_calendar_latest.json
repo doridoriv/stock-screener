@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-08-19 11:43 KST",
+  "collected_at": "2026-08-19 21:07 KST",
   "range_start": "2025-08-19",
   "range_end": "2027-08-19",
   "events": [
@@ -2015,21 +2015,6 @@
       "source_url": "https://finance.yahoo.com/quote/035420.KS/"
     },
     {
-      "id": "2026-08-14|실적|036570|nc 실적 발표",
-      "date": "2026-08-14",
-      "title": "NC 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "036570",
-      "name": "NC",
-      "detail": "예상 EPS 5,659",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/036570.KS/"
-    },
-    {
       "id": "2026-08-14|실적|010950|s-oil 실적 발표",
       "date": "2026-08-14",
       "title": "S-Oil 실적 발표",
@@ -2478,6 +2463,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/290650.KQ/"
+    },
+    {
+      "id": "2026-08-14|실적|271560|오리온 실적 발표",
+      "date": "2026-08-14",
+      "title": "오리온 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "271560",
+      "name": "오리온",
+      "detail": "예상 EPS 2,395",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/271560.KS/"
     },
     {
       "id": "2026-08-14|실적|232140|와이씨 실적 발표",
@@ -5555,21 +5555,6 @@
       "source_url": "https://www.bls.gov/schedule/news_release/cpi.htm"
     },
     {
-      "id": "2026-11-10|실적|036570|nc 실적 발표",
-      "date": "2026-11-10",
-      "title": "NC 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "036570",
-      "name": "NC",
-      "detail": "2026년 3분기 · 예상 EPS 4,022",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/036570.KS/"
-    },
-    {
       "id": "2026-11-10|실적|010060|oci홀딩스 실적 발표",
       "date": "2026-11-10",
       "title": "OCI홀딩스 실적 발표",
@@ -6042,7 +6027,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:340",
+    "Yahoo Finance": "ok:339",
     "Finnhub": "ok:8"
   }
 }
