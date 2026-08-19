@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-18 21:10 KST",
-  "range_start": "2025-08-18",
-  "range_end": "2027-08-18",
+  "collected_at": "2026-08-19 11:43 KST",
+  "range_start": "2025-08-19",
+  "range_end": "2027-08-19",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -2435,6 +2435,21 @@
       "source_url": "https://finance.yahoo.com/quote/041510.KQ/"
     },
     {
+      "id": "2026-08-14|실적|278470|에이피알 실적 발표",
+      "date": "2026-08-14",
+      "title": "에이피알 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "278470",
+      "name": "에이피알",
+      "detail": "예상 EPS 3,507",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/278470.KS/"
+    },
+    {
       "id": "2026-08-14|실적|247540|에코프로비엠 실적 발표",
       "date": "2026-08-14",
       "title": "에코프로비엠 실적 발표",
@@ -2905,10 +2920,10 @@
       "title": "홈디포 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
+      "time_kst": "시간 미정",
       "symbol": "HD",
       "name": "홈디포",
-      "detail": "2026년 2분기 · 예상 EPS 4.69",
+      "detail": "예상 EPS 4.73",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5795,6 +5810,51 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2026-11-17|실적|panw|panw 실적 발표",
+      "date": "2026-11-17",
+      "title": "PANW 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "PANW",
+      "name": "PANW",
+      "detail": "예상 EPS 0.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-11-17|실적|hd|홈디포 실적 발표",
+      "date": "2026-11-17",
+      "title": "홈디포 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "HD",
+      "name": "홈디포",
+      "detail": "예상 EPS 4.0834",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-11-18|실적|nvda|엔비디아 실적 발표",
+      "date": "2026-11-18",
+      "title": "엔비디아 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "NVDA",
+      "name": "엔비디아",
+      "detail": "예상 EPS 2.4084",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-11-25|성장|미국 gdp 발표",
       "date": "2026-11-25",
       "title": "미국 GDP 발표",
@@ -5982,7 +6042,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:339",
-    "Finnhub": "ok:5"
+    "Yahoo Finance": "ok:340",
+    "Finnhub": "ok:8"
   }
 }
