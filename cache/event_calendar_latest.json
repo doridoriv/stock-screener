@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-21 21:03 KST",
-  "range_start": "2025-08-21",
-  "range_end": "2027-08-21",
+  "collected_at": "2026-08-22 11:37 KST",
+  "range_start": "2025-08-22",
+  "range_end": "2027-08-22",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -350,51 +350,6 @@
       "source_url": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=201265&nttId=10094300"
     },
     {
-      "id": "2026-07-22|실적|cme|cme 실적 발표",
-      "date": "2026-07-22",
-      "title": "CME 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "CME",
-      "name": "CME",
-      "detail": "예상 EPS 2.91",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CME/"
-    },
-    {
-      "id": "2026-07-22|실적|mco|mco 실적 발표",
-      "date": "2026-07-22",
-      "title": "MCO 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "MCO",
-      "name": "MCO",
-      "detail": "예상 EPS 4.25",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MCO/"
-    },
-    {
-      "id": "2026-07-22|실적|pm|philip morris international inc 실적 발표",
-      "date": "2026-07-22",
-      "title": "Philip Morris International Inc 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "PM",
-      "name": "Philip Morris International Inc",
-      "detail": "예상 EPS 2.05",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PM/"
-    },
-    {
       "id": "2026-07-23|실적|cmcsa|comcast corporation 실적 발표",
       "date": "2026-07-23",
       "title": "Comcast Corporation 실적 발표",
@@ -423,21 +378,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/HON/"
-    },
-    {
-      "id": "2026-07-23|실적|ibm|international business machines 실적 발표",
-      "date": "2026-07-23",
-      "title": "International Business Machines 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "IBM",
-      "name": "International Business Machines",
-      "detail": "예상 EPS 2.93",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/IBM/"
     },
     {
       "id": "2026-07-23|실적|105560|kb금융 실적 발표",
@@ -485,21 +425,6 @@
       "source_url": "https://finance.yahoo.com/quote/RTX/"
     },
     {
-      "id": "2026-07-23|실적|now|servicenow, inc. 실적 발표",
-      "date": "2026-07-23",
-      "title": "ServiceNow, Inc. 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "NOW",
-      "name": "ServiceNow, Inc.",
-      "detail": "예상 EPS 0.86",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/NOW/"
-    },
-    {
       "id": "2026-07-23|실적|tmus|t-mobile us, inc. 실적 발표",
       "date": "2026-07-23",
       "title": "T-Mobile US, Inc. 실적 발표",
@@ -513,21 +438,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/TMUS/"
-    },
-    {
-      "id": "2026-07-23|실적|txn|texas instruments incorporated 실적 발표",
-      "date": "2026-07-23",
-      "title": "Texas Instruments Incorporated 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "TXN",
-      "name": "Texas Instruments Incorporated",
-      "detail": "예상 EPS 1.94",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/TXN/"
     },
     {
       "id": "2026-07-23|실적|tmo|thermo fisher scientific inc 실적 발표",
@@ -558,51 +468,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/UNP/"
-    },
-    {
-      "id": "2026-07-23|실적|googl|알파벳a 실적 발표",
-      "date": "2026-07-23",
-      "title": "알파벳A 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "GOOGL",
-      "name": "알파벳A",
-      "detail": "예상 EPS 2.90",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/GOOGL/"
-    },
-    {
-      "id": "2026-07-23|실적|goog|알파벳c 실적 발표",
-      "date": "2026-07-23",
-      "title": "알파벳C 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "GOOG",
-      "name": "알파벳C",
-      "detail": "예상 EPS 2.91",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/GOOG/"
-    },
-    {
-      "id": "2026-07-23|실적|tsla|테슬라 실적 발표",
-      "date": "2026-07-23",
-      "title": "테슬라 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "TSLA",
-      "name": "테슬라",
-      "detail": "예상 EPS 0.54",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/TSLA/"
     },
     {
       "id": "2026-07-24|실적|axp|american express company 실적 발표",
@@ -2598,6 +2463,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/259960.KS/"
+    },
+    {
+      "id": "2026-08-14|실적|214150|클래시스 실적 발표",
+      "date": "2026-08-14",
+      "title": "클래시스 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "214150",
+      "name": "클래시스",
+      "detail": "예상 EPS 655",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/214150.KQ/"
     },
     {
       "id": "2026-08-14|실적|089030|테크윙 실적 발표",
@@ -5225,6 +5105,21 @@
       "source_url": "https://finance.yahoo.com/quote/COP/"
     },
     {
+      "id": "2026-11-05|실적|duk|duk 실적 발표",
+      "date": "2026-11-05",
+      "title": "DUK 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "DUK",
+      "name": "DUK",
+      "detail": "2026년 3분기 · 예상 EPS 1.84",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/DUK/"
+    },
+    {
       "id": "2026-11-05|실적|mcd|mcdonald's corporation 실적 발표",
       "date": "2026-11-05",
       "title": "McDonald's Corporation 실적 발표",
@@ -5388,21 +5283,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/000880.KS/"
-    },
-    {
-      "id": "2026-11-05|실적|duk|duk 실적 발표",
-      "date": "2026-11-05",
-      "title": "DUK 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 시작 전",
-      "symbol": "DUK",
-      "name": "DUK",
-      "detail": "예상 EPS 1.9382",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
     },
     {
       "id": "2026-11-06|고용|미국 고용보고서",
@@ -6072,7 +5952,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:341",
-    "Finnhub": "ok:12"
+    "Yahoo Finance": "ok:334",
+    "Finnhub": "ok:11"
   }
 }
