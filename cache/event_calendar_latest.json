@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-24 21:12 KST",
-  "range_start": "2025-08-24",
-  "range_end": "2027-08-24",
+  "collected_at": "2026-08-25 11:43 KST",
+  "range_start": "2025-08-25",
+  "range_end": "2027-08-25",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -3883,7 +3883,7 @@
       "time_kst": "시간 미정",
       "symbol": "005930",
       "name": "삼성전자",
-      "detail": "2026년 3분기 · 예상 EPS 14,227",
+      "detail": "2026년 3분기 · 예상 EPS 14,230",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4903,7 +4903,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "COP",
       "name": "ConocoPhillips",
-      "detail": "2026년 3분기 · 예상 EPS 2.61",
+      "detail": "2026년 3분기 · 예상 EPS 2.62",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5008,7 +5008,7 @@
       "time_kst": "시간 미정",
       "symbol": "373220",
       "name": "LG에너지솔루션",
-      "detail": "2026년 3분기 · 예상 EPS 1,453",
+      "detail": "2026년 3분기 · 예상 EPS 1,913",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5570,6 +5570,21 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2026-11-24|실적|adi|adi 실적 발표",
+      "date": "2026-11-24",
+      "title": "ADI 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "ADI",
+      "name": "ADI",
+      "detail": "예상 EPS 3.5743",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-11-25|성장|미국 gdp 발표",
       "date": "2026-11-25",
       "title": "미국 GDP 발표",
@@ -5758,6 +5773,6 @@
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
     "Yahoo Finance": "ok:321",
-    "Finnhub": "ok:11"
+    "Finnhub": "ok:12"
   }
 }
