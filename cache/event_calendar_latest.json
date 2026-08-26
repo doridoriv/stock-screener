@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-25 21:05 KST",
-  "range_start": "2025-08-25",
-  "range_end": "2027-08-25",
+  "collected_at": "2026-08-26 11:48 KST",
+  "range_start": "2025-08-26",
+  "range_end": "2027-08-26",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -2660,36 +2660,6 @@
       "source_url": "https://finance.yahoo.com/quote/WMT/"
     },
     {
-      "id": "2026-08-25|실적|180640|한진칼 실적 발표",
-      "date": "2026-08-25",
-      "title": "한진칼 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "180640",
-      "name": "한진칼",
-      "detail": "2026년 2분기",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/180640.KS/"
-    },
-    {
-      "id": "2026-08-26|실적|intu|intuit inc. 실적 발표",
-      "date": "2026-08-26",
-      "title": "Intuit Inc. 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "INTU",
-      "name": "Intuit Inc.",
-      "detail": "2026년 4분기 · 예상 EPS 3.59",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/INTU/"
-    },
-    {
       "id": "2026-08-26|성장|미국 gdp 발표",
       "date": "2026-08-26",
       "title": "미국 GDP 발표",
@@ -2720,6 +2690,21 @@
       "source_url": "https://www.bea.gov/news/schedule/full"
     },
     {
+      "id": "2026-08-26|실적|intu|intuit inc. 실적 발표",
+      "date": "2026-08-26",
+      "title": "Intuit Inc. 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "INTU",
+      "name": "Intuit Inc.",
+      "detail": "예상 EPS 3.59",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/INTU/"
+    },
+    {
       "id": "2026-08-27|실적|crm|세일즈포스 실적 발표",
       "date": "2026-08-27",
       "title": "세일즈포스 실적 발표",
@@ -2748,6 +2733,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/NVDA/"
+    },
+    {
+      "id": "2026-08-27|실적|180640|한진칼 실적 발표",
+      "date": "2026-08-27",
+      "title": "한진칼 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "180640",
+      "name": "한진칼",
+      "detail": "2026년 2분기",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/180640.KS/"
     },
     {
       "id": "2026-09-01|실적|mdt|medtronic plc. 실적 발표",
