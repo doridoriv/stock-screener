@@ -1,5 +1,5 @@
 {
-  "market_score": 47.5,
+  "market_score": 49.5,
   "market_state": "위험회피",
   "score_state": "부담",
   "summary": "부담 구간입니다. 부담 요인: 나스닥· 반도체· 미국 장기채.",
@@ -235,40 +235,40 @@
       "symbol": "DX-Y.NYB",
       "trend": "하락",
       "effect": "우호",
-      "risk_score": 80,
-      "latest": 98.94200134277344,
-      "ma20": 99.63760070800781,
-      "ma60": 100.32403373718262,
-      "ret20": -2.404809604157232,
-      "ret60": 0.03235029772454823,
-      "latest_text": "98.9",
-      "ret20_text": "-2.40%",
-      "ret60_text": "+0.03%",
-      "score_impact": 3.0,
+      "risk_score": 100,
+      "latest": 98.99800109863281,
+      "ma20": 99.54640045166016,
+      "ma60": 100.32030042012532,
+      "ret20": -1.787700296199124,
+      "ret60": -0.20362485466079994,
+      "latest_text": "99.0",
+      "ret20_text": "-1.79%",
+      "ret60_text": "-0.20%",
+      "score_impact": 5.0,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "98.94 / 99.64",
+          "value_text": "99.00 / 99.55",
           "points": 15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "98.94 / 100.32",
+          "value_text": "99.00 / 100.32",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-2.40%",
+          "value_text": "-1.79%",
           "points": 10
         },
         {
           "label": "60일 수익률",
-          "result": "상승",
-          "value_text": "+0.03%",
-          "points": -10
+          "result": "하락",
+          "value_text": "-0.20%",
+          "points": 10
         }
       ],
       "meaning": "달러 약세로 수급 부담 완화",
@@ -417,40 +417,40 @@
       "symbol": "DX-Y.NYB",
       "trend": "하락",
       "effect": "우호",
-      "risk_score": 80,
-      "latest": 98.94200134277344,
-      "ma20": 99.63760070800781,
-      "ma60": 100.32403373718262,
-      "ret20": -2.404809604157232,
-      "ret60": 0.03235029772454823,
-      "latest_text": "98.9",
-      "ret20_text": "-2.40%",
-      "ret60_text": "+0.03%",
-      "score_impact": 3.0,
+      "risk_score": 100,
+      "latest": 98.99800109863281,
+      "ma20": 99.54640045166016,
+      "ma60": 100.32030042012532,
+      "ret20": -1.787700296199124,
+      "ret60": -0.20362485466079994,
+      "latest_text": "99.0",
+      "ret20_text": "-1.79%",
+      "ret60_text": "-0.20%",
+      "score_impact": 5.0,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "98.94 / 99.64",
+          "value_text": "99.00 / 99.55",
           "points": 15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "98.94 / 100.32",
+          "value_text": "99.00 / 100.32",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-2.40%",
+          "value_text": "-1.79%",
           "points": 10
         },
         {
           "label": "60일 수익률",
-          "result": "상승",
-          "value_text": "+0.03%",
-          "points": -10
+          "result": "하락",
+          "value_text": "-0.20%",
+          "points": 10
         }
       ],
       "meaning": "달러 약세로 수급 부담 완화",
@@ -1166,41 +1166,41 @@
       1390.790039,
       1384.97998,
       1380.76001,
-      1385.76001
+      1383.47998
     ],
-    "close": 1385.760009765625,
+    "close": 1383.47998046875,
     "rows": [
       {
         "period": 20,
-        "average": 1412.2070068359376,
-        "distance_pct": -1.8727422355428842,
+        "average": 1412.0930053710938,
+        "distance_pct": -2.0262847272460203,
         "direction": "하락 중",
-        "slope_pct": -1.3743755682138175
+        "slope_pct": -1.3823371953704116
       },
       {
         "period": 60,
-        "average": 1479.5908365885416,
-        "distance_pct": -6.341673961651464,
+        "average": 1479.5528361002605,
+        "distance_pct": -6.493371056942789,
         "direction": "하락 중",
-        "slope_pct": -0.6729033150147741
+        "slope_pct": -0.6754543433668267
       },
       {
         "period": 120,
-        "average": 1484.5210825602214,
-        "distance_pct": -6.652722817804109,
+        "average": 1484.5020823160808,
+        "distance_pct": -6.805116884020719,
         "direction": "하락 중",
-        "slope_pct": -0.24063648485045908
+        "slope_pct": -0.24191329545582735
       },
       {
         "period": 200,
-        "average": 1473.837700805664,
-        "distance_pct": -5.976078030294108,
+        "average": 1473.8263006591797,
+        "distance_pct": -6.130052106548892,
         "direction": "하락 중",
-        "slope_pct": -0.12451922952999595
+        "slope_pct": -0.12529176717804605
       }
     ],
     "source": "Yahoo Finance (KRW=X)"
   },
-  "collected_at": "2026-08-26 11:48 KST",
+  "collected_at": "2026-08-26 21:06 KST",
   "source": "yfinance"
 }
