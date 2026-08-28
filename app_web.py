@@ -300,15 +300,24 @@ elif st.session_state.table_view_mode not in {"맞춤 보기", "모바일 보기
 if "custom_lens_enabled" not in st.session_state:
     st.session_state.custom_lens_enabled = False
 
-if st.session_state.get("custom_metric_default_version") != CUSTOM_METRIC_DEFAULT_VERSION:
-    for custom_metric_id in CUSTOM_METRIC_IDS:
-        st.session_state[f"custom_metric_{custom_metric_id}"] = custom_metric_id in CUSTOM_DEFAULT_METRICS
+if "custom_metric_selection_ids" not in st.session_state:
+    legacy_keys_exist = any(f"custom_metric_{metric_id}" in st.session_state for metric_id in CUSTOM_METRIC_IDS)
+    if st.session_state.get("custom_metric_default_version") == CUSTOM_METRIC_DEFAULT_VERSION and legacy_keys_exist:
+        initial_metric_ids = [
+            metric_id
+            for metric_id in CUSTOM_METRIC_IDS
+            if st.session_state.get(f"custom_metric_{metric_id}", False)
+        ]
+    else:
+        initial_metric_ids = list(CUSTOM_DEFAULT_METRICS)
+    st.session_state["custom_metric_selection_ids"] = initial_metric_ids
     st.session_state.custom_metric_default_version = CUSTOM_METRIC_DEFAULT_VERSION
 else:
-    for custom_metric_id in CUSTOM_METRIC_IDS:
-        custom_metric_key = f"custom_metric_{custom_metric_id}"
-        if custom_metric_key not in st.session_state:
-            st.session_state[custom_metric_key] = custom_metric_id in CUSTOM_DEFAULT_METRICS
+    st.session_state["custom_metric_selection_ids"] = [
+        metric_id
+        for metric_id in CUSTOM_METRIC_IDS
+        if metric_id in set(st.session_state["custom_metric_selection_ids"])
+    ]
 
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
@@ -647,10 +656,11 @@ def available_custom_metric_ids(data) -> list[str]:
 
 def selected_custom_metric_ids(data) -> list[str]:
     available = set(available_custom_metric_ids(data))
+    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
     return [
         metric_id
         for metric_id in CUSTOM_METRIC_IDS
-        if metric_id in available and st.session_state.get(f"custom_metric_{metric_id}", False)
+        if metric_id in available and metric_id in selected
     ]
 
 
@@ -755,13 +765,21 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         display: flex;
         flex-direction: column;
     }
-    .count-controls {
+    .count-controls,
+    .result-actions {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 6px;
+    }
+    .count-controls {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin: 0 0 6px;
+    }
+    .result-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         margin: 0 0 8px;
     }
-    .count-controls button {
+    .count-controls button,
+    .result-actions button {
         height: 38px;
         min-width: 0;
         border: 1px solid #cbd5e1;
@@ -773,13 +791,15 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         cursor: pointer;
         white-space: nowrap;
     }
-    .count-controls button:hover { border-color: #64748b; background: #f8fafc; }
+    .count-controls button:hover,
+    .result-actions button:hover { border-color: #64748b; background: #f8fafc; }
     .count-controls button.active {
         border-color: #111827;
         background: #111827;
         color: #ffffff;
     }
-    .count-controls button:disabled { cursor: default; opacity: 0.38; }
+    .count-controls button:disabled,
+    .result-actions button:disabled { cursor: default; opacity: 0.38; }
     .table-shell {
         width: 100%;
         max-height: 300px;
@@ -865,8 +885,10 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     th:last-child, td:last-child { border-right: 0; }
     .empty-cell { height: 84px; text-align: center; color: #64748b; }
     @media (max-width: 720px) {
-        .count-controls { gap: 4px; }
-        .count-controls button { height: 35px; font-size: 11.5px; padding: 0 2px; }
+        .count-controls,
+        .result-actions { gap: 4px; }
+        .count-controls button,
+        .result-actions button { height: 35px; font-size: 11.5px; padding: 0 2px; }
         .desktop-view { display: none; }
         .mobile-view {
             display: flex;
@@ -985,7 +1007,11 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     <button type="button" data-limit="10">10개</button>
     <button type="button" data-limit="20">20개</button>
     <button type="button" data-limit="all">전체</button>
+</div>
+<div class="result-actions" role="group" aria-label="결과 이동 및 정렬">
+    <button type="button" data-action="previous">이전5개</button>
     <button type="button" data-action="more">다음5개</button>
+    <button type="button" data-action="reset-sort">기본 정렬</button>
 </div>
 <div class="desktop-view">
     <div class="table-shell" id="table-shell">
@@ -1054,6 +1080,10 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         return state.limit === "all" ? allRows.length : Math.max(0, Number(state.limit) || 5);
     }
 
+    function displayedCount() {
+        return Math.min(visibleLimit(), allRows.length);
+    }
+
     function setSort(metricId) {
         if (state.sortId !== metricId) {
             state.sortId = metricId;
@@ -1064,6 +1094,13 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             state.sortId = null;
             state.sortDir = null;
         }
+        saveState();
+        render();
+    }
+
+    function clearSort() {
+        state.sortId = null;
+        state.sortDir = null;
         saveState();
         render();
     }
@@ -1210,8 +1247,12 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             const active = requested === "all" ? state.limit === "all" : state.limit !== "all" && Number(requested) === Number(state.limit);
             button.classList.toggle("active", active);
         });
+        const previousButton = document.querySelector('button[data-action="previous"]');
         const moreButton = document.querySelector('button[data-action="more"]');
+        const resetSortButton = document.querySelector('button[data-action="reset-sort"]');
+        previousButton.disabled = displayedCount() <= 5;
         moreButton.disabled = visibleLimit() >= allRows.length;
+        resetSortButton.disabled = !state.sortId;
     }
 
     function render() {
@@ -1237,6 +1278,12 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         saveState();
         render();
     });
+    document.querySelector('button[data-action="previous"]').addEventListener("click", () => {
+        state.limit = Math.max(5, displayedCount() - 5);
+        saveState();
+        render();
+    });
+    document.querySelector('button[data-action="reset-sort"]').addEventListener("click", clearSort);
     render();
 </script>
 </body>
@@ -3301,18 +3348,124 @@ def render_investment_lens_controls():
 
 def set_custom_metric_selection(metric_ids):
     selected = set(metric_ids)
+    st.session_state["custom_metric_selection_ids"] = [
+        metric_id for metric_id in CUSTOM_METRIC_IDS if metric_id in selected
+    ]
     for metric_id in CUSTOM_METRIC_IDS:
-        st.session_state[f"custom_metric_{metric_id}"] = metric_id in selected
+        is_selected = metric_id in selected
+        dialog_key = f"custom_metric_dialog_{metric_id}"
+        if dialog_key in st.session_state:
+            st.session_state[dialog_key] = is_selected
+
+
+def sync_custom_metric_from_dialog(metric_id):
+    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
+    if st.session_state.get(f"custom_metric_dialog_{metric_id}", False):
+        selected.add(metric_id)
+    else:
+        selected.discard(metric_id)
+    st.session_state["custom_metric_selection_ids"] = [
+        candidate_id for candidate_id in CUSTOM_METRIC_IDS if candidate_id in selected
+    ]
+
+
+def prepare_custom_metric_dialog(available):
+    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
+    for metric_id in available:
+        st.session_state[f"custom_metric_dialog_{metric_id}"] = metric_id in selected
+
+
+def _selected_custom_metric_ids(available):
+    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
+    return [
+        metric_id
+        for metric_id in CUSTOM_METRIC_IDS
+        if metric_id in available and metric_id in selected
+    ]
+
+
+@st.dialog("표시할 지표 선택", width="large", dismissible=True, on_dismiss="rerun")
+def render_custom_metric_dialog(available_metric_ids):
+    available = set(available_metric_ids)
+    selected_ids = _selected_custom_metric_ids(available)
+
+    with st.container(key="custom_metric_actions"):
+        action_columns = st.columns([1.1, 1, 1], gap="small")
+        with action_columns[0]:
+            st.markdown(
+                f'<div class="custom-metric-selected-count"><b>{len(selected_ids)}개</b> 선택</div>',
+                unsafe_allow_html=True,
+            )
+        with action_columns[1]:
+            st.button(
+                "기본값 복원",
+                key="custom_metric_restore_defaults",
+                icon=":material/refresh:",
+                width="stretch",
+                on_click=set_custom_metric_selection,
+                args=(CUSTOM_DEFAULT_METRICS,),
+            )
+        with action_columns[2]:
+            st.button(
+                "전체 해제",
+                key="custom_metric_clear_all",
+                icon=":material/deselect:",
+                width="stretch",
+                on_click=set_custom_metric_selection,
+                args=((),),
+            )
+
+    section_groups = [
+        ("기업", {"기본", "가치", "수익성"}),
+        ("성장·재무", {"성장", "재무·현금", "배당"}),
+        ("시장·전망", {"가격", "업종", "컨센서스"}),
+    ]
+    visible_sections = []
+    for section_label, group_names in section_groups:
+        groups = [
+            (group, [metric for metric in metrics if metric[0] in available])
+            for group, metrics in CUSTOM_METRIC_GROUPS
+            if group in group_names
+        ]
+        groups = [(group, metrics) for group, metrics in groups if metrics]
+        if groups:
+            visible_sections.append((section_label, groups))
+
+    tabs = st.tabs([section_label for section_label, _ in visible_sections])
+    for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
+        with tab:
+            with st.container(key=f"custom_metric_selector_{section_index}"):
+                for group, visible_metrics in groups:
+                    st.markdown(
+                        f'<div class="custom-metric-group-label">{escape_html(group)}</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for row_start in range(0, len(visible_metrics), 2):
+                        row_metrics = visible_metrics[row_start:row_start + 2]
+                        columns = st.columns(2, gap="small")
+                        for column, (metric_id, label, _) in zip(columns, row_metrics):
+                            with column:
+                                st.checkbox(
+                                    label,
+                                    key=f"custom_metric_dialog_{metric_id}",
+                                    on_change=sync_custom_metric_from_dialog,
+                                    args=(metric_id,),
+                                )
+
+    if st.button(
+        "선택 완료 · 닫기",
+        key="custom_metric_close_dialog",
+        icon=":material/check:",
+        type="primary",
+        width="stretch",
+    ):
+        st.rerun()
 
 
 def render_custom_metric_selector():
     data = pd.DataFrame(st.session_state.get("data", []))
     available = set(available_custom_metric_ids(data))
-    selected_ids = [
-        metric_id
-        for metric_id in CUSTOM_METRIC_IDS
-        if metric_id in available and st.session_state.get(f"custom_metric_{metric_id}", False)
-    ]
+    selected_ids = _selected_custom_metric_ids(available)
     selected_labels = [CUSTOM_METRIC_DEFS[metric_id]["label"] for metric_id in selected_ids]
     if selected_labels:
         preview_labels = selected_labels[:3]
@@ -3323,68 +3476,14 @@ def render_custom_metric_selector():
         selection_preview = "선택 없음"
 
     with st.container(key="custom_metric_picker_wrap"):
-        with st.popover(
+        if st.button(
             f"지표 선택 · {len(selected_ids)}개 · {selection_preview}",
+            icon=":material/tune:",
             width="stretch",
-            key="custom_metric_picker",
+            key="custom_metric_picker_open",
         ):
-            with st.container(key="custom_metric_actions"):
-                action_columns = st.columns([1.1, 1, 1], gap="small")
-                with action_columns[0]:
-                    st.markdown(
-                        f'<div class="custom-metric-selected-count"><b>{len(selected_ids)}개</b> 선택</div>',
-                        unsafe_allow_html=True,
-                    )
-                with action_columns[1]:
-                    st.button(
-                        "기본값 복원",
-                        key="custom_metric_restore_defaults",
-                        icon=":material/refresh:",
-                        width="stretch",
-                        on_click=set_custom_metric_selection,
-                        args=(CUSTOM_DEFAULT_METRICS,),
-                    )
-                with action_columns[2]:
-                    st.button(
-                        "전체 해제",
-                        key="custom_metric_clear_all",
-                        icon=":material/deselect:",
-                        width="stretch",
-                        on_click=set_custom_metric_selection,
-                        args=((),),
-                    )
-
-            section_groups = [
-                ("기업", {"기본", "가치", "수익성"}),
-                ("성장·재무", {"성장", "재무·현금", "배당"}),
-                ("시장·전망", {"가격", "업종", "컨센서스"}),
-            ]
-            visible_sections = []
-            for section_label, group_names in section_groups:
-                groups = [
-                    (group, [metric for metric in metrics if metric[0] in available])
-                    for group, metrics in CUSTOM_METRIC_GROUPS
-                    if group in group_names
-                ]
-                groups = [(group, metrics) for group, metrics in groups if metrics]
-                if groups:
-                    visible_sections.append((section_label, groups))
-
-            tabs = st.tabs([section_label for section_label, _ in visible_sections])
-            for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
-                with tab:
-                    with st.container(key=f"custom_metric_selector_{section_index}"):
-                        for group, visible_metrics in groups:
-                            st.markdown(
-                                f'<div class="custom-metric-group-label">{escape_html(group)}</div>',
-                                unsafe_allow_html=True,
-                            )
-                            for row_start in range(0, len(visible_metrics), 2):
-                                row_metrics = visible_metrics[row_start:row_start + 2]
-                                columns = st.columns(2, gap="small")
-                                for column, (metric_id, label, _) in zip(columns, row_metrics):
-                                    with column:
-                                        st.checkbox(label, key=f"custom_metric_{metric_id}")
+            prepare_custom_metric_dialog(available)
+            render_custom_metric_dialog(tuple(available))
 
 
 def render_custom_results(df, is_kr, current_lens):
@@ -3393,7 +3492,7 @@ def render_custom_results(df, is_kr, current_lens):
     context_key = f"{get_market_text()}|{lens_context}"
     components.html(
         build_custom_table_html(df, metric_ids, is_kr, context_key),
-        height=355,
+        height=400,
         scrolling=False,
     )
 
@@ -3437,9 +3536,29 @@ def close_header_tool():
     st.session_state.active_header_tool = None
 
 
-def render_tool_panel_header(title, key_prefix):
+def reset_moving_average_periods():
+    st.session_state.ma_custom_periods = []
+    st.session_state.ma_custom_period_input = 50
+    st.session_state.ma_period_selection = list(moving_average_data.DEFAULT_PERIODS)
+
+
+def reset_calendar_to_current_month():
+    st.session_state.calendar_month = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m")
+    st.session_state.calendar_selected_date = None
+
+
+def reset_average_cost_inputs():
+    current_price = _calculator_number(st.session_state.get("average_cost_selected_price")) or 0.0
+    st.session_state.average_cost_holding_quantity = 0.0
+    st.session_state.average_cost_current_average = current_price
+    st.session_state.average_cost_purchase_price = current_price
+    st.session_state.average_cost_purchase_quantity = 0.0
+    st.session_state.average_cost_purchase_amount = 0.0
+
+
+def render_tool_panel_header(title, key_prefix, reset_label, reset_callback, reset_icon):
     with st.container(key=f"{key_prefix}_tool_panel_header"):
-        back_col, title_col = st.columns([0.8, 4.2], gap="small")
+        back_col, title_col, reset_col = st.columns([1.2, 2.6, 1.2], gap="small")
         with back_col:
             st.button(
                 "시작 화면",
@@ -3450,6 +3569,14 @@ def render_tool_panel_header(title, key_prefix):
             )
         with title_col:
             st.markdown(f'<div class="tool-panel-title">{html.escape(title)}</div>', unsafe_allow_html=True)
+        with reset_col:
+            st.button(
+                reset_label,
+                key=f"{key_prefix}_tool_reset",
+                icon=reset_icon,
+                width="stretch",
+                on_click=reset_callback,
+            )
 
 
 def select_ma_target(target_name):
@@ -3603,7 +3730,13 @@ def _render_ma_result(name, symbol, data_date, result, target_mode, is_kr, sourc
 
 def render_moving_average_tool():
     with st.container(key="moving_average_panel"):
-        render_tool_panel_header("이동평균 확인", "moving_average")
+        render_tool_panel_header(
+            "이동평균 확인",
+            "moving_average",
+            "기본 기간",
+            reset_moving_average_periods,
+            ":material/restart_alt:",
+        )
         target_mode = st.session_state.ma_target_selection
         with st.container(key="ma_target_controls"):
             st.markdown('<div class="tool-field-label">대상</div>', unsafe_allow_html=True)
@@ -3734,7 +3867,13 @@ def _format_calculator_quantity(value, is_kr):
 
 def render_average_cost_tool():
     with st.container(key="average_cost_panel"):
-        render_tool_panel_header("평균단가 계산기", "average_cost")
+        render_tool_panel_header(
+            "평균단가 계산기",
+            "average_cost",
+            "초기화",
+            reset_average_cost_inputs,
+            ":material/refresh:",
+        )
         data = pd.DataFrame(st.session_state.get("data", []))
         if data.empty:
             st.info("선택할 종목 데이터가 없습니다.")
@@ -3754,6 +3893,7 @@ def render_average_cost_tool():
         selected_row = options[selected_label]
         selected_symbol = _normalize_tool_symbol(selected_row.get("symbol"), is_kr)
         current_price = _calculator_number(selected_row.get("price"))
+        st.session_state.average_cost_selected_price = current_price
         marker = f"{market_text}:{selected_symbol}"
         if st.session_state.get("average_cost_last_symbol") != marker:
             st.session_state.average_cost_last_symbol = marker
@@ -3971,7 +4111,13 @@ def _calendar_events_for_market(events):
 
 def render_event_calendar_tool():
     with st.container(key="event_calendar_panel"):
-        render_tool_panel_header("주요 일정 캘린더", "calendar")
+        render_tool_panel_header(
+            "주요 일정 캘린더",
+            "calendar",
+            "이번 달",
+            reset_calendar_to_current_month,
+            ":material/today:",
+        )
         calendar_data = get_cached_event_calendar()
         events = _calendar_events_for_market(calendar_data.get("events") or [])
         month_text = st.session_state.calendar_month
@@ -4952,20 +5098,18 @@ st.markdown("""
             max-width: 580px;
             margin: 0 auto;
         }
-        [class*="st-key-custom_metric_picker_wrap"] [data-testid="stPopover"],
-        [class*="st-key-custom_metric_picker_wrap"] [data-testid="stPopoverButton"] {
+        [class*="st-key-custom_metric_picker_wrap"] [data-testid="stButton"] {
             width: 100% !important;
         }
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) {
-            width: min(620px, calc(100vw - 32px)) !important;
-            min-width: min(620px, calc(100vw - 32px)) !important;
-            max-width: min(620px, calc(100vw - 32px)) !important;
-            max-height: min(680px, calc(100vh - 24px)) !important;
-            border: 1px solid #dbe3ec !important;
-            border-radius: 8px !important;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18) !important;
+        [class*="st-key-custom_metric_picker_wrap"] button {
+            min-height: 42px;
+            border-radius: 7px;
+            font-weight: 800;
         }
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-list"] {
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) {
+            max-width: min(680px, calc(100vw - 20px)) !important;
+        }
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-list"] {
             display: grid !important;
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
             gap: 4px !important;
@@ -4975,7 +5119,7 @@ st.markdown("""
             border-radius: 7px;
             background: #f8fafc;
         }
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"] {
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"] {
             width: 100% !important;
             min-height: 36px;
             justify-content: center !important;
@@ -4983,13 +5127,13 @@ st.markdown("""
             font-size: 0.78rem !important;
             font-weight: 850 !important;
         }
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"][aria-selected="true"] {
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) [data-testid="stTab"][aria-selected="true"] {
             background: #ffffff !important;
             color: #e11d48 !important;
             box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
         }
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-highlight"],
-        [data-testid="stPopoverBody"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-border"] {
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-highlight"],
+        [data-testid="stDialog"]:has([class*="st-key-custom_metric_actions"]) [data-baseweb="tab-border"] {
             display: none !important;
         }
         [class*="st-key-custom_metric_actions"] {
@@ -5031,6 +5175,12 @@ st.markdown("""
             border-color: #94a3b8 !important;
             outline: none !important;
             box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.22) !important;
+        }
+        [class*="st-key-custom_metric_close_dialog"] button {
+            min-height: 40px;
+            margin-top: 8px;
+            border-radius: 7px;
+            font-weight: 900;
         }
         [class*="st-key-custom_metric_selector"] {
             padding: 2px 0 5px;
@@ -5084,14 +5234,21 @@ st.markdown("""
             color: #9f1239;
             font-weight: 900;
         }
-        [class*="st-key-mobile_count_wrap"] [data-testid="stHorizontalBlock"] {
+        [class*="st-key-mobile_count_quick_wrap"] [data-testid="stHorizontalBlock"],
+        [class*="st-key-mobile_count_nav_wrap"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
-            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
             gap: 4px !important;
             align-items: center !important;
             width: 100% !important;
             flex-wrap: nowrap !important;
             overflow: hidden !important;
+        }
+        [class*="st-key-mobile_count_quick_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+        [class*="st-key-mobile_count_nav_wrap"] [data-testid="stHorizontalBlock"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            margin-top: 5px;
         }
         [class*="st-key-mobile_card_actions_"] [data-testid="stHorizontalBlock"] {
             display: grid !important;
@@ -5102,7 +5259,8 @@ st.markdown("""
             flex-wrap: nowrap !important;
             overflow: hidden !important;
         }
-        [class*="st-key-mobile_count_wrap"] [data-testid="stColumn"],
+        [class*="st-key-mobile_count_quick_wrap"] [data-testid="stColumn"],
+        [class*="st-key-mobile_count_nav_wrap"] [data-testid="stColumn"],
         [class*="st-key-mobile_card_actions_"] [data-testid="stColumn"] {
             width: 100% !important;
             min-width: 0 !important;
@@ -5110,14 +5268,17 @@ st.markdown("""
             max-width: none !important;
             padding: 0 !important;
         }
-        [class*="st-key-mobile_count_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-mobile_count_quick_wrap"] [data-testid="stElementContainer"],
+        [class*="st-key-mobile_count_nav_wrap"] [data-testid="stElementContainer"],
         [class*="st-key-mobile_card_actions_"] [data-testid="stElementContainer"],
-        [class*="st-key-mobile_count_wrap"] [data-testid="stButton"],
+        [class*="st-key-mobile_count_quick_wrap"] [data-testid="stButton"],
+        [class*="st-key-mobile_count_nav_wrap"] [data-testid="stButton"],
         [class*="st-key-mobile_card_actions_"] [data-testid="stButton"] {
             width: 100% !important;
             min-width: 0 !important;
         }
         [class*="st-key-mobile_count_"] button,
+        [class*="st-key-mobile_previous_5"] button,
         [class*="st-key-mobile_more_5"] button,
         [class*="st-key-mobile_evidence_"] button,
         [class*="st-key-mobile_candidate_"] button,
@@ -5855,8 +6016,11 @@ st.markdown("""
             [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
                 flex: 1.3 1 0 !important;
             }
+            [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) {
+                flex: 2.4 1 0 !important;
+            }
             [class*="_tool_panel_header"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child {
-                flex: 3 1 0 !important;
+                flex: 1.3 1 0 !important;
             }
             [class*="_tool_panel_header"] button {
                 padding: 0 5px;
@@ -6278,26 +6442,49 @@ if st.session_state.data:
         st.caption(lens_meta.get("description", ""))
 
         with st.container(key="mobile_count_wrap"):
-            count_cols = st.columns(5, gap="small")
             quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
-            for idx, (label, count) in enumerate(quick_options):
-                with count_cols[idx]:
-                    is_active_count = st.session_state.mobile_count_choice == label
-                    if st.button(label, key=f"mobile_count_{'active_' if is_active_count else ''}{idx}", width="stretch"):
-                        st.session_state.mobile_visible_count = count
-                        st.session_state.mobile_count_choice = label
+            with st.container(key="mobile_count_quick_wrap"):
+                count_cols = st.columns(4, gap="small")
+                for idx, (label, count) in enumerate(quick_options):
+                    with count_cols[idx]:
+                        is_active_count = st.session_state.mobile_count_choice == label
+                        if st.button(label, key=f"mobile_count_{'active_' if is_active_count else ''}{idx}", width="stretch"):
+                            st.session_state.mobile_visible_count = count
+                            st.session_state.mobile_count_choice = label
+                            st.session_state.mobile_selected_symbol = None
+                            st.session_state.mobile_evidence_symbol = None
+                            st.rerun()
+
+            with st.container(key="mobile_count_nav_wrap"):
+                previous_col, next_col = st.columns(2, gap="small")
+                with previous_col:
+                    previous_count = max(5, visible_count - 5)
+                    if st.button(
+                        "이전5개",
+                        key="mobile_previous_5",
+                        width="stretch",
+                        disabled=visible_count <= 5,
+                    ):
+                        st.session_state.mobile_visible_count = previous_count
+                        st.session_state.mobile_count_choice = next(
+                            (label for label, count in quick_options[:3] if count == previous_count),
+                            None,
+                        )
                         st.session_state.mobile_selected_symbol = None
                         st.session_state.mobile_evidence_symbol = None
                         st.rerun()
 
-            with count_cols[4]:
-                next_count = min(visible_count + 5, total_candidates)
-                if st.button("다음5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
-                    st.session_state.mobile_visible_count = next_count
-                    st.session_state.mobile_count_choice = None
-                    st.session_state.mobile_selected_symbol = None
-                    st.session_state.mobile_evidence_symbol = None
-                    st.rerun()
+                with next_col:
+                    next_count = min(visible_count + 5, total_candidates)
+                    if st.button("다음5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
+                        st.session_state.mobile_visible_count = next_count
+                        st.session_state.mobile_count_choice = next(
+                            (label for label, count in quick_options[:3] if count == next_count),
+                            None,
+                        )
+                        st.session_state.mobile_selected_symbol = None
+                        st.session_state.mobile_evidence_symbol = None
+                        st.rerun()
 
         st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
         if visible_mobile_df.empty:

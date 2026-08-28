@@ -301,6 +301,14 @@ class CustomViewCorrectnessTests(unittest.TestCase):
         self.assertNotIn("per", available)
         self.assertNotIn("target_mean", available)
 
+    def test_custom_metric_selection_is_kept_outside_dialog_widget_state(self):
+        data = pd.DataFrame({"price": [1000], "market_cap": [5000]})
+        state = {"custom_metric_selection_ids": ["price"]}
+        with patch.object(app_web.st, "session_state", state):
+            self.assertEqual(app_web.selected_custom_metric_ids(data), ["price"])
+            app_web.set_custom_metric_selection(("market_cap",))
+            self.assertEqual(state["custom_metric_selection_ids"], ["market_cap"])
+
     def test_custom_table_keeps_numeric_sort_values_and_compact_display(self):
         data = pd.DataFrame([{
             "symbol": "000001",
@@ -330,6 +338,10 @@ class CustomViewCorrectnessTests(unittest.TestCase):
         self.assertIn("orderedRows().slice(0, visibleLimit())", table_html)
         self.assertIn('class="desktop-view"', table_html)
         self.assertIn('class="mobile-view"', table_html)
+        self.assertIn('data-action="previous"', table_html)
+        self.assertIn('data-action="reset-sort"', table_html)
+        self.assertIn("function displayedCount()", table_html)
+        self.assertIn("function clearSort()", table_html)
         self.assertIn("renderMobileCards(rows)", table_html)
         self.assertIn("overflow-x: hidden", table_html)
 
