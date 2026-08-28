@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-08-28 22:10 KST",
-  "range_start": "2025-08-28",
-  "range_end": "2027-08-28",
+  "collected_at": "2026-08-29 06:29 KST",
+  "range_start": "2025-08-29",
+  "range_end": "2027-08-29",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -350,36 +350,6 @@
       "source_url": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=201265&nttId=10094300"
     },
     {
-      "id": "2026-07-29|실적|bsx|bsx 실적 발표",
-      "date": "2026-07-29",
-      "title": "BSX 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "BSX",
-      "name": "BSX",
-      "detail": "예상 EPS 0.83",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BSX/"
-    },
-    {
-      "id": "2026-07-29|실적|pg|프록터앤갬블 실적 발표",
-      "date": "2026-07-29",
-      "title": "프록터앤갬블 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "PG",
-      "name": "프록터앤갬블",
-      "detail": "예상 EPS 1.41",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PG/"
-    },
-    {
       "id": "2026-07-30|금리|fomc 금리결정",
       "date": "2026-07-30",
       "title": "FOMC 금리결정",
@@ -440,21 +410,6 @@
       "source_url": "https://finance.yahoo.com/quote/CI/"
     },
     {
-      "id": "2026-07-30|실적|eqix|eqix 실적 발표",
-      "date": "2026-07-30",
-      "title": "EQIX 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "EQIX",
-      "name": "EQIX",
-      "detail": "예상 EPS 4.80",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/EQIX/"
-    },
-    {
       "id": "2026-07-30|실적|ice|ice 실적 발표",
       "date": "2026-07-30",
       "title": "ICE 실적 발표",
@@ -468,21 +423,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ICE/"
-    },
-    {
-      "id": "2026-07-30|실적|lrcx|lrcx 실적 발표",
-      "date": "2026-07-30",
-      "title": "LRCX 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "LRCX",
-      "name": "LRCX",
-      "detail": "예상 EPS 1.68",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/LRCX/"
     },
     {
       "id": "2026-07-30|실적|mo|mo 실적 발표",
@@ -513,21 +453,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/005490.KS/"
-    },
-    {
-      "id": "2026-07-30|실적|qcom|qualcomm incorporated 실적 발표",
-      "date": "2026-07-30",
-      "title": "QUALCOMM Incorporated 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "QCOM",
-      "name": "QUALCOMM Incorporated",
-      "detail": "예상 EPS 2.22",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/QCOM/"
     },
     {
       "id": "2026-07-30|실적|regn|regn 실적 발표",
@@ -573,81 +498,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/MA/"
-    },
-    {
-      "id": "2026-07-30|실적|msft|마이크로소프트 실적 발표",
-      "date": "2026-07-30",
-      "title": "마이크로소프트 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "MSFT",
-      "name": "마이크로소프트",
-      "detail": "예상 EPS 4.24",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MSFT/"
-    },
-    {
-      "id": "2026-07-30|실적|meta|메타 플랫폼스 실적 발표",
-      "date": "2026-07-30",
-      "title": "메타 플랫폼스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "META",
-      "name": "메타 플랫폼스",
-      "detail": "예상 EPS 7.22",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/META/"
-    },
-    {
-      "id": "2026-07-30|실적|018260|삼성에스디에스 실적 발표",
-      "date": "2026-07-30",
-      "title": "삼성에스디에스 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "018260",
-      "name": "삼성에스디에스",
-      "detail": "예상 EPS 2,407",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/018260.KS/"
-    },
-    {
-      "id": "2026-07-30|실적|005930|삼성전자 실적 발표",
-      "date": "2026-07-30",
-      "title": "삼성전자 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "005930",
-      "name": "삼성전자",
-      "detail": "예상 EPS 11,032",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/005930.KS/"
-    },
-    {
-      "id": "2026-07-30|실적|005935|삼성전자우 실적 발표",
-      "date": "2026-07-30",
-      "title": "삼성전자우 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "005935",
-      "name": "삼성전자우",
-      "detail": "예상 EPS 10,397",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/005935.KS/"
     },
     {
       "id": "2026-07-31|실적|abbv|abbvie inc. 실적 발표",
@@ -5652,7 +5502,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:314",
+    "Yahoo Finance": "ok:304",
     "Finnhub": "ok:13"
   }
 }
