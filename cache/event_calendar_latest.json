@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-01 15:35 KST",
-  "range_start": "2025-09-01",
-  "range_end": "2027-09-01",
+  "collected_at": "2026-09-02 00:48 KST",
+  "range_start": "2025-09-02",
+  "range_end": "2027-09-02",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -1220,6 +1220,21 @@
       "source_url": "https://finance.yahoo.com/quote/000270.KS/"
     },
     {
+      "id": "2026-08-14|실적|001440|대한전선 실적 발표",
+      "date": "2026-08-14",
+      "title": "대한전선 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "001440",
+      "name": "대한전선",
+      "detail": "예상 EPS 159",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/001440.KS/"
+    },
+    {
       "id": "2026-08-14|실적|000150|두산 실적 발표",
       "date": "2026-08-14",
       "title": "두산 실적 발표",
@@ -2275,10 +2290,10 @@
       "title": "Medtronic plc. 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
+      "time_kst": "시간 미정",
       "symbol": "MDT",
       "name": "Medtronic plc.",
-      "detail": "2027년 1분기 · 예상 EPS 1.39",
+      "detail": "예상 EPS 1.39",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4888,7 +4903,7 @@
       "time_kst": "시간 미정",
       "symbol": "005830",
       "name": "DB손해보험",
-      "detail": "2026년 3분기 · 예상 EPS 7,697",
+      "detail": "2026년 3분기 · 예상 EPS 6,710",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5083,7 +5098,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "INTU",
       "name": "Intuit Inc.",
-      "detail": "2027년 1분기 · 예상 EPS 2.84",
+      "detail": "2027년 1분기 · 예상 EPS 2.78",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5159,6 +5174,21 @@
       "symbol": "DE",
       "name": "DE",
       "detail": "예상 EPS 4.2017",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-12-02|실적|crm|세일즈포스 실적 발표",
+      "date": "2026-12-02",
+      "title": "세일즈포스 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "CRM",
+      "name": "세일즈포스",
+      "detail": "예상 EPS 3.4447",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
@@ -5322,7 +5352,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:292",
-    "Finnhub": "ok:13"
+    "Yahoo Finance": "ok:293",
+    "Finnhub": "ok:14"
   }
 }
