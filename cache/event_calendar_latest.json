@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-02 15:10 KST",
-  "range_start": "2025-09-02",
-  "range_end": "2027-09-02",
+  "collected_at": "2026-09-03 00:29 KST",
+  "range_start": "2025-09-03",
+  "range_end": "2027-09-03",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -440,21 +440,6 @@
       "source_url": "https://finance.yahoo.com/quote/MCD/"
     },
     {
-      "id": "2026-08-04|실적|pltr|pltr 실적 발표",
-      "date": "2026-08-04",
-      "title": "PLTR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "PLTR",
-      "name": "PLTR",
-      "detail": "예상 EPS 0.35",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PLTR/"
-    },
-    {
       "id": "2026-08-04|실적|pfe|pfizer, inc. 실적 발표",
       "date": "2026-08-04",
       "title": "Pfizer, Inc. 실적 발표",
@@ -468,21 +453,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/PFE/"
-    },
-    {
-      "id": "2026-08-04|실적|vrtx|vrtx 실적 발표",
-      "date": "2026-08-04",
-      "title": "VRTX 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "VRTX",
-      "name": "VRTX",
-      "detail": "예상 EPS 4.75",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/VRTX/"
     },
     {
       "id": "2026-08-05|실적|amd|amd 실적 발표",
@@ -583,7 +553,7 @@
       "time_kst": "시간 미정",
       "symbol": "COP",
       "name": "ConocoPhillips",
-      "detail": "예상 EPS 2.92",
+      "detail": "예상 EPS 2.94",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -674,6 +644,21 @@
       "symbol": "BRK-B",
       "name": "버크셔해서웨이",
       "detail": "예상 EPS 5.13",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BRK-B/"
+    },
+    {
+      "id": "2026-08-09|실적|brk-b|버크셔해서웨이 실적 발표",
+      "date": "2026-08-09",
+      "title": "버크셔해서웨이 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "BRK-B",
+      "name": "버크셔해서웨이",
+      "detail": "2026년 2분기 · 예상 EPS 5.13",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2713,7 +2698,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "LMT",
       "name": "Lockheed Martin Corporation",
-      "detail": "2026년 3분기 · 예상 EPS 7.47",
+      "detail": "2026년 3분기 · 예상 EPS 7.46",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3343,7 +3328,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "ADP",
       "name": "ADP",
-      "detail": "2027년 1분기 · 예상 EPS 2.77",
+      "detail": "2027년 1분기 · 예상 EPS 2.78",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5352,7 +5337,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:293",
+    "Yahoo Finance": "ok:292",
     "Finnhub": "ok:14"
   }
 }
