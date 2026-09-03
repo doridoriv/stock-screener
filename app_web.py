@@ -601,6 +601,77 @@ def dividend_cut_status(value):
     return "미확인"
 
 
+DIRECTIONAL_METRIC_IDS = {
+    "operating_income", "net_income", "revenue_growth", "operating_growth",
+    "eps_growth", "cagr", "operating_cashflow", "free_cashflow", "net_cash",
+    "dividend_growth_3y", "peak_diff", "diff", "return_20d", "return_60d",
+    "after_market_change_pct", "consensus_revision", "target_upside",
+    "earnings_surprise_pct",
+}
+
+
+def metric_value_tone(metric_id, value, row=None):
+    """Return a shared visual tone without treating every large number as good."""
+    if metric_id == "dividend_cut_flag":
+        status = dividend_cut_status(value)
+        return "favorable" if status == "없음" else "risk" if status == "있음" else "missing"
+
+    number = clean_number(value)
+    if number is None:
+        return "missing"
+    if row is not None and is_financial_business(row) and metric_id in {
+        "debt_ratio", "operating_cashflow", "free_cashflow", "net_cash",
+    }:
+        return "neutral"
+    if metric_id in DIRECTIONAL_METRIC_IDS:
+        return "up" if number > 0 else "down" if number < 0 else "neutral"
+    if metric_id in {"score", "lens_score"}:
+        return "favorable" if number >= 80 else "caution" if number < 60 else "neutral"
+    if metric_id == "roe":
+        return "favorable" if number >= 15 else "risk" if number < 0 else "caution" if number < 8 else "neutral"
+    if metric_id == "operating_margin":
+        return "favorable" if number >= 15 else "risk" if number < 0 else "neutral"
+    if metric_id == "net_margin":
+        return "favorable" if number >= 10 else "risk" if number < 0 else "neutral"
+    if metric_id == "debt_ratio":
+        return "favorable" if number <= 80 else "risk" if number >= 200 else "caution" if number >= 150 else "neutral"
+    if metric_id == "dividend_yield":
+        return "favorable" if number >= 2.5 else "caution" if number <= 0 else "neutral"
+    if metric_id == "payout_ratio":
+        if 0 < number <= 80:
+            return "favorable"
+        return "risk" if number >= 100 else "caution" if number > 80 else "neutral"
+    if metric_id in {"dividend_consecutive_years", "dividend_history_years"}:
+        return "favorable" if number >= 5 else "caution" if number <= 0 else "neutral"
+    if metric_id in {"peer_per_gap", "peer_pbr_gap"}:
+        return "favorable" if number <= -15 else "caution" if number >= 15 else "neutral"
+    if metric_id == "rsi":
+        return "caution" if number >= 70 or number <= 30 else "neutral"
+    if metric_id == "analyst_buy_ratio":
+        return "favorable" if number >= 70 else "caution" if number < 40 else "neutral"
+    if metric_id in {"per", "pbr", "peg"} and number <= 0:
+        return "risk"
+    return "neutral"
+
+
+def confidence_tone(score):
+    number = clean_number(score)
+    if number is None:
+        return "missing"
+    return "favorable" if number >= 85 else "caution" if number >= 60 else "risk"
+
+
+def grade_label_tone(label):
+    text = str(label or "")
+    if text.startswith(("🔴", "🔥")):
+        return "hot"
+    if text.startswith("🟠"):
+        return "watch"
+    if text.startswith("🔵"):
+        return "risk"
+    return "neutral"
+
+
 def format_cashflow_amount(value, row):
     number = clean_number(value)
     if number is None:
@@ -666,7 +737,7 @@ def selected_custom_metric_ids(data) -> list[str]:
 
 def custom_metric_sort_value(metric_id, value):
     if CUSTOM_METRIC_DEFS[metric_id]["format"] == "boolean":
-        label = format_dividend_cut_flag(value)
+        label = dividend_cut_status(value)
         if label == "있음":
             return 1
         if label == "없음":
@@ -681,7 +752,7 @@ def custom_metric_sort_value(metric_id, value):
 def format_custom_metric_value(metric_id, value, row, is_kr):
     format_type = CUSTOM_METRIC_DEFS[metric_id]["format"]
     if format_type == "boolean":
-        label = format_dividend_cut_flag(value)
+        label = dividend_cut_status(value)
         return "-" if label == "미확인" else label
 
     number = custom_metric_sort_value(metric_id, value)
@@ -719,11 +790,13 @@ def build_custom_table_rows(df, metric_ids, is_kr):
             "name": display_text(row_dict.get("name"), display_text(row_dict.get("symbol"), "-")),
             "symbol": display_text(row_dict.get("symbol")),
             "display": {},
+            "tones": {},
         }
         for metric_id in metric_ids:
             value = row_dict.get(metric_id)
             item[metric_id] = custom_metric_sort_value(metric_id, value)
             item["display"][metric_id] = format_custom_metric_value(metric_id, value, row_dict, is_kr)
+            item["tones"][metric_id] = metric_value_tone(metric_id, item[metric_id], row_dict)
         rows.append(item)
     return rows
 
@@ -880,7 +953,13 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         color: #334155;
         font-variant-numeric: tabular-nums;
     }
-    td.missing { color: #94a3b8; }
+    td.metric.sorted { background: #fff7ed !important; font-weight: 900; }
+    td.metric.up { color: #dc2626; font-weight: 850; }
+    td.metric.down { color: #2563eb; font-weight: 850; }
+    td.metric.favorable { color: #15803d; font-weight: 850; }
+    td.metric.caution { color: #b45309; font-weight: 850; }
+    td.metric.risk { color: #b91c1c; font-weight: 850; }
+    td.metric.missing { color: #94a3b8; }
     tbody tr:last-child td { border-bottom: 0; }
     th:last-child, td:last-child { border-right: 0; }
     .empty-cell { height: 84px; text-align: center; color: #64748b; }
@@ -991,6 +1070,11 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             font-variant-numeric: tabular-nums;
             overflow-wrap: anywhere;
         }
+        .mobile-metric-value.up { color: #dc2626; }
+        .mobile-metric-value.down { color: #2563eb; }
+        .mobile-metric-value.favorable { color: #15803d; }
+        .mobile-metric-value.caution { color: #b45309; }
+        .mobile-metric-value.risk { color: #b91c1c; }
         .mobile-metric-value.missing { color: #94a3b8; }
         .mobile-empty {
             padding: 28px 12px;
@@ -1163,7 +1247,10 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             columns.forEach((column) => {
                 const td = document.createElement("td");
                 const display = row.display[column.id] || "-";
-                td.className = display === "-" ? "metric missing" : "metric";
+                const tone = (row.tones && row.tones[column.id]) || "neutral";
+                const active = state.sortId === column.id;
+                td.className = ["metric", tone, display === "-" ? "missing" : "", active ? "sorted" : ""]
+                    .filter(Boolean).join(" ");
                 td.textContent = display;
                 td.title = display;
                 tr.appendChild(td);
@@ -1230,7 +1317,9 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
                     label.textContent = `${column.label} ${arrow}`;
                     const value = document.createElement("div");
                     const display = row.display[column.id] || "-";
-                    value.className = display === "-" ? "mobile-metric-value missing" : "mobile-metric-value";
+                    const tone = (row.tones && row.tones[column.id]) || "neutral";
+                    value.className = ["mobile-metric-value", tone, display === "-" ? "missing" : ""]
+                        .filter(Boolean).join(" ");
                     value.textContent = display;
                     metric.append(label, value);
                     metrics.appendChild(metric);
@@ -1449,6 +1538,15 @@ def mobile_history_metrics(row, history_context, total_count):
 
 def secondary_chip(label, value):
     return f"{label} {value}"
+
+
+def secondary_chip_tone(chip):
+    value_text = str(chip or "").rsplit(" ", 1)[-1]
+    if value_text.startswith("+"):
+        return "up"
+    if value_text.startswith("-"):
+        return "down"
+    return "neutral"
 
 
 def is_mobile_situation_lens(lens):
@@ -2820,6 +2918,14 @@ def mobile_change_text(row):
     return "등락 N/A"
 
 
+def mobile_change_tone(row):
+    after_change = clean_number(row.get("after_market_change_pct"))
+    value = after_change if after_change is not None else clean_number(row.get("peak_diff"))
+    if value is None:
+        return "neutral"
+    return "up" if value > 0 else "down" if value < 0 else "neutral"
+
+
 def split_market_summary(summary):
     summary = str(summary or "")
     headline = summary
@@ -2987,15 +3093,23 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
     sector = escape_html(display_text(row.get("sector"), display_text(row.get("industry"), "업종 확인")))
     price = escape_html(format_price(row.get("price"), is_kr))
     change_text = escape_html(mobile_change_text(row))
-    grade = escape_html(mobile_grade_label(row))
+    change_tone = mobile_change_tone(row)
+    grade_label = mobile_grade_label(row)
+    grade = escape_html(grade_label)
+    grade_tone = grade_label_tone(grade_label)
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
     candidate_score = mobile_lens_score(row, lens)
+    candidate_score_tone = metric_value_tone("lens_score", candidate_score)
     confidence_score, confidence_label, _, _, _ = mobile_lens_confidence(row, lens)
+    confidence_score_tone = confidence_tone(confidence_score)
     reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
     secondary_html = ""
     if secondary_analysis and secondary_analysis.get("chips"):
-        secondary_chips = "".join([f"<span>{escape_html(chip)}</span>" for chip in secondary_analysis.get("chips", [])])
+        secondary_chips = "".join([
+            f"<span class='{secondary_chip_tone(chip)}'>{escape_html(chip)}</span>"
+            for chip in secondary_analysis.get("chips", [])
+        ])
         secondary_html = (
             f"<div class='mobile-secondary-row'>{secondary_chips}</div>"
             f"<div class='mobile-secondary-sentence'>{escape_html(secondary_analysis.get('sentence', ''))}</div>"
@@ -3020,13 +3134,13 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
         f'<span class="mobile-rank-badge {rank_tone}">{list_index}</span>'
         f"<div><b>{name}</b><small>{symbol} · {sector}</small></div>"
         f"</div>"
-        f'<span class="mobile-grade-pill">{grade}</span>'
+        f'<span class="mobile-grade-pill {grade_tone}">{grade}</span>'
         f"</div>"
-        f'<div class="mobile-price-row"><b>{price}</b><span>{change_text}</span></div>'
+        f'<div class="mobile-price-row"><b>{price}</b><span class="{change_tone}">{change_text}</span></div>'
         f'<div class="mobile-signal-grid">{signal_html}</div>'
         f'<div class="mobile-score-row">'
-        f'<span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}점</span>'
-        f"<span>렌즈 근거 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>"
+        f'<span>{escape_html(lens_meta["score_label"])} <b class="{candidate_score_tone}">{candidate_score:.0f}점</b></span>'
+        f'<span>렌즈 근거 <b class="{confidence_score_tone}">{escape_html(confidence_label)}</b> · {confidence_score}%</span>'
         f"</div>"
         f"{secondary_html}"
         f'<div class="mobile-chip-row">{chip_html}</div>'
@@ -3056,7 +3170,7 @@ def render_mobile_evidence_panel(row, lens="🎯 종합평가"):
             f"<div class='mobile-signal-evidence-card {escape_html(signal['tone'])}'>"
             f"<div class='mobile-signal-evidence-head'>"
             f"<span>{escape_html(signal['title'])}</span>"
-            f"<b>{escape_html(signal['value'])}</b>"
+            f"<b class='{escape_html(signal['tone'])}'>{escape_html(signal['value'])}</b>"
             f"</div>"
             f"<p>{escape_html(signal['summary'])}</p>"
             f"<ul>{details}</ul>"
@@ -3098,10 +3212,13 @@ def render_mobile_section(title, metrics):
         rows_html = "<div class='mobile-detail-section-empty'>확인 가능한 데이터가 아직 부족합니다.</div>"
     else:
         rows_html = ""
-        for label, value_text, explanation in metrics:
+        for metric in metrics:
+            label, value_text, explanation = metric[:3]
+            value_tone = metric[3] if len(metric) > 3 else "neutral"
             rows_html += (
                 "<div class='mobile-detail-section-row'>"
-                f"<div class='mobile-detail-section-head'><b>{escape_html(label)}</b><span>{escape_html(value_text)}</span></div>"
+                f"<div class='mobile-detail-section-head'><b>{escape_html(label)}</b>"
+                f"<span class='{escape_html(value_tone)}'>{escape_html(value_text)}</span></div>"
                 f"<div class='mobile-detail-section-body'>{escape_html(explanation)}</div>"
                 "</div>"
             )
@@ -3145,7 +3262,9 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
     cap = format_cap(row.get("market_cap"), is_kr)
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
     candidate_score = mobile_lens_score(row, lens)
+    candidate_score_tone = metric_value_tone("lens_score", candidate_score)
     confidence_score, confidence_label, confidence_missing, available_count, total_count = mobile_lens_confidence(row, lens)
+    confidence_score_tone = confidence_tone(confidence_score)
     risk_profile = mobile_structural_risk(row)
     cheap_reasons = mobile_cheap_reasons(row) or ["저렴함 근거 확인 필요"]
     good_reasons = mobile_good_reasons(row) or ["품질 근거 확인 필요"]
@@ -3169,6 +3288,9 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
         )
 
     if show_header:
+        grade_label = mobile_grade_label(row)
+        grade_tone = grade_label_tone(grade_label)
+        change_tone = mobile_change_tone(row)
         st.markdown(
             f"""
             <div id="mobile-detail-top"></div>
@@ -3178,13 +3300,13 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
                         <div class="mobile-stock-title">{escape_html(name)}</div>
                         <div class="mobile-stock-rank">시장순위 #{escape_html(rank)} · {escape_html(symbol)} · {escape_html(sector)}</div>
                     </div>
-                    <span class="mobile-grade-pill">{escape_html(mobile_grade_label(row))}</span>
+                    <span class="mobile-grade-pill {grade_tone}">{escape_html(grade_label)}</span>
                 </div>
-                <div class="mobile-detail-price"><b>{escape_html(price)}</b><span>{escape_html(mobile_change_text(row))}</span></div>
+                <div class="mobile-detail-price"><b>{escape_html(price)}</b><span class="{change_tone}">{escape_html(mobile_change_text(row))}</span></div>
                 <div class="mobile-detail-signals">{signal_html}</div>
                 <div class="mobile-detail-score">
-                    <span>{escape_html(lens_meta["score_label"])} {candidate_score:.0f}점</span>
-                    <span>렌즈 근거 <b>{escape_html(confidence_label)}</b> · {confidence_score}%</span>
+                    <span>{escape_html(lens_meta["score_label"])} <b class="{candidate_score_tone}">{candidate_score:.0f}점</b></span>
+                    <span>렌즈 근거 <b class="{confidence_score_tone}">{escape_html(confidence_label)}</b> · {confidence_score}%</span>
                 </div>
             </div>
             """,
@@ -3202,7 +3324,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
 
     if selected_detail_tab == "요약":
         render_mobile_section("1. 후보 판단", [
-            (signal["title"], signal_labels.get(signal["title"], "확인 필요"), signal["summary"])
+            (signal["title"], signal_labels.get(signal["title"], "확인 필요"), signal["summary"], signal["tone"])
             for signal in signal_cards
         ])
         render_mobile_section("2. 핵심 근거", [
@@ -3212,8 +3334,8 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
         ])
         render_mobile_section("3. 확인 필요", [
             ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
-            ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다."),
-            ("렌즈 근거", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}"),
+            ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다.", "caution"),
+            ("렌즈 근거", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}", confidence_score_tone),
         ])
     elif selected_detail_tab == "상세 수치":
         st.dataframe(
@@ -3225,21 +3347,21 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             hide_index=True,
         )
         render_mobile_section("기업 품질", [
-            ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe"))),
-            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth"))),
-            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth"))),
+            ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe")), metric_value_tone("roe", row.get("roe"))),
+            ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth")), metric_value_tone("revenue_growth", row.get("revenue_growth"))),
+            ("영업이익성장률", format_metric(row.get("operating_growth"), "%"), metric_explanation("영업이익성장률", row, row.get("operating_growth")), metric_value_tone("operating_growth", row.get("operating_growth"))),
         ])
         render_mobile_section("가격", [
-            ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per"))),
-            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr"))),
-            ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg"))),
+            ("PER", format_metric(row.get("per")), metric_explanation("PER", row, row.get("per")), metric_value_tone("per", row.get("per"))),
+            ("PBR", format_metric(row.get("pbr")), metric_explanation("PBR", row, row.get("pbr")), metric_value_tone("pbr", row.get("pbr"))),
+            ("PEG", format_metric(row.get("peg")), metric_explanation("PEG", row, row.get("peg")), metric_value_tone("peg", row.get("peg"))),
         ])
         render_mobile_section("성장성", [
-            ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth"))),
-            ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr"))),
+            ("EPS성장률", format_metric(row.get("eps_growth"), "%"), metric_explanation("EPS성장률", row, row.get("eps_growth")), metric_value_tone("eps_growth", row.get("eps_growth"))),
+            ("CAGR", format_metric(row.get("cagr"), "%"), metric_explanation("CAGR", row, row.get("cagr")), metric_value_tone("cagr", row.get("cagr"))),
         ])
         render_mobile_section("재무", [
-            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio"))),
+            ("부채비율", format_metric(row.get("debt_ratio"), "%"), metric_explanation("부채비율", row, row.get("debt_ratio")), metric_value_tone("debt_ratio", row.get("debt_ratio"), row)),
             ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
         ])
         ownership_label = "외국인 보유율" if row_is_kr(row) else "기관 보유율"
@@ -3254,9 +3376,9 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
     elif selected_detail_tab == "기술 위치":
         render_mobile_section("기술적 위치", [
             ("현재 가격", price, "최근 종가 흐름을 기준으로 현재 위치를 봅니다."),
-            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff"))),
-            ("2년고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff"))),
-            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi"))),
+            ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff")), metric_value_tone("diff", row.get("diff"))),
+            ("2년고점대비", format_metric(row.get("peak_diff"), "%"), metric_explanation("최고점대비", row, row.get("peak_diff")), metric_value_tone("peak_diff", row.get("peak_diff"))),
+            ("RSI", format_metric(row.get("rsi")), metric_explanation("RSI", row, row.get("rsi")), metric_value_tone("rsi", row.get("rsi"))),
         ])
     else:
         render_mobile_section("기업 정보", [
@@ -3264,7 +3386,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("시장순위", f"#{rank}", "시가총액 기준 후보군 내 위치입니다."),
             ("시가총액", cap, "기업 규모를 보는 기준입니다."),
             ("등급", str(grade), "기존 스크리너의 종합 등급입니다."),
-            ("종합점수", f"{score}점", "기존 PC 표와 같은 종합점수입니다."),
+            ("종합점수", f"{score}점", "기존 PC 표와 같은 종합점수입니다.", metric_value_tone("score", row.get("score"))),
         ])
 
 
@@ -4268,7 +4390,7 @@ def render_market_environment_panel(title="2단계: 글로벌 시장 신호"):
         st.markdown(
             f"""
             <div class="market-signal-summary {score_class}">
-                <div><span>글로벌 시장 신호</span><b>{html.escape(score_state)} · {market_score:.1f}점</b></div>
+                <div><span>글로벌 시장 신호</span><b class="{score_class}">{html.escape(score_state)} · {market_score:.1f}점</b></div>
                 <p>{html.escape(' · '.join(summary_parts) or market_state)}</p>
                 <small>{html.escape(str(market_data.get('collected_at', '수집시각 미확인')))}</small>
             </div>
@@ -4293,12 +4415,13 @@ def render_market_environment_panel(title="2단계: 글로벌 시장 신호"):
                 fx_distance = fx_reference.get("distance_pct")
                 fx_state = "원화 약세" if fx_distance is not None and fx_distance >= 0 else "원화 강세"
                 distance_text = f"{fx_distance:+.2f}%" if fx_distance is not None else "-"
+                fx_tone = "up" if fx_distance is not None and fx_distance > 0 else "down" if fx_distance is not None and fx_distance < 0 else "neutral"
                 st.markdown(
                     f"""
                     <div class="fx-reference-strip">
                         <b>원·달러 {float(fx_data['close']):,.2f}원</b>
-                        <span>60일선 대비 {distance_text}</span>
-                        <strong>{fx_state}</strong>
+                        <span class="{fx_tone}">60일선 대비 {distance_text}</span>
+                        <strong class="{fx_tone}">{fx_state}</strong>
                         <em>점수 미반영 참고지표</em>
                     </div>
                     """,
@@ -4348,7 +4471,7 @@ def render_market_environment_panel(title="2단계: 글로벌 시장 신호"):
                     f'<b>{html.escape(label)} <small>{html.escape(symbol)}</small></b>'
                     f'<strong class="{effect_class}">{html.escape(effect)}</strong>'
                     f'<span>현재 {html.escape(str(latest_text or "-"))}</span>'
-                    f'<em>전체 {html.escape(impact_text)}</em>'
+                    f'<em class="{effect_class}">전체 {html.escape(impact_text)}</em>'
                     f'<p>{html.escape(str(row.get("meaning") or "시장 참고 지표"))}</p>'
                     '</div>'
                     f'<div class="market-evidence-points">{part_html}</div>'
@@ -4553,15 +4676,18 @@ st.markdown("""
             background: linear-gradient(135deg, #ef4444, #f97316);
         }
         .mobile-grade-pill {
-            border: 1px solid #fecaca;
-            color: #ef4444;
-            background: #fff7f7;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            background: #f8fafc;
             border-radius: 999px;
             padding: 4px 8px;
             font-size: 0.72rem;
             font-weight: 750;
             white-space: nowrap;
         }
+        .mobile-grade-pill.hot { border-color: #fecaca; color: #dc2626; background: #fff7f7; }
+        .mobile-grade-pill.watch { border-color: #fed7aa; color: #c2410c; background: #fff7ed; }
+        .mobile-grade-pill.risk { border-color: #bfdbfe; color: #2563eb; background: #eff6ff; }
         .mobile-price-row {
             align-items: center;
             margin: 13px 0 10px 0;
@@ -4572,10 +4698,14 @@ st.markdown("""
         }
         .mobile-price-row span,
         .mobile-detail-price span {
-            color: #2563eb;
+            color: #64748b;
             font-size: 0.82rem;
             font-weight: 700;
         }
+        .mobile-price-row span.up,
+        .mobile-detail-price span.up { color: #dc2626; }
+        .mobile-price-row span.down,
+        .mobile-detail-price span.down { color: #2563eb; }
         .mobile-signal-grid,
         .mobile-detail-signals {
             display: grid;
@@ -4631,14 +4761,20 @@ st.markdown("""
         .mobile-detail-signal.good { background: #f0fdf4; }
         .mobile-signal-card.good b,
         .mobile-detail-signal.good b { color: #16a34a; }
+        .mobile-signal-card.good em,
+        .mobile-detail-signal.good em { color: #15803d; font-weight: 750; }
         .mobile-signal-card.watch,
         .mobile-detail-signal.watch { background: #fffbeb; }
         .mobile-signal-card.watch b,
         .mobile-detail-signal.watch b { color: #d97706; }
+        .mobile-signal-card.watch em,
+        .mobile-detail-signal.watch em { color: #b45309; font-weight: 750; }
         .mobile-signal-card.risk,
         .mobile-detail-signal.risk { background: #fef2f2; }
         .mobile-signal-card.risk b,
         .mobile-detail-signal.risk b { color: #ef4444; }
+        .mobile-signal-card.risk em,
+        .mobile-detail-signal.risk em { color: #b91c1c; font-weight: 750; }
         .mobile-score-row,
         .mobile-detail-score {
             color: #64748b;
@@ -4646,9 +4782,13 @@ st.markdown("""
             margin: 8px 0;
         }
         .mobile-score-row b,
-        .mobile-detail-score b {
-            color: #16a34a;
-        }
+        .mobile-detail-score b { font-weight: 900; }
+        .mobile-score-row b.up, .mobile-detail-score b.up { color: #dc2626; }
+        .mobile-score-row b.down, .mobile-detail-score b.down { color: #2563eb; }
+        .mobile-score-row b.favorable, .mobile-detail-score b.favorable { color: #15803d; }
+        .mobile-score-row b.caution, .mobile-detail-score b.caution { color: #b45309; }
+        .mobile-score-row b.risk, .mobile-detail-score b.risk { color: #b91c1c; }
+        .mobile-score-row b.neutral, .mobile-detail-score b.neutral { color: #334155; }
         .mobile-secondary-row {
             display: flex;
             flex-wrap: wrap;
@@ -4665,6 +4805,8 @@ st.markdown("""
             font-weight: 900;
             line-height: 1.15;
         }
+        .mobile-secondary-row span.up { color: #dc2626; border-color: #fecaca; background: #fff7f7; }
+        .mobile-secondary-row span.down { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
         .mobile-secondary-sentence {
             color: #334155;
             font-size: 0.8rem;
@@ -5330,6 +5472,9 @@ st.markdown("""
             font-size: 0.82rem;
             white-space: nowrap;
         }
+        .mobile-signal-evidence-head b.good { color: #15803d; }
+        .mobile-signal-evidence-head b.watch { color: #b45309; }
+        .mobile-signal-evidence-head b.risk { color: #b91c1c; }
         .mobile-signal-evidence-card p {
             margin: 0 0 7px 0;
             color: #0f172a;
@@ -5417,6 +5562,14 @@ st.markdown("""
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .mobile-detail-section-head span.up { color: #dc2626; }
+        .mobile-detail-section-head span.down { color: #2563eb; }
+        .mobile-detail-section-head span.favorable,
+        .mobile-detail-section-head span.good { color: #15803d; }
+        .mobile-detail-section-head span.caution,
+        .mobile-detail-section-head span.watch { color: #b45309; }
+        .mobile-detail-section-head span.risk { color: #b91c1c; }
+        .mobile-detail-section-head span.missing { color: #94a3b8; }
         .mobile-detail-section-body,
         .mobile-detail-section-empty {
             color: #475569;
@@ -5922,6 +6075,9 @@ st.markdown("""
         .market-signal-summary.burden { border-left-color: #e24a4f; background: #fff5f5; }
         .market-signal-summary div span { display: block; color: #64748b; font-size: 0.72rem; }
         .market-signal-summary div b { display: block; color: #111827; font-size: 1rem; }
+        .market-signal-summary div b.favorable { color: #15803d; }
+        .market-signal-summary div b.burden { color: #b91c1c; }
+        .market-signal-summary div b.neutral { color: #475569; }
         .market-signal-summary p { margin: 0; color: #334155; font-size: 0.8rem; line-height: 1.4; }
         .market-signal-summary small { color: #64748b; font-size: 0.7rem; white-space: nowrap; }
         .fx-reference-strip {
@@ -5937,7 +6093,12 @@ st.markdown("""
             font-size: 0.78rem;
         }
         .fx-reference-strip b { color: #111827; }
-        .fx-reference-strip strong { color: #2563eb; }
+        .fx-reference-strip span.up,
+        .fx-reference-strip strong.up { color: #dc2626; font-weight: 850; }
+        .fx-reference-strip span.down,
+        .fx-reference-strip strong.down { color: #2563eb; font-weight: 850; }
+        .fx-reference-strip span.neutral,
+        .fx-reference-strip strong.neutral { color: #64748b; }
         .fx-reference-strip em { margin-left: auto; color: #64748b; font-style: normal; font-size: 0.7rem; }
         .market-evidence-box {
             border: 1px solid #dbe4ee;
@@ -5962,6 +6123,9 @@ st.markdown("""
         .market-evidence-main > strong.neutral { color: #64748b; }
         .market-evidence-main > span { color: #475569; font-size: 0.76rem; }
         .market-evidence-main > em { color: #111827; font-size: 0.76rem; font-style: normal; font-weight: 800; }
+        .market-evidence-main > em.favorable { color: #15803d; }
+        .market-evidence-main > em.burden { color: #b91c1c; }
+        .market-evidence-main > em.neutral { color: #64748b; }
         .market-evidence-main > p { margin: 0 0 0 auto; color: #475569; font-size: 0.76rem; }
         .market-evidence-points {
             display: flex;

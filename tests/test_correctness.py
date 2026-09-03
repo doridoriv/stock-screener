@@ -322,6 +322,9 @@ class CustomViewCorrectnessTests(unittest.TestCase):
         self.assertEqual(rows[0]["per"], 8.25)
         self.assertEqual(rows[0]["display"]["roe"], "14.10%")
         self.assertEqual(rows[0]["display"]["free_cashflow"], "4.1조")
+        self.assertEqual(rows[0]["tones"]["per"], "neutral")
+        self.assertEqual(rows[0]["tones"]["roe"], "neutral")
+        self.assertEqual(rows[0]["tones"]["free_cashflow"], "up")
 
         invalid = app_web.build_custom_table_rows(
             pd.DataFrame([{"symbol": "000002", "name": "적자회사", "per": -20}]),
@@ -344,6 +347,42 @@ class CustomViewCorrectnessTests(unittest.TestCase):
         self.assertIn("function clearSort()", table_html)
         self.assertIn("renderMobileCards(rows)", table_html)
         self.assertIn("overflow-x: hidden", table_html)
+        self.assertIn('row.tones && row.tones[column.id]', table_html)
+        self.assertIn('active ? "sorted" : ""', table_html)
+
+    def test_semantic_metric_tones_keep_direction_and_judgment_separate(self):
+        self.assertEqual(app_web.metric_value_tone("return_20d", 4.2), "up")
+        self.assertEqual(app_web.metric_value_tone("return_20d", -4.2), "down")
+        self.assertEqual(app_web.metric_value_tone("market_cap", 5000), "neutral")
+        self.assertEqual(app_web.metric_value_tone("peer_per_gap", -20), "favorable")
+        self.assertEqual(app_web.metric_value_tone("peer_per_gap", 20), "caution")
+        self.assertEqual(app_web.metric_value_tone("debt_ratio", 50), "favorable")
+        self.assertEqual(app_web.metric_value_tone("debt_ratio", 220), "risk")
+        self.assertEqual(app_web.metric_value_tone("roe", -3), "risk")
+        self.assertEqual(
+            app_web.metric_value_tone("debt_ratio", 800, {"sector": "증권"}),
+            "neutral",
+        )
+        self.assertEqual(
+            app_web.metric_value_tone("free_cashflow", -5000, {"sector": "은행"}),
+            "neutral",
+        )
+        self.assertEqual(app_web.metric_value_tone("rsi", 75), "caution")
+        self.assertEqual(app_web.metric_value_tone("price", None), "missing")
+        self.assertEqual(app_web.metric_value_tone("dividend_cut_flag", False), "favorable")
+        self.assertEqual(app_web.metric_value_tone("dividend_cut_flag", True), "risk")
+        self.assertEqual(app_web.format_custom_metric_value("dividend_cut_flag", False, {}, True), "없음")
+
+    def test_mobile_status_tones_follow_value_and_confidence(self):
+        self.assertEqual(app_web.mobile_change_tone({"after_market_change_pct": 1.25}), "up")
+        self.assertEqual(app_web.mobile_change_tone({"after_market_change_pct": -1.25}), "down")
+        self.assertEqual(app_web.mobile_change_tone({"peak_diff": -18}), "down")
+        self.assertEqual(app_web.confidence_tone(90), "favorable")
+        self.assertEqual(app_web.confidence_tone(70), "caution")
+        self.assertEqual(app_web.confidence_tone(40), "risk")
+        self.assertEqual(app_web.secondary_chip_tone("점수 +9"), "up")
+        self.assertEqual(app_web.secondary_chip_tone("60일 -7.2%"), "down")
+        self.assertEqual(app_web.grade_label_tone("🔵 싼 이유가 위험함"), "risk")
 
 
 class LensCorrectnessTests(unittest.TestCase):
