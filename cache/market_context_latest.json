@@ -1,52 +1,52 @@
 {
-  "market_score": 22.5,
-  "market_state": "위험회피",
-  "score_state": "매우 부담",
-  "summary": "매우 부담 구간입니다. 부담 요인: 나스닥· 반도체· 미국 장기채.",
+  "market_score": 52.0,
+  "market_state": "중립",
+  "score_state": "중립",
+  "summary": "중립 구간입니다. 우호 요인: 나스닥· S&P500· 금융. 부담 요인: 반도체· 미국 장기채· 미국10년물.",
   "confidence": 100.0,
   "rows": [
     {
       "label": "나스닥",
       "symbol": "QQQ",
-      "trend": "하락",
-      "effect": "부담",
-      "risk_score": 0,
-      "latest": 709.239990234375,
-      "ma20": 717.5630035400391,
-      "ma60": 712.8865010579427,
-      "ret20": -1.123657841315906,
-      "ret60": -0.9538197410845162,
-      "latest_text": "709.2",
-      "ret20_text": "-1.12%",
-      "ret60_text": "-0.95%",
-      "score_impact": -12.5,
+      "trend": "상승",
+      "effect": "우호",
+      "risk_score": 80,
+      "latest": 717.9099731445312,
+      "ma20": 717.4579986572265,
+      "ma60": 713.4541666666667,
+      "ret20": -0.708138797128921,
+      "ret60": 3.4914689007891297,
+      "latest_text": "717.9",
+      "ret20_text": "-0.71%",
+      "ret60_text": "+3.49%",
+      "score_impact": 7.5,
       "score_parts": [
         {
           "label": "20일선",
-          "result": "아래",
-          "value_text": "709.24 / 717.56",
-          "points": -15
+          "result": "위",
+          "value_text": "717.91 / 717.46",
+          "points": 15
         },
         {
           "label": "60일선",
-          "result": "아래",
-          "value_text": "709.24 / 712.89",
-          "points": -15
+          "result": "위",
+          "value_text": "717.91 / 713.45",
+          "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-1.12%",
+          "value_text": "-0.71%",
           "points": -10
         },
         {
           "label": "60일 수익률",
-          "result": "하락",
-          "value_text": "-0.95%",
-          "points": -10
+          "result": "상승",
+          "value_text": "+3.49%",
+          "points": 10
         }
       ],
-      "meaning": "성장주 투자심리 부담",
+      "meaning": "성장주 위험선호 양호",
       "available": true,
       "weight": 25
     },
@@ -56,38 +56,38 @@
       "trend": "하락",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 501.44000244140625,
-      "ma20": 526.110499572754,
-      "ma60": 552.0793360392253,
-      "ret20": -5.513474485131608,
-      "ret60": -12.251292023817651,
-      "latest_text": "501.4",
-      "ret20_text": "-5.51%",
-      "ret60_text": "-12.25%",
+      "latest": 519.2999877929688,
+      "ma20": 523.3959976196289,
+      "ma60": 550.7101689656575,
+      "ret20": -4.412176427288095,
+      "ret60": -4.101497954261113,
+      "latest_text": "519.3",
+      "ret20_text": "-4.41%",
+      "ret60_text": "-4.10%",
       "score_impact": -12.5,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "501.44 / 526.11",
+          "value_text": "519.30 / 523.40",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "501.44 / 552.08",
+          "value_text": "519.30 / 550.71",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-5.51%",
+          "value_text": "-4.41%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-12.25%",
+          "value_text": "-4.10%",
           "points": -10
         }
       ],
@@ -98,90 +98,90 @@
     {
       "label": "S&P500",
       "symbol": "SPY",
-      "trend": "중립",
-      "effect": "중립",
-      "risk_score": 50,
-      "latest": 765.1599731445312,
-      "ma20": 768.9759948730468,
-      "ma60": 752.9976684570313,
-      "ret20": -0.6014633880629727,
-      "ret60": 3.509104660245166,
-      "latest_text": "765.2",
-      "ret20_text": "-0.60%",
-      "ret60_text": "+3.51%",
-      "score_impact": 0.0,
+      "trend": "상승",
+      "effect": "우호",
+      "risk_score": 80,
+      "latest": 769.5900268554688,
+      "ma20": 769.0229949951172,
+      "ma60": 754.3356689453125,
+      "ret20": -0.4746117559174756,
+      "ret60": 6.087428783692994,
+      "latest_text": "769.6",
+      "ret20_text": "-0.47%",
+      "ret60_text": "+6.09%",
+      "score_impact": 4.5,
       "score_parts": [
         {
           "label": "20일선",
-          "result": "아래",
-          "value_text": "765.16 / 768.98",
-          "points": -15
+          "result": "위",
+          "value_text": "769.59 / 769.02",
+          "points": 15
         },
         {
           "label": "60일선",
           "result": "위",
-          "value_text": "765.16 / 753.00",
+          "value_text": "769.59 / 754.34",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-0.60%",
+          "value_text": "-0.47%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "상승",
-          "value_text": "+3.51%",
+          "value_text": "+6.09%",
           "points": 10
         }
       ],
-      "meaning": "대형주 흐름 중립",
+      "meaning": "미국 대형주 흐름 양호",
       "available": true,
       "weight": 15
     },
     {
       "label": "금융",
       "symbol": "XLF",
-      "trend": "중립",
-      "effect": "중립",
-      "risk_score": 50,
-      "latest": 57.65999984741211,
-      "ma20": 57.801499938964845,
-      "ma60": 56.119833374023436,
-      "ret20": -0.5862071596342888,
-      "ret60": 10.948621306636186,
-      "latest_text": "57.66",
-      "ret20_text": "-0.59%",
-      "ret60_text": "+10.95%",
-      "score_impact": 0.0,
+      "trend": "상승",
+      "effect": "우호",
+      "risk_score": 100,
+      "latest": 57.93000030517578,
+      "ma20": 57.855500030517575,
+      "ma60": 56.31650009155273,
+      "ret20": 0.5729198607582475,
+      "ret60": 10.913269793024005,
+      "latest_text": "57.93",
+      "ret20_text": "+0.57%",
+      "ret60_text": "+10.91%",
+      "score_impact": 5.0,
       "score_parts": [
         {
           "label": "20일선",
-          "result": "아래",
-          "value_text": "57.66 / 57.80",
-          "points": -15
+          "result": "위",
+          "value_text": "57.93 / 57.86",
+          "points": 15
         },
         {
           "label": "60일선",
           "result": "위",
-          "value_text": "57.66 / 56.12",
+          "value_text": "57.93 / 56.32",
           "points": 15
         },
         {
           "label": "20일 수익률",
-          "result": "하락",
-          "value_text": "-0.59%",
-          "points": -10
+          "result": "상승",
+          "value_text": "+0.57%",
+          "points": 10
         },
         {
           "label": "60일 수익률",
           "result": "상승",
-          "value_text": "+10.95%",
+          "value_text": "+10.91%",
           "points": 10
         }
       ],
-      "meaning": "금융주 방향성 중립",
+      "meaning": "금융주 수급 우호",
       "available": true,
       "weight": 10
     },
@@ -191,38 +191,38 @@
       "trend": "하락",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 81.94999694824219,
-      "ma20": 82.41849937438965,
-      "ma60": 84.00066630045573,
-      "ret20": -1.2650639177804957,
-      "ret60": -3.1552891889355172,
-      "latest_text": "81.95",
-      "ret20_text": "-1.27%",
-      "ret60_text": "-3.16%",
+      "latest": 82.25499725341797,
+      "ma20": 82.37074928283691,
+      "ma60": 83.90608291625976,
+      "ret20": -0.6102040475799098,
+      "ret60": -3.0926014195815643,
+      "latest_text": "82.25",
+      "ret20_text": "-0.61%",
+      "ret60_text": "-3.09%",
       "score_impact": -5.0,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "81.95 / 82.42",
+          "value_text": "82.25 / 82.37",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "81.95 / 84.00",
+          "value_text": "82.25 / 83.91",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-1.27%",
+          "value_text": "-0.61%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-3.16%",
+          "value_text": "-3.09%",
           "points": -10
         }
       ],
@@ -236,38 +236,38 @@
       "trend": "하락",
       "effect": "우호",
       "risk_score": 100,
-      "latest": 99.00499725341797,
-      "ma20": 99.41524963378906,
-      "ma60": 100.29541676839193,
-      "ret20": -0.9652935435648602,
-      "ret60": -0.9058216149727016,
-      "latest_text": "99.0",
-      "ret20_text": "-0.97%",
-      "ret60_text": "-0.91%",
+      "latest": 99.14199829101562,
+      "ma20": 99.3920997619629,
+      "ma60": 100.28186683654785,
+      "ret20": -0.4598395483153217,
+      "ret60": -0.8084028833387324,
+      "latest_text": "99.1",
+      "ret20_text": "-0.46%",
+      "ret60_text": "-0.81%",
       "score_impact": 5.0,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "99.00 / 99.42",
+          "value_text": "99.14 / 99.39",
           "points": 15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "99.00 / 100.30",
+          "value_text": "99.14 / 100.28",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-0.97%",
+          "value_text": "-0.46%",
           "points": 10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-0.91%",
+          "value_text": "-0.81%",
           "points": 10
         }
       ],
@@ -281,38 +281,38 @@
       "trend": "상승",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 4.796000003814697,
-      "ma20": 4.699899959564209,
-      "ma60": 4.595883305867513,
-      "ret20": 3.876974156913815,
-      "ret60": 5.360280219345093,
-      "latest_text": "4.80%",
-      "ret20_text": "+3.88%",
-      "ret60_text": "+5.36%",
+      "latest": 4.7779998779296875,
+      "ma20": 4.710399961471557,
+      "ma60": 4.603716643651326,
+      "ret20": 2.532189578999855,
+      "ret60": 5.195950474443545,
+      "latest_text": "4.78%",
+      "ret20_text": "+2.53%",
+      "ret60_text": "+5.20%",
       "score_impact": -2.5,
       "score_parts": [
         {
           "label": "20일선",
           "result": "위",
-          "value_text": "4.80 / 4.70",
+          "value_text": "4.78 / 4.71",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "위",
-          "value_text": "4.80 / 4.60",
+          "value_text": "4.78 / 4.60",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "상승",
-          "value_text": "+3.88%",
+          "value_text": "+2.53%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "상승",
-          "value_text": "+5.36%",
+          "value_text": "+5.20%",
           "points": -10
         }
       ],
@@ -323,43 +323,133 @@
   ],
   "evidence_rows": [
     {
-      "label": "달러인덱스",
-      "symbol": "DX-Y.NYB",
-      "trend": "하락",
+      "label": "나스닥",
+      "symbol": "QQQ",
+      "trend": "상승",
       "effect": "우호",
-      "risk_score": 100,
-      "latest": 99.00499725341797,
-      "ma20": 99.41524963378906,
-      "ma60": 100.29541676839193,
-      "ret20": -0.9652935435648602,
-      "ret60": -0.9058216149727016,
-      "latest_text": "99.0",
-      "ret20_text": "-0.97%",
-      "ret60_text": "-0.91%",
-      "score_impact": 5.0,
+      "risk_score": 80,
+      "latest": 717.9099731445312,
+      "ma20": 717.4579986572265,
+      "ma60": 713.4541666666667,
+      "ret20": -0.708138797128921,
+      "ret60": 3.4914689007891297,
+      "latest_text": "717.9",
+      "ret20_text": "-0.71%",
+      "ret60_text": "+3.49%",
+      "score_impact": 7.5,
       "score_parts": [
         {
           "label": "20일선",
-          "result": "아래",
-          "value_text": "99.00 / 99.42",
+          "result": "위",
+          "value_text": "717.91 / 717.46",
           "points": 15
         },
         {
           "label": "60일선",
-          "result": "아래",
-          "value_text": "99.00 / 100.30",
+          "result": "위",
+          "value_text": "717.91 / 713.45",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-0.97%",
+          "value_text": "-0.71%",
+          "points": -10
+        },
+        {
+          "label": "60일 수익률",
+          "result": "상승",
+          "value_text": "+3.49%",
+          "points": 10
+        }
+      ],
+      "meaning": "성장주 위험선호 양호",
+      "available": true,
+      "weight": 25
+    },
+    {
+      "label": "금융",
+      "symbol": "XLF",
+      "trend": "상승",
+      "effect": "우호",
+      "risk_score": 100,
+      "latest": 57.93000030517578,
+      "ma20": 57.855500030517575,
+      "ma60": 56.31650009155273,
+      "ret20": 0.5729198607582475,
+      "ret60": 10.913269793024005,
+      "latest_text": "57.93",
+      "ret20_text": "+0.57%",
+      "ret60_text": "+10.91%",
+      "score_impact": 5.0,
+      "score_parts": [
+        {
+          "label": "20일선",
+          "result": "위",
+          "value_text": "57.93 / 57.86",
+          "points": 15
+        },
+        {
+          "label": "60일선",
+          "result": "위",
+          "value_text": "57.93 / 56.32",
+          "points": 15
+        },
+        {
+          "label": "20일 수익률",
+          "result": "상승",
+          "value_text": "+0.57%",
+          "points": 10
+        },
+        {
+          "label": "60일 수익률",
+          "result": "상승",
+          "value_text": "+10.91%",
+          "points": 10
+        }
+      ],
+      "meaning": "금융주 수급 우호",
+      "available": true,
+      "weight": 10
+    },
+    {
+      "label": "달러인덱스",
+      "symbol": "DX-Y.NYB",
+      "trend": "하락",
+      "effect": "우호",
+      "risk_score": 100,
+      "latest": 99.14199829101562,
+      "ma20": 99.3920997619629,
+      "ma60": 100.28186683654785,
+      "ret20": -0.4598395483153217,
+      "ret60": -0.8084028833387324,
+      "latest_text": "99.1",
+      "ret20_text": "-0.46%",
+      "ret60_text": "-0.81%",
+      "score_impact": 5.0,
+      "score_parts": [
+        {
+          "label": "20일선",
+          "result": "아래",
+          "value_text": "99.14 / 99.39",
+          "points": 15
+        },
+        {
+          "label": "60일선",
+          "result": "아래",
+          "value_text": "99.14 / 100.28",
+          "points": 15
+        },
+        {
+          "label": "20일 수익률",
+          "result": "하락",
+          "value_text": "-0.46%",
           "points": 10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-0.91%",
+          "value_text": "-0.81%",
           "points": 10
         }
       ],
@@ -370,137 +460,47 @@
     {
       "label": "S&P500",
       "symbol": "SPY",
-      "trend": "중립",
-      "effect": "중립",
-      "risk_score": 50,
-      "latest": 765.1599731445312,
-      "ma20": 768.9759948730468,
-      "ma60": 752.9976684570313,
-      "ret20": -0.6014633880629727,
-      "ret60": 3.509104660245166,
-      "latest_text": "765.2",
-      "ret20_text": "-0.60%",
-      "ret60_text": "+3.51%",
-      "score_impact": 0.0,
+      "trend": "상승",
+      "effect": "우호",
+      "risk_score": 80,
+      "latest": 769.5900268554688,
+      "ma20": 769.0229949951172,
+      "ma60": 754.3356689453125,
+      "ret20": -0.4746117559174756,
+      "ret60": 6.087428783692994,
+      "latest_text": "769.6",
+      "ret20_text": "-0.47%",
+      "ret60_text": "+6.09%",
+      "score_impact": 4.5,
       "score_parts": [
         {
           "label": "20일선",
-          "result": "아래",
-          "value_text": "765.16 / 768.98",
-          "points": -15
+          "result": "위",
+          "value_text": "769.59 / 769.02",
+          "points": 15
         },
         {
           "label": "60일선",
           "result": "위",
-          "value_text": "765.16 / 753.00",
+          "value_text": "769.59 / 754.34",
           "points": 15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-0.60%",
+          "value_text": "-0.47%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "상승",
-          "value_text": "+3.51%",
+          "value_text": "+6.09%",
           "points": 10
         }
       ],
-      "meaning": "대형주 흐름 중립",
+      "meaning": "미국 대형주 흐름 양호",
       "available": true,
       "weight": 15
-    },
-    {
-      "label": "금융",
-      "symbol": "XLF",
-      "trend": "중립",
-      "effect": "중립",
-      "risk_score": 50,
-      "latest": 57.65999984741211,
-      "ma20": 57.801499938964845,
-      "ma60": 56.119833374023436,
-      "ret20": -0.5862071596342888,
-      "ret60": 10.948621306636186,
-      "latest_text": "57.66",
-      "ret20_text": "-0.59%",
-      "ret60_text": "+10.95%",
-      "score_impact": 0.0,
-      "score_parts": [
-        {
-          "label": "20일선",
-          "result": "아래",
-          "value_text": "57.66 / 57.80",
-          "points": -15
-        },
-        {
-          "label": "60일선",
-          "result": "위",
-          "value_text": "57.66 / 56.12",
-          "points": 15
-        },
-        {
-          "label": "20일 수익률",
-          "result": "하락",
-          "value_text": "-0.59%",
-          "points": -10
-        },
-        {
-          "label": "60일 수익률",
-          "result": "상승",
-          "value_text": "+10.95%",
-          "points": 10
-        }
-      ],
-      "meaning": "금융주 방향성 중립",
-      "available": true,
-      "weight": 10
-    },
-    {
-      "label": "나스닥",
-      "symbol": "QQQ",
-      "trend": "하락",
-      "effect": "부담",
-      "risk_score": 0,
-      "latest": 709.239990234375,
-      "ma20": 717.5630035400391,
-      "ma60": 712.8865010579427,
-      "ret20": -1.123657841315906,
-      "ret60": -0.9538197410845162,
-      "latest_text": "709.2",
-      "ret20_text": "-1.12%",
-      "ret60_text": "-0.95%",
-      "score_impact": -12.5,
-      "score_parts": [
-        {
-          "label": "20일선",
-          "result": "아래",
-          "value_text": "709.24 / 717.56",
-          "points": -15
-        },
-        {
-          "label": "60일선",
-          "result": "아래",
-          "value_text": "709.24 / 712.89",
-          "points": -15
-        },
-        {
-          "label": "20일 수익률",
-          "result": "하락",
-          "value_text": "-1.12%",
-          "points": -10
-        },
-        {
-          "label": "60일 수익률",
-          "result": "하락",
-          "value_text": "-0.95%",
-          "points": -10
-        }
-      ],
-      "meaning": "성장주 투자심리 부담",
-      "available": true,
-      "weight": 25
     },
     {
       "label": "반도체",
@@ -508,38 +508,38 @@
       "trend": "하락",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 501.44000244140625,
-      "ma20": 526.110499572754,
-      "ma60": 552.0793360392253,
-      "ret20": -5.513474485131608,
-      "ret60": -12.251292023817651,
-      "latest_text": "501.4",
-      "ret20_text": "-5.51%",
-      "ret60_text": "-12.25%",
+      "latest": 519.2999877929688,
+      "ma20": 523.3959976196289,
+      "ma60": 550.7101689656575,
+      "ret20": -4.412176427288095,
+      "ret60": -4.101497954261113,
+      "latest_text": "519.3",
+      "ret20_text": "-4.41%",
+      "ret60_text": "-4.10%",
       "score_impact": -12.5,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "501.44 / 526.11",
+          "value_text": "519.30 / 523.40",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "501.44 / 552.08",
+          "value_text": "519.30 / 550.71",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-5.51%",
+          "value_text": "-4.41%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-12.25%",
+          "value_text": "-4.10%",
           "points": -10
         }
       ],
@@ -553,38 +553,38 @@
       "trend": "하락",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 81.94999694824219,
-      "ma20": 82.41849937438965,
-      "ma60": 84.00066630045573,
-      "ret20": -1.2650639177804957,
-      "ret60": -3.1552891889355172,
-      "latest_text": "81.95",
-      "ret20_text": "-1.27%",
-      "ret60_text": "-3.16%",
+      "latest": 82.25499725341797,
+      "ma20": 82.37074928283691,
+      "ma60": 83.90608291625976,
+      "ret20": -0.6102040475799098,
+      "ret60": -3.0926014195815643,
+      "latest_text": "82.25",
+      "ret20_text": "-0.61%",
+      "ret60_text": "-3.09%",
       "score_impact": -5.0,
       "score_parts": [
         {
           "label": "20일선",
           "result": "아래",
-          "value_text": "81.95 / 82.42",
+          "value_text": "82.25 / 82.37",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "아래",
-          "value_text": "81.95 / 84.00",
+          "value_text": "82.25 / 83.91",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "하락",
-          "value_text": "-1.27%",
+          "value_text": "-0.61%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "하락",
-          "value_text": "-3.16%",
+          "value_text": "-3.09%",
           "points": -10
         }
       ],
@@ -598,38 +598,38 @@
       "trend": "상승",
       "effect": "부담",
       "risk_score": 0,
-      "latest": 4.796000003814697,
-      "ma20": 4.699899959564209,
-      "ma60": 4.595883305867513,
-      "ret20": 3.876974156913815,
-      "ret60": 5.360280219345093,
-      "latest_text": "4.80%",
-      "ret20_text": "+3.88%",
-      "ret60_text": "+5.36%",
+      "latest": 4.7779998779296875,
+      "ma20": 4.710399961471557,
+      "ma60": 4.603716643651326,
+      "ret20": 2.532189578999855,
+      "ret60": 5.195950474443545,
+      "latest_text": "4.78%",
+      "ret20_text": "+2.53%",
+      "ret60_text": "+5.20%",
       "score_impact": -2.5,
       "score_parts": [
         {
           "label": "20일선",
           "result": "위",
-          "value_text": "4.80 / 4.70",
+          "value_text": "4.78 / 4.71",
           "points": -15
         },
         {
           "label": "60일선",
           "result": "위",
-          "value_text": "4.80 / 4.60",
+          "value_text": "4.78 / 4.60",
           "points": -15
         },
         {
           "label": "20일 수익률",
           "result": "상승",
-          "value_text": "+3.88%",
+          "value_text": "+2.53%",
           "points": -10
         },
         {
           "label": "60일 수익률",
           "result": "상승",
-          "value_text": "+5.36%",
+          "value_text": "+5.20%",
           "points": -10
         }
       ],
@@ -1166,41 +1166,41 @@
       1366.619995,
       1372.859985,
       1358.390015,
-      1350.579956
+      1347.0
     ],
-    "close": 1350.5799560546875,
+    "close": 1347.0,
     "rows": [
       {
         "period": 20,
-        "average": 1391.5199951171876,
-        "distance_pct": -2.942109291002484,
+        "average": 1391.340997314453,
+        "distance_pct": -3.1869252325662374,
         "direction": "하락 중",
-        "slope_pct": -1.1034821904410879
+        "slope_pct": -1.1162037175827222
       },
       {
         "period": 60,
-        "average": 1460.765000406901,
-        "distance_pct": -7.5429685350840865,
+        "average": 1460.7053344726562,
+        "distance_pct": -7.784275978817186,
         "direction": "하락 중",
-        "slope_pct": -0.9336747441057747
+        "slope_pct": -0.9377211751517974
       },
       {
         "period": 120,
-        "average": 1477.5934987386067,
-        "distance_pct": -8.59597330337121,
+        "average": 1477.5636657714845,
+        "distance_pct": -8.836415566791358,
         "direction": "하락 중",
-        "slope_pct": -0.3624823237089648
+        "slope_pct": -0.36449402908769
       },
       {
         "period": 200,
-        "average": 1470.4382000732421,
-        "distance_pct": -8.15119221008979,
+        "average": 1470.4203002929687,
+        "distance_pct": -8.393538926821009,
         "direction": "하락 중",
-        "slope_pct": -0.1769566208255044
+        "slope_pct": -0.1781717759694753
       }
     ],
     "source": "Yahoo Finance (KRW=X)"
   },
-  "collected_at": "2026-09-04 15:16 KST",
+  "collected_at": "2026-09-05 00:12 KST",
   "source": "yfinance"
 }
