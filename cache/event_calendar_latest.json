@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-05 15:04 KST",
-  "range_start": "2025-09-05",
-  "range_end": "2027-09-05",
+  "collected_at": "2026-09-08 01:46 KST",
+  "range_start": "2025-09-08",
+  "range_end": "2027-09-08",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -395,81 +395,6 @@
       "source_url": "https://www.bea.gov/news/schedule/full"
     },
     {
-      "id": "2026-08-06|실적|cop|conocophillips 실적 발표",
-      "date": "2026-08-06",
-      "title": "ConocoPhillips 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "COP",
-      "name": "ConocoPhillips",
-      "detail": "예상 EPS 2.92",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/COP/"
-    },
-    {
-      "id": "2026-08-06|실적|ph|ph 실적 발표",
-      "date": "2026-08-06",
-      "title": "PH 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "PH",
-      "name": "PH",
-      "detail": "예상 EPS 8.27",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PH/"
-    },
-    {
-      "id": "2026-08-06|실적|zts|zts 실적 발표",
-      "date": "2026-08-06",
-      "title": "ZTS 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "ZTS",
-      "name": "ZTS",
-      "detail": "예상 EPS 1.85",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ZTS/"
-    },
-    {
-      "id": "2026-08-06|실적|068270|셀트리온 실적 발표",
-      "date": "2026-08-06",
-      "title": "셀트리온 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "068270",
-      "name": "셀트리온",
-      "detail": "2026년 2분기 · 예상 EPS 1,451",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/068270.KS/"
-    },
-    {
-      "id": "2026-08-06|실적|042700|한미반도체 실적 발표",
-      "date": "2026-08-06",
-      "title": "한미반도체 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "042700",
-      "name": "한미반도체",
-      "detail": "2026년 2분기 · 예상 EPS 998",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
-    },
-    {
       "id": "2026-08-07|고용|미국 고용보고서",
       "date": "2026-08-07",
       "title": "미국 고용보고서",
@@ -483,21 +408,6 @@
       "status": "확정",
       "source": "U.S. Bureau of Labor Statistics",
       "source_url": "https://www.bls.gov/schedule/news_release/empsit.htm"
-    },
-    {
-      "id": "2026-08-08|실적|brk-b|버크셔해서웨이 실적 발표",
-      "date": "2026-08-08",
-      "title": "버크셔해서웨이 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "BRK-B",
-      "name": "버크셔해서웨이",
-      "detail": "예상 EPS 5.13",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BRK-B/"
     },
     {
       "id": "2026-08-12|물가|미국 소비자물가지수(cpi)",
@@ -588,6 +498,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/017670.KS/"
+    },
+    {
+      "id": "2026-08-13|실적|353200|대덕전자 실적 발표",
+      "date": "2026-08-13",
+      "title": "대덕전자 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "353200",
+      "name": "대덕전자",
+      "detail": "예상 EPS 917",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/353200.KS/"
     },
     {
       "id": "2026-08-13|실적|213420|덕산네오룩스 실적 발표",
@@ -1460,21 +1385,6 @@
       "source_url": "https://finance.yahoo.com/quote/290650.KQ/"
     },
     {
-      "id": "2026-08-14|실적|271560|오리온 실적 발표",
-      "date": "2026-08-14",
-      "title": "오리온 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "271560",
-      "name": "오리온",
-      "detail": "예상 EPS 2,395",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/271560.KS/"
-    },
-    {
       "id": "2026-08-14|실적|232140|와이씨 실적 발표",
       "date": "2026-08-14",
       "title": "와이씨 실적 발표",
@@ -1488,6 +1398,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/232140.KQ/"
+    },
+    {
+      "id": "2026-08-14|실적|122870|와이지엔터테인먼트 실적 발표",
+      "date": "2026-08-14",
+      "title": "와이지엔터테인먼트 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "122870",
+      "name": "와이지엔터테인먼트",
+      "detail": "예상 EPS 288",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/122870.KQ/"
     },
     {
       "id": "2026-08-14|실적|240810|원익ips 실적 발표",
@@ -3793,7 +3718,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "QCOM",
       "name": "QUALCOMM Incorporated",
-      "detail": "2026년 4분기 · 예상 EPS 2.16",
+      "detail": "2026년 4분기 · 예상 EPS 2.15",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5247,7 +5172,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:286",
+    "Yahoo Finance": "ok:281",
     "Finnhub": "ok:14"
   }
 }
