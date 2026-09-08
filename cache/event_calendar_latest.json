@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-08 15:14 KST",
-  "range_start": "2025-09-08",
-  "range_end": "2027-09-08",
+  "collected_at": "2026-09-09 00:15 KST",
+  "range_start": "2025-09-09",
+  "range_end": "2027-09-09",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -5030,6 +5030,36 @@
       "source_url": "https://www.bls.gov/schedule/news_release/empsit.htm"
     },
     {
+      "id": "2026-12-08|실적|orcl|오라클 실적 발표",
+      "date": "2026-12-08",
+      "title": "오라클 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ORCL",
+      "name": "오라클",
+      "detail": "예상 EPS 1.9334",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-12-09|실적|adbe|어도비 실적 발표",
+      "date": "2026-12-09",
+      "title": "어도비 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "ADBE",
+      "name": "어도비",
+      "detail": "예상 EPS 6.4343",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-12-10|금리|fomc 금리결정·경제전망",
       "date": "2026-12-10",
       "title": "FOMC 금리결정·경제전망",
@@ -5173,6 +5203,6 @@
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
     "Yahoo Finance": "ok:281",
-    "Finnhub": "ok:14"
+    "Finnhub": "ok:16"
   }
 }
