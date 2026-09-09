@@ -18,6 +18,10 @@ import moving_average_data
 import supplemental_data
 from config import APP_TITLE, FIXED_TOP_N, TABLE_COLUMNS
 
+custom_table_component = components.declare_component(
+    "stock_comparison", path=os.path.join(os.path.dirname(__file__), "custom_table_component")
+)
+
 MARKET_PANEL_CACHE_VERSION = 3
 PRICE_HISTORY_CACHE_VERSION = 2
 EVENT_CALENDAR_CACHE_VERSION = 2
@@ -31,7 +35,7 @@ MARKET_VALUE_TO_LABEL = {value: label for label, value in MARKET_LABEL_TO_VALUE.
 MOBILE_LENS_META = {
     "🎯 종합평가": {
         "short": "종합평가",
-        "score_label": "종합평가",
+        "score_label": "종합렌즈점수",
         "title": "종합평가 후보",
         "description": "좋은 회사와 좋은 가격을 함께 고려해 장기 투자 후보를 우선 표시합니다.",
         "criteria": [
@@ -179,7 +183,8 @@ CUSTOM_METRIC_GROUPS = [
     ("기본", [
         ("price", "현재가", "price"),
         ("market_cap", "시가총액", "market_cap"),
-        ("score", "종합점수", "score"),
+        ("score", "기본점수", "score"),
+        ("lens_score", "렌즈점수", "score"),
         ("rank", "시장순위", "rank"),
     ]),
     ("가치", [
@@ -223,6 +228,9 @@ CUSTOM_METRIC_GROUPS = [
     ("가격", [
         ("peak", "2년고점", "price"),
         ("peak_diff", "고점대비", "percent"),
+        ("ma20", "20일선", "price"),
+        ("ma60", "60일선", "price"),
+        ("ma120", "120일선", "price"),
         ("ma200", "200일선", "price"),
         ("diff", "200일선괴리", "percent"),
         ("rsi", "RSI", "number"),
@@ -299,6 +307,9 @@ elif st.session_state.table_view_mode not in {"맞춤 보기", "모바일 보기
 
 if "custom_lens_enabled" not in st.session_state:
     st.session_state.custom_lens_enabled = False
+
+if "custom_selected_symbol" not in st.session_state:
+    st.session_state.custom_selected_symbol = None
 
 if "custom_metric_selection_ids" not in st.session_state:
     legacy_keys_exist = any(f"custom_metric_{metric_id}" in st.session_state for metric_id in CUSTOM_METRIC_IDS)
@@ -712,6 +723,9 @@ def available_custom_metric_ids(data) -> list[str]:
 
     available = []
     for metric_id in CUSTOM_METRIC_IDS:
+        if metric_id == "lens_score" and st.session_state.get("custom_lens_enabled", False):
+            available.append(metric_id)
+            continue
         if metric_id not in df.columns:
             continue
         series = df[metric_id]
@@ -744,9 +758,73 @@ def custom_metric_sort_value(metric_id, value):
             return 0
         return None
     number = clean_number(value)
-    if metric_id in CUSTOM_POSITIVE_ONLY_METRICS and number is not None and number <= 0:
+    if metric_id in CUSTOM_POSITIVE_ONLY_METRICS | {"market_cap"} and number is not None and number <= 0:
         return None
     return number
+
+
+def metric_data_note(metric_id, row):
+    value = row.get(metric_id)
+    if custom_metric_sort_value(metric_id, value) is None:
+        if metric_id in CUSTOM_POSITIVE_ONLY_METRICS and clean_number(value) is not None:
+            return "0 이하 값으로 배수 비교 불가"
+        if metric_id.startswith("peer_"):
+            return "업종 비교 자료·유효 표본 미확인"
+        if metric_id.startswith("ma") and metric_id[2:].isdigit():
+            return "필요한 거래일 이력 부족 또는 미수집"
+        return "자료 미수집·미제공"
+    if metric_id == "market_cap":
+        date = display_text(row.get("market_cap_as_of")) if not row_is_kr(row) else display_text(row.get("data_date"))
+        return f"시총 기준 {date}" if date else "시총 기준일 미확인"
+    if metric_id == "score":
+        return "기본 지표 점수 · 선택한 렌즈점수와 별도"
+    if metric_id == "lens_score":
+        return "현재 선택한 투자 렌즈의 평가점수"
+    if metric_id == "rank":
+        return "저장된 후보군 내 시가총액 순위"
+    if metric_id in {"price", "peak", "peak_diff", "diff", "rsi", "return_20d", "return_60d", "ma20", "ma60", "ma120", "ma200"}:
+        return f"가격 기준 {display_text(row.get('data_date'), '미확인')}"
+    if metric_id == "dividend_growth_3y":
+        return "최근 3년 연평균 배당성장률"
+    if metric_id == "foreign_supply":
+        return "외국인 보유율" if row_is_kr(row) else "기관 보유율"
+    if metric_id in {"revenue", "operating_income", "net_income", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash"}:
+        return financial_period_text(row)
+    return f"재무 갱신 {display_text(row.get('fundamental_refreshed_at'), '미확인')}"
+
+
+def financial_period_text(row):
+    year = clean_number(row.get("dart_year"))
+    code = str(row.get("dart_report_code", "")).split(".")[0]
+    report = {"11011": "연간", "11012": "반기 누적", "11013": "1분기", "11014": "3분기 누적"}.get(code, "보고서")
+    if year:
+        return f"{int(year)}년 {report} 재무제표"
+    period = display_text(row.get("financial_period"))
+    return f"연간 재무제표 {period}" if period else "재무제표 결산기간 미확인"
+
+
+def market_coverage_text(data, market):
+    rows = data.to_dict("records") if isinstance(data, pd.DataFrame) else data or []
+    if market != "미국" or not rows:
+        return f"{market} 시가총액 상위 {FIXED_TOP_N}개", ""
+    missing = sum(custom_metric_sort_value("market_cap", row.get("market_cap")) is None for row in rows)
+    undated = sum(not display_text(row.get("market_cap_as_of")) for row in rows)
+    lagged = sum(
+        bool(display_text(row.get("market_cap_as_of")))
+        and display_text(row.get("market_cap_as_of")).replace("-", "") < display_text(row.get("data_date")).replace("-", "")
+        for row in rows
+    )
+    if missing or undated or lagged:
+        warnings = []
+        if missing:
+            warnings.append(f"시총 미확인 {missing}개")
+        if undated:
+            warnings.append(f"시총 기준일 미확인 {undated}개")
+        if lagged:
+            warnings.append(f"가격보다 오래된 시총 {lagged}개")
+        return f"미국 저장 후보 {len(rows)}개", " · ".join(warnings)
+    dates = sorted({display_text(row.get("market_cap_as_of")) for row in rows})
+    return f"미국 시가총액 상위 {len(rows)}개", f"시총 기준 {dates[0]}" + (f" ~ {dates[-1]}" if len(dates) > 1 else "")
 
 
 def format_custom_metric_value(metric_id, value, row, is_kr):
@@ -781,6 +859,16 @@ def format_custom_metric_value(metric_id, value, row, is_kr):
     return f"{number:,.2f}"
 
 
+def custom_metric_detail_rows(row, metric_ids, is_kr):
+    return [
+        (CUSTOM_METRIC_DEFS[metric_id]["label"],
+         format_custom_metric_value(metric_id, row.get(metric_id), row, is_kr),
+         metric_data_note(metric_id, row),
+         metric_value_tone(metric_id, custom_metric_sort_value(metric_id, row.get(metric_id)), row))
+        for metric_id in metric_ids
+    ]
+
+
 def build_custom_table_rows(df, metric_ids, is_kr):
     rows = []
     for base_order, (_, row) in enumerate(df.reset_index(drop=True).iterrows()):
@@ -791,12 +879,14 @@ def build_custom_table_rows(df, metric_ids, is_kr):
             "symbol": display_text(row_dict.get("symbol")),
             "display": {},
             "tones": {},
+            "notes": {},
         }
         for metric_id in metric_ids:
             value = row_dict.get(metric_id)
             item[metric_id] = custom_metric_sort_value(metric_id, value)
             item["display"][metric_id] = format_custom_metric_value(metric_id, value, row_dict, is_kr)
             item["tones"][metric_id] = metric_value_tone(metric_id, item[metric_id], row_dict)
+            item["notes"][metric_id] = metric_data_note(metric_id, row_dict)
         rows.append(item)
     return rows
 
@@ -851,6 +941,10 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         grid-template-columns: repeat(3, minmax(0, 1fr));
         margin: 0 0 8px;
     }
+    .result-status { color: #475569; font-size: 12px; padding: 2px 0 10px; line-height: 1.5; }
+    .stock-detail-link { border: 0; padding: 0; background: none; color: #174a81; font: inherit; font-weight: 800; cursor: pointer; text-align: left; white-space: normal; }
+    .stock-detail-link:hover { text-decoration: underline; }
+    .metric-note { display: block; margin-top: 4px; color: #64748b; font-size: 11px; font-weight: 400; line-height: 1.4; white-space: normal; }
     .count-controls button,
     .result-actions button {
         height: 38px;
@@ -875,7 +969,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     .result-actions button:disabled { cursor: default; opacity: 0.38; }
     .table-shell {
         width: 100%;
-        max-height: 300px;
+        max-height: 440px;
         overflow: auto;
         border: 1px solid #dbe3ec;
         border-radius: 7px;
@@ -1027,7 +1121,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         .mobile-result-symbol {
             margin-top: 2px;
             color: #64748b;
-            font-size: 10.5px;
+            font-size: 12px;
             line-height: 1.2;
             overflow-wrap: anywhere;
         }
@@ -1056,7 +1150,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         }
         .mobile-metric-label {
             color: #64748b;
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: 750;
             line-height: 1.2;
             overflow-wrap: anywhere;
@@ -1064,7 +1158,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         .mobile-metric-value {
             margin-top: 3px;
             color: #111827;
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 900;
             line-height: 1.2;
             font-variant-numeric: tabular-nums;
@@ -1093,10 +1187,11 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     <button type="button" data-limit="all">전체</button>
 </div>
 <div class="result-actions" role="group" aria-label="결과 이동 및 정렬">
-    <button type="button" data-action="previous">이전5개</button>
-    <button type="button" data-action="more">다음5개</button>
+    <button type="button" data-action="previous">5개 줄이기</button>
+    <button type="button" data-action="more">5개 더 보기</button>
     <button type="button" data-action="reset-sort">기본 정렬</button>
 </div>
+<div id="result-status" class="result-status" role="status" aria-live="polite"></div>
 <div class="desktop-view">
     <div class="table-shell" id="table-shell">
         <table id="custom-table">
@@ -1115,7 +1210,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     const columns = __COLUMNS_JSON__;
     const storageKey = __STORAGE_KEY_JSON__;
     const collator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
-    let state = { limit: 5, sortId: null, sortDir: null };
+    let state = { limit: 5, sortId: null, sortDir: null, scrollTop: 0, scrollLeft: 0 };
 
     try {
         const stored = JSON.parse(window.localStorage.getItem(storageKey) || "null");
@@ -1126,10 +1221,25 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             state.sortId = stored.sortId;
             state.sortDir = stored.sortDir;
         }
+        if (stored) {
+            state.scrollTop = Math.max(0, Number(stored.scrollTop) || 0);
+            state.scrollLeft = Math.max(0, Number(stored.scrollLeft) || 0);
+        }
+        const limit = JSON.parse(window.localStorage.getItem("stock-screener-custom-limit") || "null");
+        if (limit === "all" || (Number.isFinite(limit) && limit >= 5)) state.limit = limit;
     } catch (error) {}
 
     function saveState() {
-        try { window.localStorage.setItem(storageKey, JSON.stringify(state)); } catch (error) {}
+        try {
+            window.localStorage.setItem(storageKey, JSON.stringify(state));
+            window.localStorage.setItem("stock-screener-custom-limit", JSON.stringify(state.limit));
+        } catch (error) {}
+    }
+
+    function openStock(row) {
+        saveState();
+        window.parent.postMessage({type: "stock-screener:open", symbol: row.symbol,
+            eventId: `${Date.now()}-${Math.random()}`}, "*");
     }
 
     function isMissing(value) {
@@ -1169,6 +1279,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     }
 
     function setSort(metricId) {
+        state.scrollTop = 0;
         if (state.sortId !== metricId) {
             state.sortId = metricId;
             state.sortDir = "desc";
@@ -1185,6 +1296,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     function clearSort() {
         state.sortId = null;
         state.sortDir = null;
+        state.scrollTop = 0;
         saveState();
         render();
     }
@@ -1240,7 +1352,13 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             const tr = document.createElement("tr");
             const nameCell = document.createElement("td");
             nameCell.className = "name";
-            nameCell.textContent = row.name || row.symbol || "-";
+            const detail = document.createElement("button");
+            detail.type = "button";
+            detail.className = "stock-detail-link";
+            detail.textContent = `${row.name || row.symbol} ›`;
+            detail.setAttribute("aria-label", `${row.name || row.symbol} 상세 보기`);
+            detail.addEventListener("click", () => openStock(row));
+            nameCell.appendChild(detail);
             nameCell.title = row.name || row.symbol || "-";
             tr.appendChild(nameCell);
 
@@ -1252,7 +1370,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
                 td.className = ["metric", tone, display === "-" ? "missing" : "", active ? "sorted" : ""]
                     .filter(Boolean).join(" ");
                 td.textContent = display;
-                td.title = display;
+                td.title = `${display} · ${row.notes[column.id] || ""}`;
                 tr.appendChild(td);
             });
             body.appendChild(tr);
@@ -1281,9 +1399,12 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             rank.textContent = String(index + 1);
             const identity = document.createElement("div");
             identity.className = "mobile-result-identity";
-            const name = document.createElement("div");
-            name.className = "mobile-result-name";
-            name.textContent = row.name || row.symbol || "-";
+            const name = document.createElement("button");
+            name.type = "button";
+            name.className = "mobile-result-name stock-detail-link";
+            name.textContent = `${row.name || row.symbol} ›`;
+            name.setAttribute("aria-label", `${row.name || row.symbol} 상세 보기`);
+            name.addEventListener("click", () => openStock(row));
             identity.appendChild(name);
             if (row.symbol && row.symbol !== row.name) {
                 const symbol = document.createElement("div");
@@ -1307,7 +1428,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
                     const metric = document.createElement("button");
                     metric.type = "button";
                     metric.className = active ? "mobile-metric active" : "mobile-metric";
-                    metric.title = `${column.label} 정렬: 높은순, 낮은순, 기본순`;
+                    metric.title = `${column.label} 정렬: 높은순, 낮은순, 기본순 · ${row.notes[column.id] || ""}`;
                     metric.setAttribute("aria-label", metric.title);
                     metric.addEventListener("click", () => setSort(column.id));
 
@@ -1322,6 +1443,12 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
                         .filter(Boolean).join(" ");
                     value.textContent = display;
                     metric.append(label, value);
+                    if (display === "-" || column.id === "market_cap") {
+                        const note = document.createElement("small");
+                        note.className = "metric-note";
+                        note.textContent = row.notes[column.id] || "";
+                        metric.appendChild(note);
+                    }
                     metrics.appendChild(metric);
                 });
                 result.appendChild(metrics);
@@ -1352,6 +1479,14 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         renderBody(rows);
         renderMobileCards(rows);
         updateCountControls();
+        const column = columns.find(item => item.id === state.sortId);
+        const order = column ? `${column.label} ${state.sortDir === "desc" ? "높은순" : "낮은순"}` : "__BASE_ORDER_LABEL__";
+        document.getElementById("result-status").textContent = `전체 ${allRows.length}개 중 ${rows.length}개 표시 · ${order}`;
+        for (const id of ["table-shell", "mobile-shell"]) {
+            const shell = document.getElementById(id);
+            shell.scrollTop = state.scrollTop;
+            shell.scrollLeft = state.scrollLeft;
+        }
     }
 
     document.querySelectorAll("button[data-limit]").forEach((button) => {
@@ -1374,6 +1509,13 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     });
     document.querySelector('button[data-action="reset-sort"]').addEventListener("click", clearSort);
     render();
+    for (const id of ["table-shell", "mobile-shell"]) {
+        document.getElementById(id).addEventListener("scroll", event => {
+            state.scrollTop = event.target.scrollTop;
+            state.scrollLeft = event.target.scrollLeft;
+            saveState();
+        });
+    }
 </script>
 </body>
 </html>
@@ -1383,6 +1525,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         .replace("__ROWS_JSON__", rows_json)
         .replace("__COLUMNS_JSON__", columns_json)
         .replace("__STORAGE_KEY_JSON__", storage_key_json)
+        .replace("__BASE_ORDER_LABEL__", "시가총액순" if context_key.endswith("|시장순위") else "렌즈순")
     )
 
 
@@ -2729,6 +2872,23 @@ def signal_fact_lines(summary):
     return parts[:2]
 
 
+def signal_fact_html(fact, row):
+    metric_by_label = {
+        "ROE": "roe", "영업익": "operating_growth", "영업률": "operating_margin",
+        "매출": "revenue_growth", "매출성장": "revenue_growth", "CAGR": "cagr",
+        "PER": "per", "PBR": "pbr", "PER괴리": "peer_per_gap", "PBR괴리": "peer_pbr_gap",
+        "고점대비": "peak_diff", "2년고점대비": "peak_diff", "200일": "diff", "RSI": "rsi",
+        "부채": "debt_ratio", "순현금": "net_cash", "현금": "cash",
+        "FCF": "free_cashflow", "영업현금": "operating_cashflow",
+        "연배당률": "dividend_yield", "성장률": "dividend_growth_3y", "성향": "payout_ratio",
+    }
+    metric_id = metric_by_label.get(fact.split(" ", 1)[0])
+    tone = metric_value_tone(metric_id, row.get(metric_id), row) if metric_id else "neutral"
+    if "미확인" in fact or "수치 근거 확인" in fact:
+        tone = "missing"
+    return f'<em class="fact-{tone}">{escape_html(fact)}</em>'
+
+
 def signal_item(title, value, tone, summary, details):
     return {
         "title": title,
@@ -3100,7 +3260,7 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
     candidate_score = mobile_lens_score(row, lens)
     candidate_score_tone = metric_value_tone("lens_score", candidate_score)
-    confidence_score, confidence_label, _, _, _ = mobile_lens_confidence(row, lens)
+    confidence_score, confidence_label, _, available_count, total_count = mobile_lens_confidence(row, lens)
     confidence_score_tone = confidence_tone(confidence_score)
     reason_chips = mobile_lens_reasons(row, lens)
     chip_html = "".join([f"<span>{escape_html(chip)}</span>" for chip in reason_chips])
@@ -3121,8 +3281,8 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
             f"<div class='mobile-signal-card {escape_html(signal['tone'])}'>"
             f"<small>{escape_html(signal['title'])}</small>"
             f"<b>{escape_html(signal['value'])}</b>"
-            f"<em>{escape_html(fact_lines[0])}</em>"
-            f"<em>{escape_html(fact_lines[1])}</em>"
+            f"{signal_fact_html(fact_lines[0], row)}"
+            f"{signal_fact_html(fact_lines[1], row)}"
             f"</div>"
         )
     rank_tone = "hot" if list_index <= 3 else "base"
@@ -3140,7 +3300,7 @@ def render_mobile_candidate_card(row, list_index, is_kr, lens="🎯 종합평가
         f'<div class="mobile-signal-grid">{signal_html}</div>'
         f'<div class="mobile-score-row">'
         f'<span>{escape_html(lens_meta["score_label"])} <b class="{candidate_score_tone}">{candidate_score:.0f}점</b></span>'
-        f'<span>렌즈 근거 <b class="{confidence_score_tone}">{escape_html(confidence_label)}</b> · {confidence_score}%</span>'
+        f'<span>자료 확인 <b class="{confidence_score_tone}">{available_count}/{total_count}개</b></span>'
         f"</div>"
         f"{secondary_html}"
         f'<div class="mobile-chip-row">{chip_html}</div>'
@@ -3235,17 +3395,6 @@ def render_mobile_section(title, metrics):
 
 def render_mobile_lens_panel(lens):
     lens_meta = MOBILE_LENS_META.get(lens, MOBILE_LENS_META["🎯 종합평가"])
-    st.markdown(
-        f"""
-        <div class="mobile-lens-card">
-            <div class="mobile-lens-title">🎯 투자 렌즈</div>
-            <div class="mobile-lens-current">{escape_html(lens)}</div>
-            <div class="mobile-lens-description">{escape_html(lens_meta["description"])}</div>
-            <div class="mobile-lens-note">같은 회사도 어떤 관점으로 보느냐에 따라 순위가 달라집니다.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     with st.expander("주요 기준 보기", expanded=False):
         for label, explanation in lens_meta["criteria"]:
             st.markdown(f"**{label}** - {explanation}")
@@ -3282,8 +3431,8 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             f"<div class='mobile-detail-signal {escape_html(signal['tone'])}'>"
             f"<small>{escape_html(signal['title'])}</small>"
             f"<b>{escape_html(signal['value'])}</b>"
-            f"<em>{escape_html(fact_lines[0])}</em>"
-            f"<em>{escape_html(fact_lines[1])}</em>"
+            f"{signal_fact_html(fact_lines[0], row)}"
+            f"{signal_fact_html(fact_lines[1], row)}"
             f"</div>"
         )
 
@@ -3306,7 +3455,7 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
                 <div class="mobile-detail-signals">{signal_html}</div>
                 <div class="mobile-detail-score">
                     <span>{escape_html(lens_meta["score_label"])} <b class="{candidate_score_tone}">{candidate_score:.0f}점</b></span>
-                    <span>렌즈 근거 <b class="{confidence_score_tone}">{escape_html(confidence_label)}</b> · {confidence_score}%</span>
+                    <span>자료 확인 <b class="{confidence_score_tone}">{available_count}/{total_count}개</b></span>
                 </div>
             </div>
             """,
@@ -3333,19 +3482,13 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("시장 신호", " · ".join(momentum_reasons[:3]) if momentum_reasons else "추가 확인", "시장 방향과 업종 흐름을 함께 반영한 판단입니다."),
         ])
         render_mobile_section("3. 확인 필요", [
-            ("후보 판단", "확인 필요", "FCF와 영업현금흐름은 데이터가 있으면 PC의 부족 데이터 탭에서 수치와 해석까지 확인할 수 있습니다."),
+            ("재무 기준", financial_period_text(row), "가격 기준일과 재무제표 결산기간은 서로 다릅니다."),
             ("주의", " · ".join(warning_reasons[:3]), "정치·규제·뉴스 변수는 별도 확인이 필요합니다.", "caution"),
-            ("렌즈 근거", f"{confidence_score}% · {available_count}/{total_count}개 확인", f"부족한 부분: {confidence_missing}", confidence_score_tone),
+            ("자료 확인", f"{available_count}/{total_count}개", f"지표 확보 비율이며 정확도나 수익 확률은 아닙니다. 미확인: {confidence_missing}", confidence_score_tone),
         ])
     elif selected_detail_tab == "상세 수치":
-        st.dataframe(
-            pd.DataFrame([
-                {"항목": label, "값/점수": points, "기준": reason}
-                for label, points, reason in mobile_score_breakdown(row, lens)
-            ]),
-            width="stretch",
-            hide_index=True,
-        )
+        with st.expander("렌즈 점수 산정", expanded=False):
+            render_mobile_section(lens_meta["score_label"], mobile_score_breakdown(row, lens))
         render_mobile_section("기업 품질", [
             ("ROE", format_metric(row.get("roe"), "%"), metric_explanation("ROE", row, row.get("roe")), metric_value_tone("roe", row.get("roe"))),
             ("매출성장률", format_metric(row.get("revenue_growth"), "%"), metric_explanation("매출성장률", row, row.get("revenue_growth")), metric_value_tone("revenue_growth", row.get("revenue_growth"))),
@@ -3365,6 +3508,19 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("시가총액", cap, "기업 규모를 보는 지표입니다. 크다고 항상 좋은 것은 아니지만 안정성 판단에 참고합니다."),
         ])
         ownership_label = "외국인 보유율" if row_is_kr(row) else "기관 보유율"
+        render_mobile_section("현금흐름", custom_metric_detail_rows(row, [
+            "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash",
+        ], is_kr))
+        render_mobile_section("배당", custom_metric_detail_rows(row, [
+            "dividend_yield", "dividend_growth_3y", "dividend_consecutive_years",
+            "payout_ratio", "dividend_cut_flag",
+        ], is_kr))
+        render_mobile_section("목표가·실적", custom_metric_detail_rows(row, [
+            "target_mean", "target_upside", "analyst_opinion_count", "earnings_surprise_pct",
+        ], is_kr))
+        render_mobile_section("업종 비교", custom_metric_detail_rows(row, [
+            "peer_per_avg", "peer_pbr_avg", "peer_per_gap", "peer_pbr_gap", "peer_group_count",
+        ], is_kr))
         render_mobile_section("보유 현황", [
             (ownership_label, format_metric(row.get("foreign_supply"), "%"), "보유 비중이며 최근 순매수 수급과는 다른 지표입니다."),
         ])
@@ -3374,6 +3530,9 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("구조 리스크", risk_profile["label"] or "특이사항 없음", risk_profile["warning"] or "현재 규칙상 강한 구조 리스크로 분류되지는 않았습니다."),
         ])
     elif selected_detail_tab == "기술 위치":
+        render_mobile_section("이동평균 가격", custom_metric_detail_rows(row, [
+            "ma20", "ma60", "ma120", "ma200", "return_20d", "return_60d",
+        ], is_kr))
         render_mobile_section("기술적 위치", [
             ("현재 가격", price, "최근 종가 흐름을 기준으로 현재 위치를 봅니다."),
             ("200일괴리율", format_metric(row.get("diff"), "%"), metric_explanation("200일괴리율", row, row.get("diff")), metric_value_tone("diff", row.get("diff"))),
@@ -3386,7 +3545,14 @@ def render_mobile_stock_card(row, is_kr, show_header=True, lens="🎯 종합평�
             ("시장순위", f"#{rank}", "시가총액 기준 후보군 내 위치입니다."),
             ("시가총액", cap, "기업 규모를 보는 기준입니다."),
             ("등급", str(grade), "기존 스크리너의 종합 등급입니다."),
-            ("종합점수", f"{score}점", "기존 PC 표와 같은 종합점수입니다.", metric_value_tone("score", row.get("score"))),
+            ("기본점수", f"{score}점", "기본 지표 합산점수이며 렌즈점수와는 별도입니다.", metric_value_tone("score", row.get("score"))),
+            (lens_meta["score_label"], f"{candidate_score:.0f}점", "현재 선택한 투자 렌즈의 평가점수입니다.", candidate_score_tone),
+        ])
+        render_mobile_section("자료 기준", [
+            ("가격 거래일", display_text(row.get("data_date"), "미확인"), display_text(row.get("price_basis"), "가격 기준 미확인")),
+            ("시가총액", format_custom_metric_value("market_cap", row.get("market_cap"), row, is_kr), metric_data_note("market_cap", row)),
+            ("재무제표", financial_period_text(row), f"재무 갱신 {display_text(row.get('fundamental_refreshed_at'), '미확인')}"),
+            ("자료 확인", f"{available_count}/{total_count}개", "렌즈에 필요한 지표 확보 비율입니다. 데이터 정확도나 수익 확률을 뜻하지 않습니다."),
         ])
 
 
@@ -3409,6 +3575,7 @@ def select_market_choice(label):
     st.session_state.mobile_count_choice = "5개"
     st.session_state.mobile_selected_symbol = None
     st.session_state.mobile_evidence_symbol = None
+    st.session_state.custom_selected_symbol = None
     st.rerun()
 
 
@@ -3417,6 +3584,7 @@ def select_table_view_mode(label):
         return
     st.session_state.table_view_mode = label
     st.session_state.show_large_table = False
+    st.session_state.custom_selected_symbol = None
     st.rerun()
 
 
@@ -3427,6 +3595,7 @@ def select_mobile_lens(lens):
     st.session_state.last_mobile_investment_lens = lens
     st.session_state.mobile_selected_symbol = None
     st.session_state.mobile_evidence_symbol = None
+    st.session_state.custom_selected_symbol = None
     st.rerun()
 
 
@@ -3545,7 +3714,7 @@ def render_custom_metric_dialog(available_metric_ids):
     visible_sections = []
     for section_label, group_names in section_groups:
         groups = [
-            (group, [metric for metric in metrics if metric[0] in available])
+            (group, [metric for metric in metrics if metric[0] != "lens_score" or st.session_state.custom_lens_enabled])
             for group, metrics in CUSTOM_METRIC_GROUPS
             if group in group_names
         ]
@@ -3570,6 +3739,10 @@ def render_custom_metric_dialog(available_metric_ids):
                                 st.checkbox(
                                     label,
                                     key=f"custom_metric_dialog_{metric_id}",
+                                    disabled=metric_id not in available,
+                                    help=("현재 시장에 수집된 값이 없습니다." if metric_id not in available else
+                                          "기본 지표 합산점수 · 렌즈점수와 별도" if metric_id == "score" else
+                                          "선택한 투자 렌즈의 평가점수" if metric_id == "lens_score" else None),
                                     on_change=sync_custom_metric_from_dialog,
                                     args=(metric_id,),
                                 )
@@ -3608,15 +3781,45 @@ def render_custom_metric_selector():
             render_custom_metric_dialog(tuple(available))
 
 
+def close_custom_detail():
+    st.session_state.custom_selected_symbol = None
+
+
 def render_custom_results(df, is_kr, current_lens):
+    selected = st.session_state.custom_selected_symbol
+    matched = df[df["symbol"].astype(str) == str(selected)] if selected and "symbol" in df else pd.DataFrame()
+    if not matched.empty:
+        row = matched.iloc[0].to_dict()
+        st.button("맞춤 결과로 돌아가기", icon=":material/arrow_back:",
+                  key="custom_detail_back", on_click=close_custom_detail, width="stretch")
+        lens = current_lens if st.session_state.custom_lens_enabled else "🎯 종합평가"
+        render_mobile_stock_card(row, is_kr, show_header=True, lens=lens)
+        with st.container(key="mobile_fixed_close_wrap_custom"):
+            columns = st.columns(5)
+            for column, (label, value) in zip(columns[:4], [("요약", "요약"), ("수치", "상세 수치"), ("위치", "기술 위치"), ("정보", "기업 정보")]):
+                with column:
+                    if st.button(label, key=f"custom_detail_tab_{value}", width="stretch",
+                                 type="primary" if st.session_state.mobile_detail_tab == value else "secondary"):
+                        st.session_state.mobile_detail_tab = value
+                        st.rerun()
+            with columns[4]:
+                st.button("목록", key="custom_detail_return", on_click=close_custom_detail, width="stretch")
+        return
+    st.session_state.custom_selected_symbol = None
     metric_ids = selected_custom_metric_ids(df)
     lens_context = current_lens if st.session_state.custom_lens_enabled else "시장순위"
     context_key = f"{get_market_text()}|{lens_context}"
-    components.html(
-        build_custom_table_html(df, metric_ids, is_kr, context_key),
-        height=400,
-        scrolling=False,
+    event = custom_table_component(
+        html=build_custom_table_html(df, metric_ids, is_kr, context_key),
+        height=560, key=f"custom_results_{context_key}", default=None,
     )
+    if isinstance(event, dict) and event.get("eventId") != st.session_state.get("custom_last_detail_event"):
+        st.session_state.custom_last_detail_event = event.get("eventId")
+        symbol = str(event.get("symbol", ""))
+        if symbol and symbol in set(df["symbol"].astype(str)):
+            st.session_state.custom_selected_symbol = symbol
+            st.session_state.mobile_detail_tab = "요약"
+            st.rerun()
 
 
 def render_top_choice_panel():
@@ -4715,24 +4918,24 @@ st.markdown("""
         }
         .mobile-signal-card,
         .mobile-detail-signal {
-            border-radius: 10px;
+            border-radius: 8px;
             padding: 8px 7px;
             background: #f8fafc;
             min-height: 96px;
             overflow: hidden;
             display: grid;
-            grid-template-rows: 16px 18px 18px 18px;
+            grid-template-rows: minmax(22px, auto) minmax(24px, auto) minmax(24px, auto) minmax(24px, auto);
             gap: 3px;
         }
         .mobile-signal-card small,
         .mobile-detail-signal small {
             display: block;
             color: #64748b;
-            font-size: 0.69rem;
-            line-height: 1.05;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
             margin-bottom: 0;
         }
         .mobile-signal-card b,
@@ -4740,41 +4943,42 @@ st.markdown("""
             display: block;
             color: #0f172a;
             font-size: 0.82rem;
-            line-height: 1.05;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
         }
         .mobile-signal-card em,
         .mobile-detail-signal em {
             display: block;
             color: #64748b;
-            font-size: 0.66rem;
+            font-size: 0.75rem;
             font-style: normal;
-            line-height: 1.05;
+            line-height: 1.4;
             margin-top: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
         }
         .mobile-signal-card.good,
         .mobile-detail-signal.good { background: #f0fdf4; }
         .mobile-signal-card.good b,
         .mobile-detail-signal.good b { color: #16a34a; }
-        .mobile-signal-card.good em,
-        .mobile-detail-signal.good em { color: #15803d; font-weight: 750; }
         .mobile-signal-card.watch,
         .mobile-detail-signal.watch { background: #fffbeb; }
         .mobile-signal-card.watch b,
         .mobile-detail-signal.watch b { color: #d97706; }
-        .mobile-signal-card.watch em,
-        .mobile-detail-signal.watch em { color: #b45309; font-weight: 750; }
         .mobile-signal-card.risk,
         .mobile-detail-signal.risk { background: #fef2f2; }
         .mobile-signal-card.risk b,
         .mobile-detail-signal.risk b { color: #ef4444; }
-        .mobile-signal-card.risk em,
-        .mobile-detail-signal.risk em { color: #b91c1c; font-weight: 750; }
+        .mobile-signal-card em.fact-up, .mobile-detail-signal em.fact-up { color: #dc2626; }
+        .mobile-signal-card em.fact-down, .mobile-detail-signal em.fact-down { color: #2563eb; }
+        .mobile-signal-card em.fact-favorable, .mobile-detail-signal em.fact-favorable { color: #15803d; }
+        .mobile-signal-card em.fact-caution, .mobile-detail-signal em.fact-caution { color: #b45309; }
+        .mobile-signal-card em.fact-risk, .mobile-detail-signal em.fact-risk { color: #b91c1c; }
+        .mobile-signal-card em.fact-neutral, .mobile-detail-signal em.fact-neutral { color: #334155; }
+        .mobile-signal-card em.fact-missing, .mobile-detail-signal em.fact-missing { color: #64748b; }
         .mobile-score-row,
         .mobile-detail-score {
             color: #64748b;
@@ -6337,10 +6541,15 @@ with st.sidebar:
 render_analysis_header()
 render_price_update_banner()
 render_active_header_tool()
+scope_text, coverage_note = market_coverage_text(st.session_state.data, get_market_text())
 if st.session_state.table_view_mode == "맞춤 보기":
-    st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 선택 지표 비교")
+    st.caption(f"분석 범위: {scope_text} · 선택 지표 비교")
+elif st.session_state.table_view_mode == "모바일 보기":
+    st.caption(f"분석 범위: {scope_text}")
 else:
     st.caption(f"분석 범위: {get_market_text()} 시가총액 상위 {FIXED_TOP_N}개 · 1단계 후보 → 2단계 글로벌 시장 신호 → 3단계 부진 원인")
+if coverage_note and st.session_state.table_view_mode != "PC 보기":
+    st.caption(coverage_note)
 render_top_choice_panel()
 
 st.divider()
@@ -6603,7 +6812,6 @@ if st.session_state.data:
 
         title_prefix = lens_meta["title"]
         st.subheader(title_prefix)
-        st.caption(lens_meta.get("description", ""))
 
         with st.container(key="mobile_count_wrap"):
             quick_options = [("5개", 5), ("10개", 10), ("20개", 20), ("전체", total_candidates)]
@@ -6624,7 +6832,7 @@ if st.session_state.data:
                 with previous_col:
                     previous_count = max(5, visible_count - 5)
                     if st.button(
-                        "이전5개",
+                        "5개 줄이기",
                         key="mobile_previous_5",
                         width="stretch",
                         disabled=visible_count <= 5,
@@ -6640,7 +6848,7 @@ if st.session_state.data:
 
                 with next_col:
                     next_count = min(visible_count + 5, total_candidates)
-                    if st.button("다음5개", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
+                    if st.button("5개 더 보기", key="mobile_more_5", width="stretch", disabled=visible_count >= total_candidates):
                         st.session_state.mobile_visible_count = next_count
                         st.session_state.mobile_count_choice = next(
                             (label for label, count in quick_options[:3] if count == next_count),
@@ -6650,7 +6858,7 @@ if st.session_state.data:
                         st.session_state.mobile_evidence_symbol = None
                         st.rerun()
 
-        st.caption("상세 보기를 누르면 해당 후보 바로 아래에 열립니다. 다시 닫고 다음 후보를 볼 수 있습니다.")
+        st.caption(f"전체 {total_candidates}개 중 {visible_count}개 표시 · {lens_meta['short']} 기준")
         if visible_mobile_df.empty:
             st.info(lens_meta.get("empty", "현재 기준에 맞는 종목이 없습니다. 다른 렌즈를 선택해보세요."))
         for list_index, (_, row) in enumerate(visible_mobile_df.iterrows(), start=1):

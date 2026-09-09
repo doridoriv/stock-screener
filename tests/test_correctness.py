@@ -1,7 +1,7 @@
 import logging
 import unittest
 from datetime import date, datetime
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -21,6 +21,65 @@ logging.disable(logging.NOTSET)
 
 
 class CacheCorrectnessTests(unittest.TestCase):
+    @staticmethod
+    def listing_stock(symbol, cap, kind="stock"):
+        traded_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        return {
+            "symbolCode": symbol, "stockName": symbol, "stockEndType": kind,
+            "currencyType": {"code": "USD"}, "marketValueRaw": str(cap),
+            "marketValue": str(cap / 1000), "localTradedAt": f"{traded_date}T16:00:00-04:00",
+        }
+
+    def test_listing_uses_raw_usd_not_formatted_thousands(self):
+        rows = analyzer.parse_us_market_listing([
+            self.listing_stock("BRK.B", 1_000_000_000_000),
+            self.listing_stock("ETF", 2_000_000_000_000, "etf"),
+            self.listing_stock("BAD", 0),
+        ])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["symbol"], "BRK-B")
+        self.assertEqual(rows[0]["market_cap"], 1000)
+        self.assertTrue(rows[0]["market_cap_as_of"])
+
+    def test_listing_ranks_across_exchanges_with_bounded_calls(self):
+        responses = [Mock(), Mock(), Mock()]
+        for response, symbol, cap in zip(responses, ["AAA", "BBB", "CCC"], [10e9, 30e9, 20e9]):
+            response.json.return_value = {"stocks": [self.listing_stock(symbol, cap)]}
+        with patch.object(analyzer.requests, "get", side_effect=responses) as get, patch.object(analyzer.time, "sleep"):
+            rows = analyzer.fetch_fresh_us_universe(2)
+        self.assertEqual([row["symbol"] for row in rows], ["BBB", "CCC"])
+        self.assertEqual(get.call_count, 3)
+        self.assertTrue(all(call.kwargs["params"]["page"] == 1 for call in get.call_args_list))
+
+    def test_failed_listing_preserves_dated_cache_and_read_only_never_refreshes(self):
+        cached = {"AAA": {"market_cap": 10e9, "market_cap_as_of": "2026-07-01"}}
+        with patch.object(analyzer, "load_us_market_cap_cache", return_value=cached), patch.object(analyzer, "fetch_fresh_us_universe", side_effect=RuntimeError("offline")) as refresh:
+            rows = analyzer.fetch_us_top100_tickers(1)
+            refresh.assert_not_called()
+            failed = analyzer.fetch_us_top100_tickers(1, refresh=True)
+        self.assertEqual(rows, failed)
+        self.assertEqual(failed[0]["market_cap_as_of"], "2026-07-01")
+
+    def test_missing_market_cap_is_not_a_zero_or_infinite_valuation(self):
+        data = pd.DataFrame({"symbol": ["A", "B", "C", "D"], "market_cap": [0, 50, np.inf, -1]})
+        result = analyzer.sort_by_market_cap(data)
+        self.assertEqual(result.iloc[0]["symbol"], "B")
+        self.assertEqual(result["market_cap"].isna().sum(), 3)
+        self.assertEqual(data.iloc[0]["market_cap"], 0)
+
+    def test_stale_or_incomplete_exchange_response_is_not_accepted(self):
+        stock = self.listing_stock("AAA", 10e9)
+        stock["localTradedAt"] = "2020-01-01T16:00:00-05:00"
+        response = Mock()
+        response.json.return_value = {"stocks": [stock]}
+        with patch.object(analyzer.requests, "get", return_value=response), patch.object(analyzer.time, "sleep"):
+            with self.assertRaisesRegex(ValueError, "stale"):
+                analyzer.fetch_fresh_us_universe(1)
+        response.json.return_value = {"stocks": []}
+        with patch.object(analyzer.requests, "get", return_value=response):
+            with self.assertRaisesRegex(ValueError, "Empty"):
+                analyzer.fetch_fresh_us_universe(1)
+
     def test_cache_validation_requires_complete_unique_rows(self):
         valid = pd.DataFrame({
             "symbol": ["A", "B", "C"],
@@ -283,6 +342,29 @@ class SupplementalDataCorrectnessTests(unittest.TestCase):
 
 
 class CustomViewCorrectnessTests(unittest.TestCase):
+    def test_missing_values_periods_and_metric_colors_are_explicit(self):
+        row = {"symbol": "000660", "market_cap": 0, "ma20": 150, "peak_diff": -20,
+               "dart_year": 2025, "dart_report_code": 11011, "data_date": "2026-09-07"}
+        self.assertEqual(app_web.format_custom_metric_value("market_cap", 0, row, True), "-")
+        self.assertIn("미수집", app_web.metric_data_note("market_cap", row))
+        self.assertIn("2026-09-07", app_web.metric_data_note("ma20", row))
+        self.assertIn("2025년 연간", app_web.financial_period_text(row))
+        self.assertIn('fact-down', app_web.signal_fact_html("고점대비 -20%", row))
+        self.assertIn('fact-missing', app_web.signal_fact_html("보조 지표 미확인", row))
+        details = app_web.custom_metric_detail_rows(row, ["ma20", "free_cashflow", "target_mean"], True)
+        self.assertEqual(details[0][1], "150원")
+        self.assertEqual(details[1][1], "-")
+
+    def test_legacy_us_candidates_are_not_described_as_current_top100(self):
+        scope, note = app_web.market_coverage_text([{"symbol": "AAPL", "market_cap": 0}], "미국")
+        self.assertIn("저장 후보", scope)
+        self.assertIn("시총 미확인 1개", note)
+        scope, note = app_web.market_coverage_text([{
+            "symbol": "AAPL", "market_cap": 3000, "market_cap_as_of": "2026-09-08", "data_date": "2026-09-08",
+        }], "미국")
+        self.assertIn("시가총액 상위", scope)
+        self.assertIn("2026-09-08", note)
+
     def test_custom_metric_catalog_is_unique_and_hides_empty_metrics(self):
         self.assertEqual(len(app_web.CUSTOM_METRIC_IDS), len(set(app_web.CUSTOM_METRIC_IDS)))
         self.assertTrue(set(app_web.CUSTOM_DEFAULT_METRICS).issubset(app_web.CUSTOM_METRIC_DEFS))

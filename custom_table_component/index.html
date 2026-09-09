@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block}</style>
+</head>
+<body>
+  <iframe id="results" title="Custom stock comparison" sandbox="allow-scripts allow-same-origin"></iframe>
+  <script>
+    const frame = document.getElementById("results");
+    let currentHtml = null;
+    function send(type, extra = {}) {
+      window.parent.postMessage({isStreamlitMessage: true, type, ...extra}, "*");
+    }
+    window.addEventListener("message", event => {
+      const data = event.data || {};
+      if (event.source === window.parent && data.type === "streamlit:render") {
+        const args = data.args || {};
+        if (typeof args.html === "string" && args.html !== currentHtml) {
+          currentHtml = args.html;
+          frame.srcdoc = currentHtml;
+        }
+        send("streamlit:setFrameHeight", {height: args.height || 560});
+      }
+      if (event.source === frame.contentWindow && data.type === "stock-screener:open") {
+        if (typeof data.symbol === "string" && typeof data.eventId === "string") {
+          send("streamlit:setComponentValue", {
+            value: {symbol: data.symbol, eventId: data.eventId}, dataType: "json"
+          });
+        }
+      }
+    });
+    send("streamlit:componentReady", {apiVersion: 1});
+  </script>
+</body>
+</html>

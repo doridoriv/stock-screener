@@ -273,10 +273,99 @@ def load_us_market_cap_cache():
     return {ticker: {"rank": i, "name": US_NAME_MAP.get(ticker, ticker), "market_cap": 0} 
             for i, ticker in enumerate(DEFAULT_US_TICKERS, 1)}
 
+
+def parse_us_market_listing(stocks):
+    records = []
+    for stock in stocks:
+        symbol = normalize_us_ticker(stock.get("symbolCode", "")).replace(".", "-").replace("/", "-")
+        if not _is_valid_us_ticker(symbol) or stock.get("stockEndType") != "stock":
+            continue
+        if (stock.get("currencyType") or {}).get("code") != "USD":
+            continue
+        try:
+            # marketValueRaw is USD; the formatted marketValue field uses thousands.
+            cap = float(str(stock.get("marketValueRaw", "")).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(cap) or cap <= 0:
+            continue
+        traded_at = pd.to_datetime(stock.get("localTradedAt"), errors="coerce")
+        if pd.isna(traded_at):
+            continue
+        records.append({
+            "yf_symbol": symbol, "symbol": symbol,
+            "name": stock.get("stockName") or stock.get("stockNameEng") or US_NAME_MAP.get(symbol, symbol),
+            "market_cap": cap / 1_000_000_000,
+            "market_cap_as_of": traded_at.strftime("%Y-%m-%d"),
+            "market_cap_source": "Naver exchange listing (USD)",
+        })
+    return records
+
+
+def fetch_fresh_us_universe(top_n):
+    records = []
+    for exchange in ("NASDAQ", "NYSE", "AMEX"):
+        for page in range(1, (top_n + 59) // 60 + 1):
+            response = requests.get(
+                f"https://api.stock.naver.com/stock/exchange/{exchange}/marketValue",
+                params={"page": page, "pageSize": 60},
+                headers={"User-Agent": USER_AGENTS[0]}, timeout=REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            stocks = payload.get("stocks")
+            if not isinstance(stocks, list):
+                raise ValueError(f"Invalid {exchange} listing response")
+            if not stocks:
+                if page == 1:
+                    raise ValueError(f"Empty {exchange} listing")
+                break
+            parsed = parse_us_market_listing(stocks)
+            if not parsed:
+                raise ValueError(f"No valid market caps in {exchange} listing")
+            records.extend(parsed)
+            time.sleep(MIN_SLEEP)
+    unique = {item["symbol"]: item for item in records}
+    if len(unique) < top_n:
+        raise ValueError(f"Only {len(unique)} priced US listing records")
+    selected = sorted(unique.values(), key=lambda item: item["market_cap"], reverse=True)[:top_n]
+    today = datetime.now(ZoneInfo("America/New_York")).date()
+    if any(not 0 <= (today - datetime.strptime(item["market_cap_as_of"], "%Y-%m-%d").date()).days <= 7 for item in selected):
+        raise ValueError("US listing dates are stale or in the future")
+    return selected
+
+
+def save_us_market_cap_cache(records):
+    if not records or any(not item.get("market_cap_as_of") for item in records):
+        return
+    payload = {
+        item["symbol"]: {
+            "rank": index, "name": item["name"],
+            "market_cap": item["market_cap"] * 1_000_000_000,
+            "market_cap_as_of": item["market_cap_as_of"],
+            "market_cap_source": item.get("market_cap_source", ""),
+        }
+        for index, item in enumerate(records, 1)
+    }
+    temporary = f"{US_MARKETCAP_CACHE_FILE}.tmp"
+    with open(temporary, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, allow_nan=False)
+    os.replace(temporary, US_MARKETCAP_CACHE_FILE)
+
+
+def normalize_market_cap_metrics(df):
+    if df is None or df.empty or "market_cap" not in df:
+        return df
+    out = df.copy()
+    caps = pd.to_numeric(out["market_cap"], errors="coerce")
+    out["market_cap"] = caps.where(np.isfinite(caps) & caps.gt(0))
+    return out
+
+
 def sort_by_market_cap(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty or "market_cap" not in df.columns:
         return df
-    out = df.copy()
+    out = normalize_market_cap_metrics(df)
     out["_market_cap_sort"] = pd.to_numeric(out["market_cap"], errors="coerce").fillna(-1)
     out = out.sort_values(by="_market_cap_sort", ascending=False).drop(columns=["_market_cap_sort"])
     out = out.reset_index(drop=True)
@@ -1065,16 +1154,16 @@ def _is_valid_us_ticker(symbol: str) -> bool:
     return bool(re.fullmatch(r"[A-Z][A-Z0-9-]{0,9}", str(symbol or "")))
 
 
-def fetch_us_top100_tickers(top_n=100) -> list:
-    """
-    미국 시가총액 상위 100선 추출:
-    매번 500개 종목을 조회하여 야후 파이낸스 차단을 유도하지 않고,
-    로컬 캐시파일(us_marketcap_cache.json)이 있으면 이를 읽고, 
-    없으면 config.py의 DEFAULT_US_TICKERS 목록을 기반으로 즉시 반환합니다.
-    """
+def fetch_us_top100_tickers(top_n=100, refresh=False) -> list:
+    """Read the saved universe; only scheduled collection explicitly refreshes it."""
+    if refresh:
+        try:
+            return fetch_fresh_us_universe(top_n)
+        except Exception as error:
+            print(f"[WARN] US listing refresh failed; retaining dated candidate list: {error}")
     candidates = {}
 
-    def add_candidate(symbol, name=None, market_cap=0):
+    def add_candidate(symbol, name=None, market_cap=0, as_of="", source=""):
         normalized = normalize_us_ticker(symbol)
         if not _is_valid_us_ticker(normalized):
             return
@@ -1096,10 +1185,14 @@ def fetch_us_top100_tickers(top_n=100) -> list:
                 "symbol": normalized,
                 "name": display_name,
                 "market_cap": cap_val,
+                "market_cap_as_of": as_of,
+                "market_cap_source": source,
             }
             return
         if cap_val > float(existing.get("market_cap") or 0):
             existing["market_cap"] = cap_val
+            existing["market_cap_as_of"] = as_of
+            existing["market_cap_source"] = source
         if existing.get("name") in {"", existing["symbol"]} and display_name != normalized:
             existing["name"] = display_name
 
@@ -1113,12 +1206,12 @@ def fetch_us_top100_tickers(top_n=100) -> list:
             )
             for sym, info in sorted_items:
                 info = info or {}
-                add_candidate(sym, info.get("name"), info.get("market_cap", 0))
+                add_candidate(sym, info.get("name"), info.get("market_cap", 0), info.get("market_cap_as_of", ""), info.get("market_cap_source", ""))
         elif isinstance(cache_data, list):
             for item in cache_data:
                 item = item or {}
                 symbol = item.get("symbol", item.get("yf_symbol"))
-                add_candidate(symbol, item.get("name"), item.get("market_cap", 0))
+                add_candidate(symbol, item.get("name"), item.get("market_cap", 0), item.get("market_cap_as_of", ""), item.get("market_cap_source", ""))
     except Exception as e:
         print("로컬 미국 시총 캐시 읽기 오류, 기본 목록 대체:", e)
 
@@ -1127,7 +1220,7 @@ def fetch_us_top100_tickers(top_n=100) -> list:
         if len(candidates) >= top_n:
             break
 
-    tickers_info = list(candidates.values())[:top_n]
+    tickers_info = sorted(candidates.values(), key=lambda item: item["market_cap"], reverse=True)[:top_n]
     if len(tickers_info) < top_n:
         raise RuntimeError(f"US universe has only {len(tickers_info)} unique tickers; expected {top_n}.")
     return tickers_info
@@ -1197,7 +1290,7 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
         else:
             # Pull a small reserve list so unavailable or retired symbols can
             # be replaced before the expensive fundamentals stage begins.
-            tickers_info = fetch_us_top100_tickers(top_n + 20)
+            tickers_info = fetch_us_top100_tickers(top_n + 20, refresh=True)
         
         base_df = pd.DataFrame(tickers_info)
         yf_symbols = base_df['yf_symbol'].tolist()
@@ -1501,6 +1594,11 @@ def screening_worker(market, top_n, app_queue, stop_requested_func, opt_fundamen
             temp_cache_file = f"{cache_file}.tmp"
             df.to_csv(temp_cache_file, index=False, encoding="utf-8-sig")
             os.replace(temp_cache_file, cache_file)
+            if market_text == "미국":
+                try:
+                    save_us_market_cap_cache(tickers_info)
+                except OSError as error:
+                    print(f"[WARN] Snapshot saved, but US universe cache write failed: {error}")
         
         app_queue.put({"type": "data", "data": final_data})
         app_queue.put({"type": "done", "text": "[OK] 스크리닝 성공 및 로컬 데이터베이스 덤프 완료!"})
