@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-10 15:24 KST",
-  "range_start": "2025-09-10",
-  "range_end": "2027-09-10",
+  "collected_at": "2026-09-11 00:06 KST",
+  "range_start": "2025-09-11",
+  "range_end": "2027-09-11",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -753,6 +753,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/035900.KQ/"
+    },
+    {
+      "id": "2026-08-14|실적|030200|kt 실적 발표",
+      "date": "2026-08-14",
+      "title": "KT 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "030200",
+      "name": "KT",
+      "detail": "예상 EPS 1,544",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/030200.KS/"
     },
     {
       "id": "2026-08-14|실적|033780|kt&g 실적 발표",
@@ -2065,10 +2080,10 @@
       "title": "브로드컴 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
+      "time_kst": "시간 미정",
       "symbol": "AVGO",
       "name": "브로드컴",
-      "detail": "2026년 3분기 · 예상 EPS 3.24",
+      "detail": "예상 EPS 3.24",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3088,7 +3103,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "ADP",
       "name": "ADP",
-      "detail": "2027년 1분기 · 예상 EPS 2.78",
+      "detail": "2027년 1분기 · 예상 EPS 2.77",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3688,7 +3703,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "GILD",
       "name": "GILD",
-      "detail": "2026년 3분기 · 예상 EPS 2.15",
+      "detail": "2026년 3분기 · 예상 EPS 2.14",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4648,7 +4663,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "CSCO",
       "name": "시스코 시스템즈",
-      "detail": "2027년 1분기 · 예상 EPS 1.33",
+      "detail": "2027년 1분기 · 예상 EPS 1.32",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4873,7 +4888,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "INTU",
       "name": "Intuit Inc.",
-      "detail": "2027년 1분기 · 예상 EPS 2.78",
+      "detail": "2027년 1분기 · 예상 EPS 2.72",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5217,7 +5232,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:280",
+    "Yahoo Finance": "ok:282",
     "Finnhub": "ok:18"
   }
 }
