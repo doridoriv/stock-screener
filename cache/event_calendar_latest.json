@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-12 00:18 KST",
+  "collected_at": "2026-09-12 15:14 KST",
   "range_start": "2025-09-12",
   "range_end": "2027-09-12",
   "events": [
@@ -3050,21 +3050,6 @@
       "source_url": "https://finance.yahoo.com/quote/005930.KS/"
     },
     {
-      "id": "2026-10-28|실적|scco|서던 코퍼 실적 발표",
-      "date": "2026-10-28",
-      "title": "서던 코퍼 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "SCCO",
-      "name": "서던 코퍼",
-      "detail": "2026년 3분기 · 예상 EPS 1.87",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/SCCO/"
-    },
-    {
       "id": "2026-10-29|금리|fomc 금리결정",
       "date": "2026-10-29",
       "title": "FOMC 금리결정",
@@ -3213,6 +3198,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/MRK/"
+    },
+    {
+      "id": "2026-10-29|실적|bbva|방코 빌바오 비스카야 아르헨타리아 adr 실적 발표",
+      "date": "2026-10-29",
+      "title": "방코 빌바오 비스카야 아르헨타리아 ADR 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "BBVA",
+      "name": "방코 빌바오 비스카야 아르헨타리아 ADR",
+      "detail": "2026년 3분기 · 예상 EPS 0.60",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BBVA/"
     },
     {
       "id": "2026-10-29|실적|shel|쉘 adr 실적 발표",
@@ -3815,6 +3815,21 @@
       "source_url": "https://finance.yahoo.com/quote/SHOP/"
     },
     {
+      "id": "2026-11-03|실적|etn|이튼 실적 발표",
+      "date": "2026-11-03",
+      "title": "이튼 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "ETN",
+      "name": "이튼",
+      "detail": "2026년 3분기 · 예상 EPS 3.53",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ETN/"
+    },
+    {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
       "date": "2026-11-03",
       "title": "카카오페이 실적 발표",
@@ -4173,21 +4188,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/000880.KS/"
-    },
-    {
-      "id": "2026-11-06|실적|wdc|웨스턴 디지털 실적 발표",
-      "date": "2026-11-06",
-      "title": "웨스턴 디지털 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "WDC",
-      "name": "웨스턴 디지털",
-      "detail": "2027년 1분기 · 예상 EPS 4.04",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/WDC/"
     },
     {
       "id": "2026-11-06|고용|미국 고용보고서",
