@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-15 15:30 KST",
-  "range_start": "2025-09-15",
-  "range_end": "2027-09-15",
+  "collected_at": "2026-09-16 00:55 KST",
+  "range_start": "2025-09-16",
+  "range_end": "2027-09-16",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -1423,7 +1423,7 @@
       "time_kst": "시간 미정",
       "symbol": "005490",
       "name": "POSCO홀딩스",
-      "detail": "2026년 3분기 · 예상 EPS 6,548",
+      "detail": "2026년 3분기 · 예상 EPS 5,994",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2173,7 +2173,7 @@
       "time_kst": "시간 미정",
       "symbol": "090430",
       "name": "아모레퍼시픽",
-      "detail": "2026년 3분기 · 예상 EPS 1,475",
+      "detail": "2026년 3분기 · 예상 EPS 1,476",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2203,7 +2203,7 @@
       "time_kst": "시간 미정",
       "symbol": "000720",
       "name": "현대건설",
-      "detail": "2026년 3분기 · 예상 EPS 1,037",
+      "detail": "2026년 3분기 · 예상 EPS 1,086",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2503,7 +2503,7 @@
       "time_kst": "시간 미정",
       "symbol": "003670",
       "name": "포스코퓨처엠",
-      "detail": "2026년 3분기 · 예상 EPS 43.22",
+      "detail": "2026년 3분기 · 예상 EPS 50.48",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3755,6 +3755,21 @@
       "source_url": "https://finance.yahoo.com/quote/ORCL/"
     },
     {
+      "id": "2026-12-16|실적|mu|마이크론 테크놀로지 실적 발표",
+      "date": "2026-12-16",
+      "title": "마이크론 테크놀로지 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "MU",
+      "name": "마이크론 테크놀로지",
+      "detail": "예상 EPS 35.8818",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-12-23|성장|미국 gdp 발표",
       "date": "2026-12-23",
       "title": "미국 GDP 발표",
@@ -3858,6 +3873,21 @@
       "status": "확정",
       "source": "Federal Reserve",
       "source_url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+    },
+    {
+      "id": "2027-09-16|금리|fomc 금리결정·경제전망",
+      "date": "2027-09-16",
+      "title": "FOMC 금리결정·경제전망",
+      "category": "금리",
+      "market": "미국",
+      "time_kst": "03:00 KST",
+      "symbol": "",
+      "name": "",
+      "detail": "미 연준 통화정책 결정",
+      "importance": "매우 중요",
+      "status": "확정",
+      "source": "Federal Reserve",
+      "source_url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
     }
   ],
   "sources": {
@@ -3868,6 +3898,6 @@
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
     "Yahoo Finance": "ok:190",
-    "Finnhub": "ok:17"
+    "Finnhub": "ok:18"
   }
 }
