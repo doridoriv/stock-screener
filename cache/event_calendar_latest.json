@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-15 02:18 KST",
+  "collected_at": "2026-09-15 15:30 KST",
   "range_start": "2025-09-15",
   "range_end": "2027-09-15",
   "events": [
@@ -913,7 +913,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "JNJ",
       "name": "존슨앤드존슨",
-      "detail": "2026년 3분기 · 예상 EPS 2.42",
+      "detail": "2026년 3분기 · 예상 EPS 2.56",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1513,7 +1513,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "UNH",
       "name": "유나이티드헬스 그룹",
-      "detail": "2026년 3분기 · 예상 EPS 4.12",
+      "detail": "2026년 3분기 · 예상 EPS 4.14",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1758,6 +1758,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/005930.KS/"
+    },
+    {
+      "id": "2026-10-28|실적|scco|서던 코퍼 실적 발표",
+      "date": "2026-10-28",
+      "title": "서던 코퍼 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "SCCO",
+      "name": "서던 코퍼",
+      "detail": "2026년 3분기 · 예상 EPS 1.87",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/SCCO/"
     },
     {
       "id": "2026-10-29|금리|fomc 금리결정",
@@ -2525,21 +2540,6 @@
       "source_url": "https://finance.yahoo.com/quote/SHOP/"
     },
     {
-      "id": "2026-11-03|실적|etn|이튼 실적 발표",
-      "date": "2026-11-03",
-      "title": "이튼 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "ETN",
-      "name": "이튼",
-      "detail": "2026년 3분기 · 예상 EPS 3.53",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ETN/"
-    },
-    {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
       "date": "2026-11-03",
       "title": "카카오페이 실적 발표",
@@ -2743,7 +2743,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "COP",
       "name": "코노코필립스",
-      "detail": "2026년 3분기 · 예상 EPS 2.66",
+      "detail": "2026년 3분기 · 예상 EPS 2.64",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
