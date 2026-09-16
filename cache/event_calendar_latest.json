@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-16 15:25 KST",
-  "range_start": "2025-09-16",
-  "range_end": "2027-09-16",
+  "collected_at": "2026-09-17 00:48 KST",
+  "range_start": "2025-09-17",
+  "range_end": "2027-09-17",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -3170,21 +3170,6 @@
       "source_url": "https://finance.yahoo.com/quote/015760.KS/"
     },
     {
-      "id": "2026-11-12|실적|088350|한화생명 실적 발표",
-      "date": "2026-11-12",
-      "title": "한화생명 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "088350",
-      "name": "한화생명",
-      "detail": "2026년 3분기 · 예상 EPS 115",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/088350.KS/"
-    },
-    {
       "id": "2026-11-12|실적|dis|월트 디즈니 실적 발표",
       "date": "2026-11-12",
       "title": "월트 디즈니 실적 발표",
@@ -3897,7 +3882,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:190",
+    "Yahoo Finance": "ok:189",
     "Finnhub": "ok:18"
   }
 }
