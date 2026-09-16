@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-16 00:55 KST",
+  "collected_at": "2026-09-16 15:25 KST",
   "range_start": "2025-09-16",
   "range_end": "2027-09-16",
   "events": [
@@ -685,10 +685,10 @@
       "title": "브로드컴 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
+      "time_kst": "시간 미정",
       "symbol": "AVGO",
       "name": "브로드컴",
-      "detail": "2026년 3분기 · 예상 EPS 3.24",
+      "detail": "예상 EPS 3.24",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -888,6 +888,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/WFC/"
+    },
+    {
+      "id": "2026-10-13|실적|unh|유나이티드헬스 그룹 실적 발표",
+      "date": "2026-10-13",
+      "title": "유나이티드헬스 그룹 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "UNH",
+      "name": "유나이티드헬스 그룹",
+      "detail": "2026년 3분기 · 예상 EPS 4.14",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/UNH/"
     },
     {
       "id": "2026-10-13|실적|jpm|제이피모간체이스 실적 발표",
@@ -1503,21 +1518,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/NVS/"
-    },
-    {
-      "id": "2026-10-27|실적|unh|유나이티드헬스 그룹 실적 발표",
-      "date": "2026-10-27",
-      "title": "유나이티드헬스 그룹 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "UNH",
-      "name": "유나이티드헬스 그룹",
-      "detail": "2026년 3분기 · 예상 EPS 4.14",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/UNH/"
     },
     {
       "id": "2026-10-27|실적|000660|sk하이닉스 실적 발표",
