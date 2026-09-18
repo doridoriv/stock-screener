@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-18 00:53 KST",
+  "collected_at": "2026-09-18 15:21 KST",
   "range_start": "2025-09-18",
   "range_end": "2027-09-18",
   "events": [
@@ -1265,21 +1265,6 @@
       "source_url": "https://finance.yahoo.com/quote/PG/"
     },
     {
-      "id": "2026-10-22|실적|tmus|t-모바일 us 실적 발표",
-      "date": "2026-10-22",
-      "title": "T-모바일 US 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "TMUS",
-      "name": "T-모바일 US",
-      "detail": "2026년 3분기 · 예상 EPS 2.90",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/TMUS/"
-    },
-    {
       "id": "2026-10-22|실적|unp|유니온 퍼시픽 실적 발표",
       "date": "2026-10-22",
       "title": "유니온 퍼시픽 실적 발표",
@@ -1670,21 +1655,6 @@
       "source_url": "https://finance.yahoo.com/quote/SAN/"
     },
     {
-      "id": "2026-10-28|실적|ba|보잉 실적 발표",
-      "date": "2026-10-28",
-      "title": "보잉 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "BA",
-      "name": "보잉",
-      "detail": "2026년 3분기 · 예상 EPS -0.14",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BA/"
-    },
-    {
       "id": "2026-10-28|실적|aph|암페놀 실적 발표",
       "date": "2026-10-28",
       "title": "암페놀 실적 발표",
@@ -1788,6 +1758,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/KLAC/"
+    },
+    {
+      "id": "2026-10-29|실적|tmus|t-모바일 us 실적 발표",
+      "date": "2026-10-29",
+      "title": "T-모바일 US 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "05:00 KST · 장 마감 후",
+      "symbol": "TMUS",
+      "name": "T-모바일 US",
+      "detail": "2026년 3분기 · 예상 EPS 2.90",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/TMUS/"
     },
     {
       "id": "2026-10-29|실적|msft|마이크로소프트 실적 발표",
@@ -2508,6 +2493,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/SHOP/"
+    },
+    {
+      "id": "2026-11-03|실적|etn|이튼 실적 발표",
+      "date": "2026-11-03",
+      "title": "이튼 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "ETN",
+      "name": "이튼",
+      "detail": "2026년 3분기 · 예상 EPS 3.53",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ETN/"
     },
     {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
