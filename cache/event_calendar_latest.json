@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-18 15:21 KST",
-  "range_start": "2025-09-18",
-  "range_end": "2027-09-18",
+  "collected_at": "2026-09-19 00:24 KST",
+  "range_start": "2025-09-19",
+  "range_end": "2027-09-19",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -438,21 +438,6 @@
       "status": "확정",
       "source": "한국은행",
       "source_url": "https://www.bok.or.kr/portal/bbs/B0000502/view.do?menuNo=201265&nttId=10094300"
-    },
-    {
-      "id": "2026-08-19|실적|adi|애널로그 디바이시스 실적 발표",
-      "date": "2026-08-19",
-      "title": "애널로그 디바이시스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "ADI",
-      "name": "애널로그 디바이시스",
-      "detail": "예상 EPS 3.34",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ADI/"
     },
     {
       "id": "2026-08-20|실적|de|디어 실적 발표",
@@ -2735,21 +2720,6 @@
       "source_url": "https://finance.yahoo.com/quote/TM/"
     },
     {
-      "id": "2026-11-05|실적|035760|cj enm 실적 발표",
-      "date": "2026-11-05",
-      "title": "CJ ENM 실적 발표",
-      "category": "실적",
-      "market": "코스닥",
-      "time_kst": "시간 미정",
-      "symbol": "035760",
-      "name": "CJ ENM",
-      "detail": "2026년 3분기",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/035760.KQ/"
-    },
-    {
       "id": "2026-11-05|실적|078930|gs 실적 발표",
       "date": "2026-11-05",
       "title": "GS 실적 발표",
@@ -3138,21 +3108,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/015760.KS/"
-    },
-    {
-      "id": "2026-11-12|실적|088350|한화생명 실적 발표",
-      "date": "2026-11-12",
-      "title": "한화생명 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "088350",
-      "name": "한화생명",
-      "detail": "2026년 3분기 · 예상 EPS 115",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/088350.KS/"
     },
     {
       "id": "2026-11-12|실적|dis|월트 디즈니 실적 발표",
@@ -3867,7 +3822,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:188",
+    "Yahoo Finance": "ok:185",
     "Finnhub": "ok:18"
   }
 }
