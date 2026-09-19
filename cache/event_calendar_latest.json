@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-19 00:24 KST",
+  "collected_at": "2026-09-19 15:16 KST",
   "range_start": "2025-09-19",
   "range_end": "2027-09-19",
   "events": [
@@ -1880,21 +1880,6 @@
       "source_url": "https://finance.yahoo.com/quote/MRK/"
     },
     {
-      "id": "2026-10-29|실적|bbva|방코 빌바오 비스카야 아르헨타리아 adr 실적 발표",
-      "date": "2026-10-29",
-      "title": "방코 빌바오 비스카야 아르헨타리아 ADR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "BBVA",
-      "name": "방코 빌바오 비스카야 아르헨타리아 ADR",
-      "detail": "2026년 3분기 · 예상 EPS 0.60",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BBVA/"
-    },
-    {
       "id": "2026-10-29|실적|shel|쉘 adr 실적 발표",
       "date": "2026-10-29",
       "title": "쉘 ADR 실적 발표",
@@ -2853,6 +2838,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/000880.KS/"
+    },
+    {
+      "id": "2026-11-06|실적|wdc|웨스턴 디지털 실적 발표",
+      "date": "2026-11-06",
+      "title": "웨스턴 디지털 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "05:00 KST · 장 마감 후",
+      "symbol": "WDC",
+      "name": "웨스턴 디지털",
+      "detail": "2027년 1분기 · 예상 EPS 4.04",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/WDC/"
     },
     {
       "id": "2026-11-06|고용|미국 고용보고서",
