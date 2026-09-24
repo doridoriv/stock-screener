@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-09-24 00:41 KST",
+  "collected_at": "2026-09-24 15:29 KST",
   "range_start": "2025-09-24",
   "range_end": "2027-09-24",
   "events": [
@@ -733,7 +733,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "MU",
       "name": "마이크론 테크놀로지",
-      "detail": "2026년 4분기 · 예상 EPS 31.50",
+      "detail": "2026년 4분기 · 예상 EPS 31.56",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1138,7 +1138,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "IBM",
       "name": "IBM(인터내셔널 비지니스 머신)",
-      "detail": "2026년 3분기 · 예상 EPS 2.88",
+      "detail": "2026년 3분기 · 예상 EPS 2.87",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1438,7 +1438,7 @@
       "time_kst": "시간 미정",
       "symbol": "000660",
       "name": "SK하이닉스",
-      "detail": "2026년 3분기 · 예상 EPS 86,119",
+      "detail": "2026년 3분기 · 예상 EPS 86,241",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1565,21 +1565,6 @@
       "source_url": "https://finance.yahoo.com/quote/GEV/"
     },
     {
-      "id": "2026-10-28|실적|ubs|ubs 그룹 ag 실적 발표",
-      "date": "2026-10-28",
-      "title": "UBS 그룹 AG 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "UBS",
-      "name": "UBS 그룹 AG",
-      "detail": "2026년 3분기 · 예상 EPS 0.75",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/UBS/"
-    },
-    {
       "id": "2026-10-28|실적|san|방코 산탄데르 adr 실적 발표",
       "date": "2026-10-28",
       "title": "방코 산탄데르 ADR 실적 발표",
@@ -1593,6 +1578,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/SAN/"
+    },
+    {
+      "id": "2026-10-28|실적|ba|보잉 실적 발표",
+      "date": "2026-10-28",
+      "title": "보잉 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "BA",
+      "name": "보잉",
+      "detail": "2026년 3분기 · 예상 EPS -0.15",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BA/"
     },
     {
       "id": "2026-10-28|실적|aph|암페놀 실적 발표",
@@ -1833,21 +1833,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/MRK/"
-    },
-    {
-      "id": "2026-10-29|실적|bbva|방코 빌바오 비스카야 아르헨타리아 adr 실적 발표",
-      "date": "2026-10-29",
-      "title": "방코 빌바오 비스카야 아르헨타리아 ADR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "BBVA",
-      "name": "방코 빌바오 비스카야 아르헨타리아 ADR",
-      "detail": "2026년 3분기 · 예상 EPS 0.60",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BBVA/"
     },
     {
       "id": "2026-10-29|실적|shel|쉘 adr 실적 발표",
@@ -2433,6 +2418,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ETN/"
+    },
+    {
+      "id": "2026-11-03|실적|pfe|화이자 실적 발표",
+      "date": "2026-11-03",
+      "title": "화이자 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "PFE",
+      "name": "화이자",
+      "detail": "2026년 3분기 · 예상 EPS 0.76",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/PFE/"
     },
     {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
@@ -3538,7 +3538,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "TD",
       "name": "토론토 도미니언 은행",
-      "detail": "2026년 4분기 · 예상 EPS 2.54",
+      "detail": "2026년 4분기 · 예상 EPS 2.51",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
