@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-25 15:27 KST",
-  "range_start": "2025-09-25",
-  "range_end": "2027-09-25",
+  "collected_at": "2026-09-26 01:00 KST",
+  "range_start": "2025-09-26",
+  "range_end": "2027-09-26",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -485,51 +485,6 @@
       "source_url": "https://finance.yahoo.com/quote/RY/"
     },
     {
-      "id": "2026-08-27|실적|crm|세일즈포스 실적 발표",
-      "date": "2026-08-27",
-      "title": "세일즈포스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "CRM",
-      "name": "세일즈포스",
-      "detail": "예상 EPS 3.27",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CRM/"
-    },
-    {
-      "id": "2026-08-27|실적|nvda|엔비디아 실적 발표",
-      "date": "2026-08-27",
-      "title": "엔비디아 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "NVDA",
-      "name": "엔비디아",
-      "detail": "예상 EPS 2.09",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/NVDA/"
-    },
-    {
-      "id": "2026-08-27|실적|crwd|크라우드 스트라이크 홀딩스 실적 발표",
-      "date": "2026-08-27",
-      "title": "크라우드 스트라이크 홀딩스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "CRWD",
-      "name": "크라우드 스트라이크 홀딩스",
-      "detail": "예상 EPS 0.29",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CRWD/"
-    },
-    {
       "id": "2026-08-27|실적|td|토론토 도미니언 은행 실적 발표",
       "date": "2026-08-27",
       "title": "토론토 도미니언 은행 실적 발표",
@@ -610,10 +565,10 @@
       "title": "브로드컴 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
+      "time_kst": "시간 미정",
       "symbol": "AVGO",
       "name": "브로드컴",
-      "detail": "2026년 3분기 · 예상 EPS 3.24",
+      "detail": "예상 EPS 3.24",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3650,6 +3605,21 @@
       "source_url": "https://finance.yahoo.com/quote/ORCL/"
     },
     {
+      "id": "2026-12-11|실적|cost|코스트코 홀세일 실적 발표",
+      "date": "2026-12-11",
+      "title": "코스트코 홀세일 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "05:00 KST · 장 마감 후",
+      "symbol": "COST",
+      "name": "코스트코 홀세일",
+      "detail": "2027년 1분기 · 예상 EPS 4.86",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/COST/"
+    },
+    {
       "id": "2026-12-16|실적|mu|마이크론 테크놀로지 실적 발표",
       "date": "2026-12-16",
       "title": "마이크론 테크놀로지 실적 발표",
@@ -3792,7 +3762,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:183",
+    "Yahoo Finance": "ok:181",
     "Finnhub": "ok:18"
   }
 }
