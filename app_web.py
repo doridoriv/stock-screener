@@ -2,6 +2,7 @@ import os
 import html
 import glob
 import json
+import math
 import calendar as month_calendar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -272,6 +273,24 @@ CUSTOM_POSITIVE_ONLY_METRICS = {
     "per", "pbr", "peg", "hist_per_avg", "peer_per_avg", "peer_pbr_avg",
 }
 
+
+def sanitize_custom_metric_ids(metric_ids):
+    if not isinstance(metric_ids, (list, tuple)):
+        return list(CUSTOM_DEFAULT_METRICS)
+    return list(dict.fromkeys(item for item in metric_ids if isinstance(item, str) and item in CUSTOM_METRIC_DEFS))
+
+
+def sanitize_custom_preferences(value):
+    value = value if isinstance(value, dict) else {}
+    market = value.get("market", "코스피")
+    lens = value.get("lens", MOBILE_LENS_OPTIONS[0])
+    return {
+        "metrics": sanitize_custom_metric_ids(value.get("metrics")),
+        "market": market if isinstance(market, str) and market in MARKET_LABEL_TO_VALUE else "코스피",
+        "lens": lens if isinstance(lens, str) and lens in MOBILE_LENS_OPTIONS else MOBILE_LENS_OPTIONS[0],
+        "lens_enabled": value.get("lens_enabled") is True,
+    }
+
 @st.cache_data(ttl=1800) # 캐시 유지 시간 30분
 def get_cached_market_panel(cache_version=MARKET_PANEL_CACHE_VERSION):
     cached_panel = market_analyzer.load_market_panel_cache()
@@ -324,11 +343,9 @@ if "custom_metric_selection_ids" not in st.session_state:
     st.session_state["custom_metric_selection_ids"] = initial_metric_ids
     st.session_state.custom_metric_default_version = CUSTOM_METRIC_DEFAULT_VERSION
 else:
-    st.session_state["custom_metric_selection_ids"] = [
-        metric_id
-        for metric_id in CUSTOM_METRIC_IDS
-        if metric_id in set(st.session_state["custom_metric_selection_ids"])
-    ]
+    st.session_state["custom_metric_selection_ids"] = sanitize_custom_metric_ids(
+        st.session_state["custom_metric_selection_ids"]
+    )
 
 if "mobile_visible_count" not in st.session_state:
     st.session_state.mobile_visible_count = 5
@@ -716,37 +733,62 @@ def display_text(value, fallback=""):
     return fallback if not text or text.lower() in {"nan", "none", "n/a"} else text
 
 
-def available_custom_metric_ids(data) -> list[str]:
+def custom_metric_coverage(data):
     df = data.copy() if isinstance(data, pd.DataFrame) else pd.DataFrame(data or [])
-    if df.empty:
-        return list(CUSTOM_METRIC_IDS)
-
-    available = []
+    coverage = {}
     for metric_id in CUSTOM_METRIC_IDS:
-        if metric_id == "lens_score" and st.session_state.get("custom_lens_enabled", False):
-            available.append(metric_id)
-            continue
-        if metric_id not in df.columns:
-            continue
-        series = df[metric_id]
-        if CUSTOM_METRIC_DEFS[metric_id]["format"] == "boolean":
-            normalized = series.astype(str).str.strip().str.lower()
-            has_value = (series.notna() & ~normalized.isin({"", "nan", "none", "n/a"})).any()
-        else:
-            has_value = pd.to_numeric(series, errors="coerce").notna().any()
-        if has_value:
-            available.append(metric_id)
-    return available
+        coverage[metric_id] = sum(
+            custom_metric_sort_value(metric_id, value) is not None
+            for value in df[metric_id]
+        ) if metric_id in df else 0
+    return coverage
+
+
+def available_custom_metric_ids(data) -> list[str]:
+    coverage = custom_metric_coverage(data)
+    return [metric_id for metric_id in CUSTOM_METRIC_IDS if coverage[metric_id] > 0]
 
 
 def selected_custom_metric_ids(data) -> list[str]:
-    available = set(available_custom_metric_ids(data))
-    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
-    return [
-        metric_id
-        for metric_id in CUSTOM_METRIC_IDS
-        if metric_id in available and metric_id in selected
-    ]
+    selected = sanitize_custom_metric_ids(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
+    # Keep unavailable selections visible as missing when switching markets.
+    return [metric_id for metric_id in selected
+            if metric_id != "lens_score" or st.session_state.get("custom_lens_enabled", False)]
+
+
+def custom_metric_description(metric_id):
+    descriptions = {
+        "price": "저장된 가격 · 실시간 시세 아님",
+        "market_cap": "시가총액 · 한국 원화, 미국 달러",
+        "per": "주가 / 주당순이익 · 0 이하 배수는 비교 제외",
+        "pbr": "주가 / 주당순자산 · 0 이하 배수는 비교 제외",
+        "peg": "PER / 이익성장률 · 0 이하 배수는 비교 제외",
+        "roe": "자기자본 대비 순이익 비율 · 현금흐름과는 다름",
+        "peak": "수집된 최근 2년 종가 중 최고가",
+        "peak_diff": "(현재가 / 최근 2년 최고 종가 - 1) × 100",
+        "diff": "(종가 / 200일 이동평균 - 1) × 100",
+        "rsi": "14거래일 RSI · 0~100",
+        "dividend_growth_3y": "최근 3년 연평균 배당성장률",
+        "dividend_yield": "저장된 연간 주당배당금 / 현재가 × 100 · 미래 배당 보장 아님",
+        "payout_ratio": "순이익 대비 배당금 비율",
+        "free_cashflow": "영업현금흐름에서 자본적 지출을 차감한 현금",
+        "net_cash": "현금보유액에서 총부채를 차감한 금액",
+        "target_upside": "(평균 목표가 / 현재가 - 1) × 100 · 예상 수익 보장 아님",
+        "foreign_supply": "한국: 외국인 보유율 · 미국: 기관 보유율 · 순매수 아님",
+        "cagr": "수집된 연간 EPS의 연평균 성장률 · 최근 3개 연도, 2년 간격",
+        "score": "기본 지표 합산점수 · 선택 렌즈점수와 별도",
+        "lens_score": "현재 선택한 투자 렌즈의 평가점수",
+        "rank": "저장 후보군 내 시가총액 순위",
+    }
+    if metric_id in descriptions:
+        return descriptions[metric_id]
+    if metric_id.startswith("ma") and metric_id[2:].isdigit():
+        return f"최근 {metric_id[2:]}거래일 종가의 단순이동평균"
+    if metric_id in {"return_20d", "return_60d"}:
+        return f"최근 {metric_id.split('_')[1][:-1]}거래일 종가 수익률"
+    if metric_id.startswith("peer_"):
+        return "저장된 업종 비교 표본 기준 · 시장 전체 업종과 다를 수 있음"
+    return f"{CUSTOM_METRIC_DEFS[metric_id]['label']} · 제공처 기준, 종목별 자료 기준 확인"
 
 
 def custom_metric_sort_value(metric_id, value):
@@ -758,6 +800,8 @@ def custom_metric_sort_value(metric_id, value):
             return 0
         return None
     number = clean_number(value)
+    if number is not None and not math.isfinite(number):
+        return None
     if metric_id in CUSTOM_POSITIVE_ONLY_METRICS | {"market_cap"} and number is not None and number <= 0:
         return None
     return number
@@ -783,13 +827,13 @@ def metric_data_note(metric_id, row):
     if metric_id == "rank":
         return "저장된 후보군 내 시가총액 순위"
     if metric_id in {"price", "peak", "peak_diff", "diff", "rsi", "return_20d", "return_60d", "ma20", "ma60", "ma120", "ma200"}:
-        return f"가격 기준 {display_text(row.get('data_date'), '미확인')}"
+        return f"{custom_metric_description(metric_id)} · 가격 기준 {display_text(row.get('data_date'), '미확인')}"
     if metric_id == "dividend_growth_3y":
         return "최근 3년 연평균 배당성장률"
     if metric_id == "foreign_supply":
         return "외국인 보유율" if row_is_kr(row) else "기관 보유율"
     if metric_id in {"revenue", "operating_income", "net_income", "operating_cashflow", "free_cashflow", "cash", "total_debt", "net_cash"}:
-        return financial_period_text(row)
+        return f"{financial_period_text(row)} · {custom_metric_description(metric_id)}"
     return f"재무 갱신 {display_text(row.get('fundamental_refreshed_at'), '미확인')}"
 
 
@@ -894,7 +938,8 @@ def build_custom_table_rows(df, metric_ids, is_kr):
 def build_custom_table_html(df, metric_ids, is_kr, context_key):
     rows = build_custom_table_rows(df, metric_ids, is_kr)
     columns = [
-        {"id": metric_id, "label": CUSTOM_METRIC_DEFS[metric_id]["label"]}
+        {"id": metric_id, "label": CUSTOM_METRIC_DEFS[metric_id]["label"],
+         "description": custom_metric_description(metric_id)}
         for metric_id in metric_ids
     ]
     rows_json = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
@@ -915,7 +960,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     * { box-sizing: border-box; }
     html, body {
         width: 100%;
-        height: 100%;
+        height: auto;
         max-width: 100%;
         margin: 0;
         padding: 0;
@@ -969,8 +1014,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     .result-actions button:disabled { cursor: default; opacity: 0.38; }
     .table-shell {
         width: 100%;
-        max-height: 440px;
-        overflow: auto;
+        overflow: visible;
         border: 1px solid #dbe3ec;
         border-radius: 7px;
         background: #ffffff;
@@ -1057,26 +1101,23 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     tbody tr:last-child td { border-bottom: 0; }
     th:last-child, td:last-child { border-right: 0; }
     .empty-cell { height: 84px; text-align: center; color: #64748b; }
-    @media (max-width: 720px) {
+    @media (min-width: 0px) {
         .count-controls,
         .result-actions { gap: 4px; }
         .count-controls button,
-        .result-actions button { height: 35px; font-size: 11.5px; padding: 0 2px; }
-        .desktop-view { display: none; }
-        .mobile-view {
+        .result-actions button { min-height: 40px; font-size: 13px; padding: 0 2px; }
+        body.wrapped .desktop-view { display: none; }
+        body.wrapped .mobile-view {
             display: flex;
-            flex: 1;
             min-height: 0;
             flex-direction: column;
-            overflow: hidden;
         }
         .mobile-shell {
-            flex: 1;
             min-height: 0;
             width: 100%;
             max-width: 100%;
             overflow-x: hidden;
-            overflow-y: auto;
+            overflow-y: visible;
             border: 1px solid #dbe3ec;
             border-radius: 7px;
             background: #ffffff;
@@ -1127,7 +1168,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         }
         .mobile-metrics {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
             gap: 6px;
             width: 100%;
             max-width: 100%;
@@ -1177,6 +1218,17 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             text-align: center;
         }
     }
+    details { font-size: 12px; line-height: 1.6; margin: 6px 0 12px; color: #475569; }
+    @media (max-width: 360px) {
+        .mobile-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    summary { cursor: pointer; min-height: 36px; padding: 7px 0; font-weight: 700; }
+    .definition { margin: 5px 0; overflow-wrap: anywhere; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .legend .up { color: #dc2626; } .legend .down { color: #2563eb; }
+    .legend .favorable { color: #15803d; } .legend .caution { color: #b45309; }
+    .legend .missing { color: #64748b; }
+    button:focus-visible, summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -1192,6 +1244,15 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     <button type="button" data-action="reset-sort">기본 정렬</button>
 </div>
 <div id="result-status" class="result-status" role="status" aria-live="polite"></div>
+<details id="metric-definitions">
+    <summary>지표 기준 · 색상 의미</summary>
+    <div class="legend">
+        <span class="up">빨강: 양수·상승</span><span class="down">파랑: 음수·하락</span>
+        <span class="favorable">초록: 우호 평가</span><span class="caution">주황: 주의 평가</span>
+        <span class="up">진한 빨강: 위험 평가</span><span class="missing">-: 자료 없음 · 0 아님</span>
+    </div>
+    <div id="definition-list"></div>
+</details>
 <div class="desktop-view">
     <div class="table-shell" id="table-shell">
         <table id="custom-table">
@@ -1224,6 +1285,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         if (stored) {
             state.scrollTop = Math.max(0, Number(stored.scrollTop) || 0);
             state.scrollLeft = Math.max(0, Number(stored.scrollLeft) || 0);
+            if (typeof stored.returnSymbol === "string") state.returnSymbol = stored.returnSymbol;
         }
         const limit = JSON.parse(window.localStorage.getItem("stock-screener-custom-limit") || "null");
         if (limit === "all" || (Number.isFinite(limit) && limit >= 5)) state.limit = limit;
@@ -1237,6 +1299,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     }
 
     function openStock(row) {
+        state.returnSymbol = row.symbol;
         saveState();
         window.parent.postMessage({type: "stock-screener:open", symbol: row.symbol,
             eventId: `${Date.now()}-${Math.random()}`}, "*");
@@ -1355,6 +1418,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             const detail = document.createElement("button");
             detail.type = "button";
             detail.className = "stock-detail-link";
+            detail.dataset.symbol = row.symbol;
             detail.textContent = `${row.name || row.symbol} ›`;
             detail.setAttribute("aria-label", `${row.name || row.symbol} 상세 보기`);
             detail.addEventListener("click", () => openStock(row));
@@ -1402,6 +1466,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             const name = document.createElement("button");
             name.type = "button";
             name.className = "mobile-result-name stock-detail-link";
+            name.dataset.symbol = row.symbol;
             name.textContent = `${row.name || row.symbol} ›`;
             name.setAttribute("aria-label", `${row.name || row.symbol} 상세 보기`);
             name.addEventListener("click", () => openStock(row));
@@ -1454,6 +1519,17 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
                 result.appendChild(metrics);
             }
             list.appendChild(result);
+            const notes = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.textContent = "자료 기준";
+            notes.appendChild(summary);
+            for (const column of columns) {
+                const note = document.createElement("div");
+                note.className = "definition";
+                note.textContent = `${column.label} · ${row.notes[column.id] || "기준 미확인"}`;
+                notes.appendChild(note);
+            }
+            result.appendChild(notes);
         });
     }
 
@@ -1462,6 +1538,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
             const requested = button.dataset.limit;
             const active = requested === "all" ? state.limit === "all" : state.limit !== "all" && Number(requested) === Number(state.limit);
             button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", String(active));
         });
         const previousButton = document.querySelector('button[data-action="previous"]');
         const moreButton = document.querySelector('button[data-action="more"]');
@@ -1473,8 +1550,7 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
 
     function render() {
         const rows = orderedRows().slice(0, visibleLimit());
-        const table = document.getElementById("custom-table");
-        table.style.minWidth = columns.length ? `${176 + columns.length * 132}px` : "100%";
+        updateLayout();
         renderHeader();
         renderBody(rows);
         renderMobileCards(rows);
@@ -1482,11 +1558,19 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
         const column = columns.find(item => item.id === state.sortId);
         const order = column ? `${column.label} ${state.sortDir === "desc" ? "높은순" : "낮은순"}` : "__BASE_ORDER_LABEL__";
         document.getElementById("result-status").textContent = `전체 ${allRows.length}개 중 ${rows.length}개 표시 · ${order}`;
-        for (const id of ["table-shell", "mobile-shell"]) {
-            const shell = document.getElementById(id);
-            shell.scrollTop = state.scrollTop;
-            shell.scrollLeft = state.scrollLeft;
-        }
+    }
+
+    function updateLayout() {
+        const width = document.documentElement.clientWidth;
+        document.body.classList.toggle("wrapped", width <= 720 || 176 + columns.length * 132 > width);
+    }
+
+    const definitions = document.getElementById("definition-list");
+    for (const column of columns) {
+        const definition = document.createElement("div");
+        definition.className = "definition";
+        definition.textContent = `${column.label} · ${column.description}`;
+        definitions.appendChild(definition);
     }
 
     document.querySelectorAll("button[data-limit]").forEach((button) => {
@@ -1509,13 +1593,35 @@ def build_custom_table_html(df, metric_ids, is_kr, context_key):
     });
     document.querySelector('button[data-action="reset-sort"]').addEventListener("click", clearSort);
     render();
-    for (const id of ["table-shell", "mobile-shell"]) {
-        document.getElementById(id).addEventListener("scroll", event => {
-            state.scrollTop = event.target.scrollTop;
-            state.scrollLeft = event.target.scrollLeft;
+    let restoringSelection = false;
+    function restoreSelection() {
+        if (restoringSelection || !state.returnSymbol || window.innerHeight < document.body.getBoundingClientRect().height) return;
+        restoringSelection = true;
+        // Streamlit can finish laying out controls above this iframe after its height is applied.
+        setTimeout(() => {
+            const target = [...document.querySelectorAll(".stock-detail-link")]
+                .find(button => button.dataset.symbol === state.returnSymbol && button.getClientRects().length);
+            if (target) {
+                target.focus({preventScroll: true});
+                target.scrollIntoView({block: "center"});
+                window.parent.postMessage({type: "stock-screener:restore-position", top: target.getBoundingClientRect().top}, "*");
+            }
+            delete state.returnSymbol;
             saveState();
-        });
+        }, 500);
     }
+    let lastHeight = 0;
+    new ResizeObserver(() => {
+        updateLayout();
+        const height = Math.ceil(document.body.getBoundingClientRect().height) + 4;
+        if (height !== lastHeight) {
+            lastHeight = height;
+            window.parent.postMessage({type: "stock-screener:height", height}, "*");
+        }
+        requestAnimationFrame(restoreSelection);
+    }).observe(document.body);
+    // Wait for Streamlit to apply the frame height before restoring the outer page position.
+    window.addEventListener("resize", () => { updateLayout(); requestAnimationFrame(restoreSelection); });
 </script>
 </body>
 </html>
@@ -3638,10 +3744,8 @@ def render_investment_lens_controls():
 
 
 def set_custom_metric_selection(metric_ids):
-    selected = set(metric_ids)
-    st.session_state["custom_metric_selection_ids"] = [
-        metric_id for metric_id in CUSTOM_METRIC_IDS if metric_id in selected
-    ]
+    selected = sanitize_custom_metric_ids(metric_ids)
+    st.session_state["custom_metric_selection_ids"] = selected
     for metric_id in CUSTOM_METRIC_IDS:
         is_selected = metric_id in selected
         dialog_key = f"custom_metric_dialog_{metric_id}"
@@ -3650,14 +3754,30 @@ def set_custom_metric_selection(metric_ids):
 
 
 def sync_custom_metric_from_dialog(metric_id):
-    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
+    selected = sanitize_custom_metric_ids(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
     if st.session_state.get(f"custom_metric_dialog_{metric_id}", False):
-        selected.add(metric_id)
-    else:
-        selected.discard(metric_id)
-    st.session_state["custom_metric_selection_ids"] = [
-        candidate_id for candidate_id in CUSTOM_METRIC_IDS if candidate_id in selected
-    ]
+        if metric_id not in selected:
+            selected.append(metric_id)
+    elif metric_id in selected:
+        selected.remove(metric_id)
+    st.session_state["custom_metric_selection_ids"] = selected
+
+
+def move_custom_metric(metric_id, offset):
+    selected = sanitize_custom_metric_ids(st.session_state.get("custom_metric_selection_ids"))
+    visible = [item for item in selected if item != "lens_score" or st.session_state.get("custom_lens_enabled", False)]
+    if metric_id not in visible:
+        return
+    position = visible.index(metric_id)
+    target = position + offset
+    if 0 <= target < len(visible):
+        left, right = selected.index(metric_id), selected.index(visible[target])
+        selected[left], selected[right] = selected[right], selected[left]
+        set_custom_metric_selection(selected)
+
+
+def remove_custom_metric(metric_id):
+    set_custom_metric_selection([item for item in st.session_state["custom_metric_selection_ids"] if item != metric_id])
 
 
 def prepare_custom_metric_dialog(available):
@@ -3667,18 +3787,30 @@ def prepare_custom_metric_dialog(available):
 
 
 def _selected_custom_metric_ids(available):
-    selected = set(st.session_state.get("custom_metric_selection_ids", CUSTOM_DEFAULT_METRICS))
-    return [
-        metric_id
-        for metric_id in CUSTOM_METRIC_IDS
-        if metric_id in available and metric_id in selected
-    ]
+    return [metric_id for metric_id in sanitize_custom_metric_ids(st.session_state.get("custom_metric_selection_ids"))
+            if metric_id != "lens_score" or st.session_state.get("custom_lens_enabled", False)]
+
+
+def custom_picker_data():
+    data = pd.DataFrame(st.session_state.get("data", []))
+    if not data.empty and st.session_state.custom_lens_enabled:
+        lens = st.session_state.mobile_investment_lens
+        if is_mobile_situation_lens(lens):
+            _, analyses = apply_mobile_situation_lens(data, lens, get_market_text())
+            data["lens_score"] = data["symbol"].astype(str).map(
+                lambda symbol: analyses.get(symbol, {}).get("score", math.nan)
+            )
+        else:
+            data["lens_score"] = data.apply(lambda row: mobile_lens_score(row.to_dict(), lens), axis=1)
+    return data
 
 
 @st.dialog("표시할 지표 선택", width="large", dismissible=True, on_dismiss="rerun")
 def render_custom_metric_dialog(available_metric_ids):
     available = set(available_metric_ids)
     selected_ids = _selected_custom_metric_ids(available)
+    data = custom_picker_data()
+    coverage = custom_metric_coverage(data)
 
     with st.container(key="custom_metric_actions"):
         action_columns = st.columns([1.1, 1, 1], gap="small")
@@ -3706,6 +3838,30 @@ def render_custom_metric_dialog(available_metric_ids):
                 args=((),),
             )
 
+    query = st.text_input("지표 검색", key="custom_metric_search", placeholder="PER, 배당, 현금…").strip().casefold()
+    selected_only = st.toggle("선택 지표만 · 순서 편집", key="custom_metric_selected_only")
+    st.caption(f"{get_market_text()} 저장 후보 {len(data)}개 기준 · 보유 자료 / 전체 종목")
+    if selected_only:
+        with st.container(key="custom_metric_order"):
+            for index, metric_id in enumerate(selected_ids):
+                definition = CUSTOM_METRIC_DEFS[metric_id]
+                if query and query not in f"{metric_id} {definition['label']} {definition['group']}".casefold():
+                    continue
+                label_col, up_col, down_col, remove_col = st.columns([6, 1, 1, 1], gap="small")
+                with label_col:
+                    st.markdown(f"**{index + 1}. {definition['label']}** · {coverage[metric_id]}/{len(data)}")
+                for column, offset, icon, disabled in [
+                    (up_col, -1, "arrow_upward", index == 0),
+                    (down_col, 1, "arrow_downward", index == len(selected_ids) - 1),
+                ]:
+                    with column:
+                        st.button("", icon=f":material/{icon}:", key=f"custom_move_{metric_id}_{offset}",
+                                  help=f"{definition['label']} {'앞으로' if offset < 0 else '뒤로'}",
+                                  disabled=disabled, on_click=move_custom_metric, args=(metric_id, offset))
+                with remove_col:
+                    st.button("", icon=":material/close:", help=f"{definition['label']} 선택 해제",
+                              key=f"custom_remove_{metric_id}", on_click=remove_custom_metric, args=(metric_id,))
+
     section_groups = [
         ("기업", {"기본", "가치", "수익성"}),
         ("성장·재무", {"성장", "재무·현금", "배당"}),
@@ -3718,11 +3874,19 @@ def render_custom_metric_dialog(available_metric_ids):
             for group, metrics in CUSTOM_METRIC_GROUPS
             if group in group_names
         ]
+        groups = [(group, [metric for metric in metrics if not query or query in f"{metric[0]} {metric[1]} {group}".casefold()])
+                  for group, metrics in groups]
         groups = [(group, metrics) for group, metrics in groups if metrics]
         if groups:
             visible_sections.append((section_label, groups))
 
-    tabs = st.tabs([section_label for section_label, _ in visible_sections])
+    if selected_only:
+        visible_sections = []
+    if query and visible_sections:
+        visible_sections = [("검색 결과", [group for _, groups in visible_sections for group in groups])]
+    tabs = ([st.container()] if query else st.tabs([label for label, _ in visible_sections])) if visible_sections else []
+    if not visible_sections and not selected_only:
+        st.info("일치하는 지표가 없습니다.")
     for section_index, (tab, (_, groups)) in enumerate(zip(tabs, visible_sections)):
         with tab:
             with st.container(key=f"custom_metric_selector_{section_index}"):
@@ -3736,13 +3900,14 @@ def render_custom_metric_dialog(available_metric_ids):
                         columns = st.columns(2, gap="small")
                         for column, (metric_id, label, _) in zip(columns, row_metrics):
                             with column:
+                                widget_key = f"custom_metric_dialog_{metric_id}"
+                                if widget_key not in st.session_state:
+                                    st.session_state[widget_key] = metric_id in selected_ids
                                 st.checkbox(
-                                    label,
-                                    key=f"custom_metric_dialog_{metric_id}",
-                                    disabled=metric_id not in available,
-                                    help=("현재 시장에 수집된 값이 없습니다." if metric_id not in available else
-                                          "기본 지표 합산점수 · 렌즈점수와 별도" if metric_id == "score" else
-                                          "선택한 투자 렌즈의 평가점수" if metric_id == "lens_score" else None),
+                                    f"{label} · {coverage[metric_id]}/{len(data)}",
+                                    key=widget_key,
+                                    disabled=metric_id not in available and metric_id not in selected_ids,
+                                    help=custom_metric_description(metric_id) + (" · 현재 시장 자료 없음" if metric_id not in available else ""),
                                     on_change=sync_custom_metric_from_dialog,
                                     args=(metric_id,),
                                 )
@@ -3758,7 +3923,7 @@ def render_custom_metric_dialog(available_metric_ids):
 
 
 def render_custom_metric_selector():
-    data = pd.DataFrame(st.session_state.get("data", []))
+    data = custom_picker_data()
     available = set(available_custom_metric_ids(data))
     selected_ids = _selected_custom_metric_ids(available)
     selected_labels = [CUSTOM_METRIC_DEFS[metric_id]["label"] for metric_id in selected_ids]
@@ -3777,7 +3942,7 @@ def render_custom_metric_selector():
             width="stretch",
             key="custom_metric_picker_open",
         ):
-            prepare_custom_metric_dialog(available)
+            prepare_custom_metric_dialog(CUSTOM_METRIC_IDS)
             render_custom_metric_dialog(tuple(available))
 
 
@@ -3785,33 +3950,83 @@ def close_custom_detail():
     st.session_state.custom_selected_symbol = None
 
 
+def sync_custom_preferences():
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+    if get_script_run_ctx() is None or st.session_state.table_view_mode != "맞춤 보기":
+        return
+    ready = st.session_state.get("custom_preferences_ready", False)
+    event = custom_table_component(
+        mode="preferences", restore=not ready,
+        preferences={
+            "metrics": st.session_state.custom_metric_selection_ids,
+            "market": st.session_state.market_choice,
+            "lens": st.session_state.mobile_investment_lens,
+            "lens_enabled": st.session_state.custom_lens_enabled,
+        }, key="custom_preferences", default=None,
+    )
+    if ready:
+        if not st.session_state.get("custom_storage_available", True):
+            st.caption("브라우저 저장소 사용 불가 · 새로고침 시 선택 설정이 초기화될 수 있습니다.")
+        return
+    if not isinstance(event, dict) or not event.get("ready"):
+        st.stop()
+    st.session_state.custom_preferences_ready = True
+    st.session_state.custom_storage_available = event.get("storageAvailable", False)
+    if isinstance(event.get("preferences"), dict):
+        prefs = sanitize_custom_preferences(event["preferences"])
+        set_custom_metric_selection(prefs["metrics"])
+        st.session_state.market_choice = prefs["market"]
+        st.session_state.selected_market = MARKET_LABEL_TO_VALUE[prefs["market"]]
+        st.session_state.mobile_investment_lens = prefs["lens"]
+        st.session_state.last_mobile_investment_lens = prefs["lens"]
+        st.session_state.custom_lens_enabled = prefs["lens_enabled"]
+        load_cached_market_data()
+    st.rerun()
+
+
+def render_custom_stock_detail(row, metric_ids, is_kr, current_lens):
+    name = display_text(row.get("name"), display_text(row.get("symbol")))
+    st.subheader(name)
+    st.caption(f"{display_text(row.get('symbol'))} · {display_text(row.get('sector'), display_text(row.get('industry'), '업종 미확인'))}")
+    render_mobile_section("선택한 지표", custom_metric_detail_rows(row, metric_ids, is_kr))
+    with st.expander("추가 수치", expanded=False):
+        for group, metrics in CUSTOM_METRIC_GROUPS:
+            extra_ids = [metric_id for metric_id, _, _ in metrics if metric_id not in metric_ids
+                         and metric_id != "lens_score" and custom_metric_sort_value(metric_id, row.get(metric_id)) is not None]
+            if extra_ids:
+                render_mobile_section(group, custom_metric_detail_rows(row, extra_ids, is_kr))
+    with st.expander("기업 정보 · 자료 기준", expanded=False):
+        render_mobile_section("자료 기준", [
+            ("가격 거래일", display_text(row.get("data_date"), "미확인"), display_text(row.get("price_basis"), "가격 기준 미확인")),
+            ("재무제표", financial_period_text(row), f"자료 갱신 {display_text(row.get('fundamental_refreshed_at'), '미확인')}"),
+            ("기업", name, display_text(row.get("industry"), "업종 미확인")),
+        ])
+    if st.session_state.custom_lens_enabled:
+        with st.expander(f"추가 분석 · {MOBILE_LENS_META.get(current_lens, {}).get('score_label', '렌즈 평가')}", expanded=False):
+            metrics = custom_metric_detail_rows(row, ["lens_score"], is_kr) if is_mobile_situation_lens(current_lens) else mobile_score_breakdown(row, current_lens)
+            render_mobile_section("렌즈 점수 산정", metrics)
+
+
 def render_custom_results(df, is_kr, current_lens):
+    metric_ids = selected_custom_metric_ids(df)
     selected = st.session_state.custom_selected_symbol
     matched = df[df["symbol"].astype(str) == str(selected)] if selected and "symbol" in df else pd.DataFrame()
     if not matched.empty:
         row = matched.iloc[0].to_dict()
         st.button("맞춤 결과로 돌아가기", icon=":material/arrow_back:",
                   key="custom_detail_back", on_click=close_custom_detail, width="stretch")
-        lens = current_lens if st.session_state.custom_lens_enabled else "🎯 종합평가"
-        render_mobile_stock_card(row, is_kr, show_header=True, lens=lens)
+        render_custom_stock_detail(row, metric_ids, is_kr, current_lens)
         with st.container(key="mobile_fixed_close_wrap_custom"):
-            columns = st.columns(5)
-            for column, (label, value) in zip(columns[:4], [("요약", "요약"), ("수치", "상세 수치"), ("위치", "기술 위치"), ("정보", "기업 정보")]):
-                with column:
-                    if st.button(label, key=f"custom_detail_tab_{value}", width="stretch",
-                                 type="primary" if st.session_state.mobile_detail_tab == value else "secondary"):
-                        st.session_state.mobile_detail_tab = value
-                        st.rerun()
-            with columns[4]:
-                st.button("목록", key="custom_detail_return", on_click=close_custom_detail, width="stretch")
+            st.button("맞춤 결과로 돌아가기", icon=":material/arrow_back:", key="custom_detail_return",
+                      on_click=close_custom_detail, width="stretch")
         return
     st.session_state.custom_selected_symbol = None
-    metric_ids = selected_custom_metric_ids(df)
     lens_context = current_lens if st.session_state.custom_lens_enabled else "시장순위"
     context_key = f"{get_market_text()}|{lens_context}"
     event = custom_table_component(
         html=build_custom_table_html(df, metric_ids, is_kr, context_key),
-        height=560, key=f"custom_results_{context_key}", default=None,
+        key=f"custom_results_{context_key}", default=None,
     )
     if isinstance(event, dict) and event.get("eventId") != st.session_state.get("custom_last_detail_event"):
         st.session_state.custom_last_detail_event = event.get("eventId")
@@ -5487,6 +5702,18 @@ st.markdown("""
             margin-bottom: 5px;
             border-bottom: 1px solid #e2e8f0;
         }
+        [class*="st-key-custom_metric_order"] [data-testid="stHorizontalBlock"] {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) repeat(3, 36px) !important;
+            gap: 4px !important;
+            align-items: center !important;
+        }
+        [class*="st-key-custom_metric_order"] [data-testid="stColumn"] {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        [class*="st-key-custom_metric_order"] button { padding: 0 !important; min-width: 32px; }
+        [class*="st-key-custom_metric_order"] p { font-size: 13px; overflow-wrap: anywhere; }
         [class*="st-key-custom_metric_actions"] [data-testid="stHorizontalBlock"] {
             gap: 6px !important;
             align-items: center !important;
@@ -6538,6 +6765,7 @@ with st.sidebar:
 # ==========================================
 # 5. 메인 대시보드 화면 및 컨트롤 패널
 # ==========================================
+sync_custom_preferences()
 render_analysis_header()
 render_price_update_banner()
 render_active_header_tool()

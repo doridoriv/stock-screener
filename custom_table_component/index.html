@@ -9,6 +9,9 @@
   <script>
     const frame = document.getElementById("results");
     let currentHtml = null;
+    let contentHeight = 120;
+    let restored = false;
+    const preferencesKey = "stock-screener-custom-preferences-v1";
     function send(type, extra = {}) {
       window.parent.postMessage({isStreamlitMessage: true, type, ...extra}, "*");
     }
@@ -16,11 +19,50 @@
       const data = event.data || {};
       if (event.source === window.parent && data.type === "streamlit:render") {
         const args = data.args || {};
+        if (args.mode === "preferences") {
+          frame.hidden = true;
+          send("streamlit:setFrameHeight", {height: 0});
+          if (args.restore && !restored) {
+            restored = true;
+            let preferences = null;
+            let storageAvailable = true;
+            try {
+              preferences = JSON.parse(localStorage.getItem(preferencesKey) || "null");
+              localStorage.setItem(preferencesKey + ":test", "1");
+              localStorage.removeItem(preferencesKey + ":test");
+            } catch (error) { storageAvailable = false; }
+            send("streamlit:setComponentValue", {
+              value: {ready: true, preferences, storageAvailable}, dataType: "json"
+            });
+          } else if (!args.restore) {
+            try { localStorage.setItem(preferencesKey, JSON.stringify(args.preferences)); } catch (error) {}
+          }
+          return;
+        }
         if (typeof args.html === "string" && args.html !== currentHtml) {
           currentHtml = args.html;
           frame.srcdoc = currentHtml;
         }
-        send("streamlit:setFrameHeight", {height: args.height || 560});
+        send("streamlit:setFrameHeight", {height: contentHeight});
+      }
+      if (event.source === frame.contentWindow && data.type === "stock-screener:height" && Number.isFinite(data.height)) {
+        contentHeight = Math.max(80, Math.ceil(data.height));
+        send("streamlit:setFrameHeight", {height: contentHeight});
+      }
+      if (event.source === frame.contentWindow && data.type === "stock-screener:restore-position" && Number.isFinite(data.top)) {
+        try {
+          const host = window.frameElement;
+          let scroller = host && host.parentElement;
+          while (scroller) {
+            const overflow = window.parent.getComputedStyle(scroller).overflowY;
+            if (/auto|scroll/.test(overflow) && scroller.scrollHeight > scroller.clientHeight) {
+              const offset = host.getBoundingClientRect().top + data.top - scroller.getBoundingClientRect().top;
+              scroller.scrollBy({top: offset - scroller.clientHeight / 2, behavior: "instant"});
+              break;
+            }
+            scroller = scroller.parentElement;
+          }
+        } catch (error) { /* Cross-origin hosts retain the native focus fallback. */ }
       }
       if (event.source === frame.contentWindow && data.type === "stock-screener:open") {
         if (typeof data.symbol === "string" && typeof data.eventId === "string") {

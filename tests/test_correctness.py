@@ -342,6 +342,70 @@ class SupplementalDataCorrectnessTests(unittest.TestCase):
 
 
 class CustomViewCorrectnessTests(unittest.TestCase):
+    def test_preferences_validate_browser_data_and_keep_metric_order(self):
+        result = app_web.sanitize_custom_preferences({
+            "metrics": ["roe", "price", "roe", "<script>", None, {}],
+            "market": "미국", "lens_enabled": True, "lens": "invalid",
+        })
+        self.assertEqual(result["metrics"], ["roe", "price"])
+        self.assertEqual(result["market"], "미국")
+        self.assertIn(result["lens"], app_web.MOBILE_LENS_OPTIONS)
+        self.assertTrue(result["lens_enabled"])
+        self.assertEqual(app_web.sanitize_custom_preferences({"metrics": []})["metrics"], [])
+        self.assertEqual(app_web.sanitize_custom_preferences(None)["metrics"], ["price", "market_cap"])
+        self.assertEqual(app_web.sanitize_custom_preferences({"market": {}, "lens": []})["market"], "코스피")
+
+    def test_metric_order_and_missing_selection_survive_market_switch(self):
+        state = {"custom_metric_selection_ids": ["roe", "price", "earnings_surprise_pct"]}
+        with patch.object(app_web.st, "session_state", state):
+            app_web.move_custom_metric("price", -1)
+            self.assertEqual(state["custom_metric_selection_ids"], ["price", "roe", "earnings_surprise_pct"])
+            self.assertEqual(app_web.selected_custom_metric_ids(pd.DataFrame({"price": [1]})), state["custom_metric_selection_ids"])
+            app_web.move_custom_metric("price", -1)
+            self.assertEqual(state["custom_metric_selection_ids"][0], "price")
+            app_web.remove_custom_metric("roe")
+            self.assertEqual(state["custom_metric_selection_ids"], ["price", "earnings_surprise_pct"])
+            state["custom_metric_selection_ids"] = ["price", "lens_score", "roe"]
+            app_web.move_custom_metric("roe", -1)
+            self.assertEqual(app_web.selected_custom_metric_ids(data=None), ["roe", "price"])
+
+    def test_coverage_counts_only_usable_values_including_zero_and_false(self):
+        data = pd.DataFrame({
+            "per": [0, -3, np.inf, 8, np.nan], "roe": [0, -3, np.inf, 8, np.nan],
+            "dividend_cut_flag": [False, True, None, "미확인", np.nan],
+        })
+        counts = app_web.custom_metric_coverage(data)
+        self.assertEqual(counts["per"], 1)
+        self.assertEqual(counts["roe"], 3)
+        self.assertEqual(counts["dividend_cut_flag"], 2)
+        self.assertEqual(counts["target_mean"], 0)
+        self.assertEqual(app_web.available_custom_metric_ids(pd.DataFrame()), [])
+
+    def test_custom_component_uses_responsive_page_flow_and_touch_definitions(self):
+        data = pd.DataFrame([{"symbol": "A", "name": "</script>", "price": 5}])
+        markup = app_web.build_custom_table_html(data, ["price", "peak_diff"], False, "미국|시장순위")
+        self.assertIn("ResizeObserver", markup)
+        self.assertIn('stock-screener:height', markup)
+        self.assertIn('body.wrapped .desktop-view', markup)
+        self.assertNotIn('max-height: 440px', markup)
+        self.assertNotIn('overflow-y: auto', markup)
+        self.assertIn('<summary>지표 기준 · 색상 의미</summary>', markup)
+        self.assertIn('returnSymbol', markup)
+        self.assertIn('<\\/script>', markup)
+        self.assertIn("2년", app_web.custom_metric_description("peak_diff"))
+        self.assertIn("3년", app_web.custom_metric_description("dividend_growth_3y"))
+        self.assertIn("결산기간 미확인", app_web.metric_data_note("free_cashflow", {"free_cashflow": 1, "symbol": "AAPL"}))
+
+    def test_custom_detail_starts_with_selection_without_implicit_lens(self):
+        from types import SimpleNamespace
+        with patch.object(app_web.st, "session_state", SimpleNamespace(custom_lens_enabled=False)), \
+             patch.object(app_web, "render_mobile_section") as section, \
+             patch.object(app_web, "mobile_score_breakdown") as breakdown:
+            app_web.render_custom_stock_detail({"name": "Test", "price": 10}, ["price"], False, app_web.MOBILE_LENS_OPTIONS[0])
+        self.assertEqual(section.call_args_list[0].args[0], "선택한 지표")
+        self.assertEqual(section.call_args_list[0].args[1][0][0], "현재가")
+        breakdown.assert_not_called()
+
     def test_missing_values_periods_and_metric_colors_are_explicit(self):
         row = {"symbol": "000660", "market_cap": 0, "ma20": 150, "peak_diff": -20,
                "dart_year": 2025, "dart_report_code": 11011, "data_date": "2026-09-07"}
