@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-09-29 16:18 KST",
-  "range_start": "2025-09-29",
-  "range_end": "2027-09-29",
+  "collected_at": "2026-09-30 02:15 KST",
+  "range_start": "2025-09-30",
+  "range_end": "2027-09-30",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -920,21 +920,6 @@
       "source_url": "https://finance.yahoo.com/quote/RTX/"
     },
     {
-      "id": "2026-10-20|실적|ko|코카콜라 실적 발표",
-      "date": "2026-10-20",
-      "title": "코카콜라 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "KO",
-      "name": "코카콜라",
-      "detail": "2026년 3분기 · 예상 EPS 0.88",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/KO/"
-    },
-    {
       "id": "2026-10-21|실적|nflx|넷플릭스 실적 발표",
       "date": "2026-10-21",
       "title": "넷플릭스 실적 발표",
@@ -1340,6 +1325,21 @@
       "source_url": "https://finance.yahoo.com/quote/NVS/"
     },
     {
+      "id": "2026-10-27|실적|ko|코카콜라 실적 발표",
+      "date": "2026-10-27",
+      "title": "코카콜라 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "KO",
+      "name": "코카콜라",
+      "detail": "2026년 3분기 · 예상 EPS 0.88",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/KO/"
+    },
+    {
       "id": "2026-10-27|실적|000660|sk하이닉스 실적 발표",
       "date": "2026-10-27",
       "title": "SK하이닉스 실적 발표",
@@ -1503,21 +1503,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/APH/"
-    },
-    {
-      "id": "2026-10-28|실적|138930|bnk금융지주 실적 발표",
-      "date": "2026-10-28",
-      "title": "BNK금융지주 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "138930",
-      "name": "BNK금융지주",
-      "detail": "2026년 3분기 · 예상 EPS 827",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/138930.KS/"
     },
     {
       "id": "2026-10-28|실적|skhy|sk하이닉스 adr 실적 발표",
@@ -2988,6 +2973,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/015760.KS/"
+    },
+    {
+      "id": "2026-11-12|실적|088350|한화생명 실적 발표",
+      "date": "2026-11-12",
+      "title": "한화생명 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "088350",
+      "name": "한화생명",
+      "detail": "2026년 3분기 · 예상 EPS 115",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/088350.KS/"
     },
     {
       "id": "2026-11-12|실적|dis|월트 디즈니 실적 발표",
