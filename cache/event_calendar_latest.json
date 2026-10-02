@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-10-02 16:21 KST",
-  "range_start": "2025-10-02",
-  "range_end": "2027-10-02",
+  "collected_at": "2026-10-03 02:04 KST",
+  "range_start": "2025-10-03",
+  "range_end": "2027-10-03",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -470,21 +470,6 @@
       "source_url": "https://www.bea.gov/news/schedule/full"
     },
     {
-      "id": "2026-09-03|실적|avgo|브로드컴 실적 발표",
-      "date": "2026-09-03",
-      "title": "브로드컴 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "AVGO",
-      "name": "브로드컴",
-      "detail": "2026년 3분기 · 예상 EPS 3.24",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/AVGO/"
-    },
-    {
       "id": "2026-09-04|고용|미국 고용보고서",
       "date": "2026-09-04",
       "title": "미국 고용보고서",
@@ -643,7 +628,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "GS",
       "name": "골드만삭스",
-      "detail": "2026년 3분기 · 예상 EPS 14.78",
+      "detail": "2026년 3분기 · 예상 EPS 14.72",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -658,7 +643,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "C",
       "name": "씨티그룹",
-      "detail": "2026년 3분기 · 예상 EPS 2.62",
+      "detail": "2026년 3분기 · 예상 EPS 2.61",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -703,7 +688,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "JPM",
       "name": "제이피모간체이스",
-      "detail": "2026년 3분기 · 예상 EPS 5.88",
+      "detail": "2026년 3분기 · 예상 EPS 5.91",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -763,7 +748,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "MS",
       "name": "모간스탠리",
-      "detail": "2026년 3분기 · 예상 EPS 3.09",
+      "detail": "2026년 3분기 · 예상 EPS 3.07",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -778,7 +763,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "BAC",
       "name": "뱅크오브아메리카",
-      "detail": "2026년 3분기 · 예상 EPS 1.14",
+      "detail": "2026년 3분기 · 예상 EPS 1.13",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1378,7 +1363,7 @@
       "time_kst": "시간 미정",
       "symbol": "207940",
       "name": "삼성바이오로직스",
-      "detail": "2026년 3분기 · 예상 EPS 9,718",
+      "detail": "2026년 3분기 · 예상 EPS 9,708",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1468,7 +1453,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "UBS",
       "name": "UBS 그룹 AG",
-      "detail": "2026년 3분기 · 예상 EPS 0.74",
+      "detail": "2026년 3분기 · 예상 EPS 0.75",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1963,7 +1948,7 @@
       "time_kst": "시간 미정",
       "symbol": "000720",
       "name": "현대건설",
-      "detail": "2026년 3분기 · 예상 EPS 1,086",
+      "detail": "2026년 3분기 · 예상 EPS 1,037",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3020,21 +3005,6 @@
       "source_url": "https://finance.yahoo.com/quote/402340.KS/"
     },
     {
-      "id": "2026-11-13|실적|mufg|미쓰비시 ufj 파이낸셜 그룹 adr 실적 발표",
-      "date": "2026-11-13",
-      "title": "미쓰비시 UFJ 파이낸셜 그룹 ADR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "MUFG",
-      "name": "미쓰비시 UFJ 파이낸셜 그룹 ADR",
-      "detail": "2026년 2분기 · 예상 EPS 0.34",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MUFG/"
-    },
-    {
       "id": "2026-11-13|실적|smfg|스미토모 미쓰이 파이낸셜그룹 adr 실적 발표",
       "date": "2026-11-13",
       "title": "스미토모 미쓰이 파이낸셜그룹 ADR 실적 발표",
@@ -3063,6 +3033,21 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-11-14|실적|mufg|미쓰비시 ufj 파이낸셜 그룹 adr 실적 발표",
+      "date": "2026-11-14",
+      "title": "미쓰비시 UFJ 파이낸셜 그룹 ADR 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "MUFG",
+      "name": "미쓰비시 UFJ 파이낸셜 그룹 ADR",
+      "detail": "2026년 2분기 · 예상 EPS 0.34",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/MUFG/"
     },
     {
       "id": "2026-11-17|실적|panw|팔로 알토 네트웍스 실적 발표",
@@ -3687,7 +3672,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:176",
+    "Yahoo Finance": "ok:175",
     "Finnhub": "ok:18"
   }
 }
