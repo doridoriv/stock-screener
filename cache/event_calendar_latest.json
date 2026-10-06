@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-10-06 16:52 KST",
-  "range_start": "2025-10-06",
-  "range_end": "2027-10-06",
+  "collected_at": "2026-10-07 02:40 KST",
+  "range_start": "2025-10-07",
+  "range_end": "2027-10-07",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -1003,7 +1003,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "TSLA",
       "name": "테슬라",
-      "detail": "2026년 3분기 · 예상 EPS 0.44",
+      "detail": "2026년 3분기 · 예상 EPS 0.45",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1708,7 +1708,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "MRK",
       "name": "머크 앤 코",
-      "detail": "2026년 3분기 · 예상 EPS 2.18",
+      "detail": "2026년 3분기 · 예상 EPS 2.17",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2420,6 +2420,21 @@
       "source_url": "https://finance.yahoo.com/quote/AMGN/"
     },
     {
+      "id": "2026-11-04|실적|mcd|맥도날드 실적 발표",
+      "date": "2026-11-04",
+      "title": "맥도날드 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "MCD",
+      "name": "맥도날드",
+      "detail": "2026년 3분기 · 예상 EPS 3.38",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/MCD/"
+    },
+    {
       "id": "2026-11-04|실적|032640|lg유플러스 실적 발표",
       "date": "2026-11-04",
       "title": "LG유플러스 실적 발표",
@@ -2508,21 +2523,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/QCOM/"
-    },
-    {
-      "id": "2026-11-05|실적|mcd|맥도날드 실적 발표",
-      "date": "2026-11-05",
-      "title": "맥도날드 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "MCD",
-      "name": "맥도날드",
-      "detail": "2026년 3분기 · 예상 EPS 3.38",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MCD/"
     },
     {
       "id": "2026-11-05|실적|tm|토요타자동차 adr 실적 발표",
