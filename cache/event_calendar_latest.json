@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-10-08 16:47 KST",
-  "range_start": "2025-10-08",
-  "range_end": "2027-10-08",
+  "collected_at": "2026-10-09 03:05 KST",
+  "range_start": "2025-10-09",
+  "range_end": "2027-10-09",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -610,10 +610,10 @@
       "title": "펩시코 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
+      "time_kst": "시간 미정",
       "symbol": "PEP",
       "name": "펩시코",
-      "detail": "2026년 3분기 · 예상 EPS 2.30",
+      "detail": "예상 EPS 2.30",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2810,21 +2810,6 @@
       "source_url": "https://www.bls.gov/schedule/news_release/cpi.htm"
     },
     {
-      "id": "2026-11-10|실적|csco|시스코 시스템즈 실적 발표",
-      "date": "2026-11-10",
-      "title": "시스코 시스템즈 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "CSCO",
-      "name": "시스코 시스템즈",
-      "detail": "예상 EPS 1.3485",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2026-11-11|실적|011200|hmm 실적 발표",
       "date": "2026-11-11",
       "title": "HMM 실적 발표",
@@ -3672,7 +3657,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:175",
-    "Finnhub": "ok:18"
+    "Yahoo Finance": "ok:176",
+    "Finnhub": "ok:17"
   }
 }
