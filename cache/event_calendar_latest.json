@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-10-10 02:39 KST",
+  "collected_at": "2026-10-10 16:30 KST",
   "range_start": "2025-10-10",
   "range_end": "2027-10-10",
   "events": [
@@ -658,7 +658,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "WFC",
       "name": "웰스파고",
-      "detail": "2026년 3분기 · 예상 EPS 1.85",
+      "detail": "2026년 3분기 · 예상 EPS 1.86",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -875,21 +875,6 @@
       "source_url": "https://finance.yahoo.com/quote/NFLX/"
     },
     {
-      "id": "2026-10-21|실적|t|at&t 실적 발표",
-      "date": "2026-10-21",
-      "title": "AT&T 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "T",
-      "name": "AT&T",
-      "detail": "2026년 3분기 · 예상 EPS 0.60",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/T/"
-    },
-    {
       "id": "2026-10-21|실적|nee|넥스트에라 에너지 실적 발표",
       "date": "2026-10-21",
       "title": "넥스트에라 에너지 실적 발표",
@@ -903,6 +888,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/NEE/"
+    },
+    {
+      "id": "2026-10-21|실적|dhr|다나허 실적 발표",
+      "date": "2026-10-21",
+      "title": "다나허 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "DHR",
+      "name": "다나허",
+      "detail": "2026년 3분기 · 예상 EPS 1.92",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/DHR/"
     },
     {
       "id": "2026-10-21|실적|tmo|써모 피셔 사이언티픽 실적 발표",
@@ -1018,7 +1018,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "TSLA",
       "name": "테슬라",
-      "detail": "2026년 3분기 · 예상 EPS 0.46",
+      "detail": "2026년 3분기 · 예상 EPS 0.45",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1723,7 +1723,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "LLY",
       "name": "일라이 릴리",
-      "detail": "2026년 3분기 · 예상 EPS 8.26",
+      "detail": "2026년 3분기 · 예상 EPS 8.09",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2038,7 +2038,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "CVX",
       "name": "셰브론",
-      "detail": "2026년 3분기 · 예상 EPS 4.80",
+      "detail": "2026년 3분기 · 예상 EPS 4.81",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
