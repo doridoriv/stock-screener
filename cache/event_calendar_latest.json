@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-10-15 01:11 KST",
+  "collected_at": "2026-10-15 15:11 KST",
   "range_start": "2025-10-15",
   "range_end": "2027-10-15",
   "events": [
@@ -770,21 +770,6 @@
       "source_url": "https://finance.yahoo.com/quote/BLK/"
     },
     {
-      "id": "2026-10-14|실적|042700|한미반도체 실적 발표",
-      "date": "2026-10-14",
-      "title": "한미반도체 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "042700",
-      "name": "한미반도체",
-      "detail": "2026년 3분기 · 예상 EPS 889",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
-    },
-    {
       "id": "2026-10-15|실적|tsm|tsmc adr 실적 발표",
       "date": "2026-10-15",
       "title": "TSMC ADR 실적 발표",
@@ -813,6 +798,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/SCHW/"
+    },
+    {
+      "id": "2026-10-19|실적|042700|한미반도체 실적 발표",
+      "date": "2026-10-19",
+      "title": "한미반도체 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "042700",
+      "name": "한미반도체",
+      "detail": "2026년 3분기 · 예상 EPS 889",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
     },
     {
       "id": "2026-10-20|실적|ge|ge 에어로스페이스 실적 발표",
@@ -858,6 +858,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/NFLX/"
+    },
+    {
+      "id": "2026-10-21|실적|t|at&t 실적 발표",
+      "date": "2026-10-21",
+      "title": "AT&T 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "T",
+      "name": "AT&T",
+      "detail": "2026년 3분기 · 예상 EPS 0.60",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/T/"
     },
     {
       "id": "2026-10-21|실적|nee|넥스트에라 에너지 실적 발표",
@@ -1003,7 +1018,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "META",
       "name": "메타",
-      "detail": "2026년 3분기 · 예상 EPS 6.09",
+      "detail": "2026년 3분기 · 예상 EPS 6.01",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1123,7 +1138,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "AXP",
       "name": "아메리칸 익스프레스",
-      "detail": "2026년 3분기 · 예상 EPS 4.59",
+      "detail": "2026년 3분기 · 예상 EPS 4.64",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1430,21 +1445,6 @@
       "source_url": "https://finance.yahoo.com/quote/GEV/"
     },
     {
-      "id": "2026-10-28|실적|ubs|ubs 그룹 ag 실적 발표",
-      "date": "2026-10-28",
-      "title": "UBS 그룹 AG 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "UBS",
-      "name": "UBS 그룹 AG",
-      "detail": "2026년 3분기 · 예상 EPS 0.75",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/UBS/"
-    },
-    {
       "id": "2026-10-28|실적|san|방코 산탄데르 adr 실적 발표",
       "date": "2026-10-28",
       "title": "방코 산탄데르 ADR 실적 발표",
@@ -1663,7 +1663,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "LIN",
       "name": "린드",
-      "detail": "2026년 3분기 · 예상 EPS 4.61",
+      "detail": "2026년 3분기 · 예상 EPS 2.63",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1865,6 +1865,21 @@
       "source_url": "https://finance.yahoo.com/quote/241560.KS/"
     },
     {
+      "id": "2026-10-29|실적|018260|삼성에스디에스 실적 발표",
+      "date": "2026-10-29",
+      "title": "삼성에스디에스 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "018260",
+      "name": "삼성에스디에스",
+      "detail": "2026년 3분기 · 예상 EPS 2,635",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/018260.KS/"
+    },
+    {
       "id": "2026-10-29|실적|009150|삼성전기 실적 발표",
       "date": "2026-10-29",
       "title": "삼성전기 실적 발표",
@@ -2053,7 +2068,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "CVX",
       "name": "셰브론",
-      "detail": "2026년 3분기 · 예상 EPS 4.80",
+      "detail": "2026년 3분기 · 예상 EPS 4.83",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2113,7 +2128,7 @@
       "time_kst": "시간 미정",
       "symbol": "247540",
       "name": "에코프로비엠",
-      "detail": "2026년 3분기 · 예상 EPS -57.57",
+      "detail": "2026년 3분기 · 예상 EPS -60.29",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2548,7 +2563,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "COP",
       "name": "코노코필립스",
-      "detail": "2026년 3분기 · 예상 EPS 2.88",
+      "detail": "2026년 3분기 · 예상 EPS 2.89",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2643,21 +2658,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/326030.KS/"
-    },
-    {
-      "id": "2026-11-05|실적|018260|삼성에스디에스 실적 발표",
-      "date": "2026-11-05",
-      "title": "삼성에스디에스 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "018260",
-      "name": "삼성에스디에스",
-      "detail": "2026년 3분기 · 예상 EPS 2,635",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/018260.KS/"
     },
     {
       "id": "2026-11-05|실적|278470|에이피알 실적 발표",
@@ -3005,21 +3005,6 @@
       "source_url": "https://finance.yahoo.com/quote/402340.KS/"
     },
     {
-      "id": "2026-11-13|실적|smfg|스미토모 미쓰이 파이낸셜그룹 adr 실적 발표",
-      "date": "2026-11-13",
-      "title": "스미토모 미쓰이 파이낸셜그룹 ADR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "SMFG",
-      "name": "스미토모 미쓰이 파이낸셜그룹 ADR",
-      "detail": "2026년 2분기 · 예상 EPS 0.40",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/SMFG/"
-    },
-    {
       "id": "2026-11-13|실적|amat|어플라이드 머티어리얼즈 실적 발표",
       "date": "2026-11-13",
       "title": "어플라이드 머티어리얼즈 실적 발표",
@@ -3104,6 +3089,21 @@
       "symbol": "HD",
       "name": "홈디포",
       "detail": "예상 EPS 3.956",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-11-18|실적|tjx|tjx 컴퍼니스 실적 발표",
+      "date": "2026-11-18",
+      "title": "TJX 컴퍼니스 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "TJX",
+      "name": "TJX 컴퍼니스",
+      "detail": "예상 EPS 1.3515",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
@@ -3702,7 +3702,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:177",
-    "Finnhub": "ok:18"
+    "Yahoo Finance": "ok:176",
+    "Finnhub": "ok:19"
   }
 }
