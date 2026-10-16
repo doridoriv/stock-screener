@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-10-16 15:13 KST",
-  "range_start": "2025-10-16",
-  "range_end": "2027-10-16",
+  "collected_at": "2026-10-17 00:45 KST",
+  "range_start": "2025-10-17",
+  "range_end": "2027-10-17",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -2135,6 +2135,21 @@
       "source_url": "https://finance.yahoo.com/quote/029780.KS/"
     },
     {
+      "id": "2026-10-30|실적|278470|에이피알 실적 발표",
+      "date": "2026-10-30",
+      "title": "에이피알 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "278470",
+      "name": "에이피알",
+      "detail": "2026년 3분기 · 예상 EPS 3,711",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/278470.KS/"
+    },
+    {
       "id": "2026-10-30|실적|247540|에코프로비엠 실적 발표",
       "date": "2026-10-30",
       "title": "에코프로비엠 실적 발표",
@@ -2658,21 +2673,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/326030.KS/"
-    },
-    {
-      "id": "2026-11-05|실적|278470|에이피알 실적 발표",
-      "date": "2026-11-05",
-      "title": "에이피알 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "278470",
-      "name": "에이피알",
-      "detail": "2026년 3분기 · 예상 EPS 3,711",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/278470.KS/"
     },
     {
       "id": "2026-11-05|실적|161390|한국타이어앤테크놀로지 실적 발표",
@@ -3605,6 +3605,81 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2027-01-14|실적|tsm|tsmc adr 실적 발표",
+      "date": "2027-01-14",
+      "title": "TSMC ADR 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "TSM",
+      "name": "TSMC ADR",
+      "detail": "2026년 4분기 · 예상 EPS 5.16",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/TSM/"
+    },
+    {
+      "id": "2027-01-14|실적|blk|블랙록 실적 발표",
+      "date": "2027-01-14",
+      "title": "블랙록 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "BLK",
+      "name": "블랙록",
+      "detail": "2026년 4분기 · 예상 EPS 15.45",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BLK/"
+    },
+    {
+      "id": "2027-01-14|실적|c|씨티그룹 실적 발표",
+      "date": "2027-01-14",
+      "title": "씨티그룹 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "C",
+      "name": "씨티그룹",
+      "detail": "2026년 4분기 · 예상 EPS 2.28",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/C/"
+    },
+    {
+      "id": "2027-01-14|실적|wfc|웰스파고 실적 발표",
+      "date": "2027-01-14",
+      "title": "웰스파고 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "WFC",
+      "name": "웰스파고",
+      "detail": "2026년 4분기 · 예상 EPS 1.86",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/WFC/"
+    },
+    {
+      "id": "2027-01-14|실적|jpm|제이피모간체이스 실적 발표",
+      "date": "2027-01-14",
+      "title": "제이피모간체이스 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "JPM",
+      "name": "제이피모간체이스",
+      "detail": "2026년 4분기 · 예상 EPS 5.92",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/JPM/"
+    },
+    {
       "id": "2027-01-14|실적|ms|모간스탠리 실적 발표",
       "date": "2027-01-14",
       "title": "모간스탠리 실적 발표",
@@ -3659,6 +3734,21 @@
       "symbol": "JPM",
       "name": "제이피모간체이스",
       "detail": "예상 EPS 5.9917",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2027-01-15|실적|bac|뱅크오브아메리카 실적 발표",
+      "date": "2027-01-15",
+      "title": "뱅크오브아메리카 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 시작 전",
+      "symbol": "BAC",
+      "name": "뱅크오브아메리카",
+      "detail": "예상 EPS 1.151",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
@@ -3762,7 +3852,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:176",
-    "Finnhub": "ok:23"
+    "Yahoo Finance": "ok:182",
+    "Finnhub": "ok:24"
   }
 }
