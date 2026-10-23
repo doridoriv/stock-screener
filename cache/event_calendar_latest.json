@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "collected_at": "2026-10-23 15:16 KST",
-  "range_start": "2025-10-23",
-  "range_end": "2027-10-23",
+  "collected_at": "2026-10-24 01:00 KST",
+  "range_start": "2025-10-24",
+  "range_end": "2027-10-24",
   "events": [
     {
       "id": "2026-01-09|고용|미국 고용보고서",
@@ -1100,21 +1100,6 @@
       "source_url": "https://finance.yahoo.com/quote/TXN/"
     },
     {
-      "id": "2026-10-23|실적|axp|아메리칸 익스프레스 실적 발표",
-      "date": "2026-10-23",
-      "title": "아메리칸 익스프레스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "AXP",
-      "name": "아메리칸 익스프레스",
-      "detail": "2026년 3분기 · 예상 EPS 4.50",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/AXP/"
-    },
-    {
       "id": "2026-10-23|실적|005940|nh투자증권 실적 발표",
       "date": "2026-10-23",
       "title": "NH투자증권 실적 발표",
@@ -1130,19 +1115,19 @@
       "source_url": "https://finance.yahoo.com/quote/005940.KS/"
     },
     {
-      "id": "2026-10-23|실적|316140|우리금융지주 실적 발표",
+      "id": "2026-10-23|실적|axp|아메리칸 익스프레스 실적 발표",
       "date": "2026-10-23",
-      "title": "우리금융지주 실적 발표",
+      "title": "아메리칸 익스프레스 실적 발표",
       "category": "실적",
-      "market": "코스피",
+      "market": "미국",
       "time_kst": "시간 미정",
-      "symbol": "316140",
-      "name": "우리금융지주",
-      "detail": "2026년 3분기 · 예상 EPS 1,307",
+      "symbol": "AXP",
+      "name": "아메리칸 익스프레스",
+      "detail": "예상 EPS 4.50",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/316140.KS/"
+      "source_url": "https://finance.yahoo.com/quote/AXP/"
     },
     {
       "id": "2026-10-23|실적|086790|하나금융지주 실적 발표",
@@ -1153,26 +1138,11 @@
       "time_kst": "시간 미정",
       "symbol": "086790",
       "name": "하나금융지주",
-      "detail": "2026년 3분기 · 예상 EPS 4,398",
+      "detail": "예상 EPS 4,398",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/086790.KS/"
-    },
-    {
-      "id": "2026-10-23|실적|042700|한미반도체 실적 발표",
-      "date": "2026-10-23",
-      "title": "한미반도체 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "042700",
-      "name": "한미반도체",
-      "detail": "2026년 3분기 · 예상 EPS 889",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
     },
     {
       "id": "2026-10-26|실적|vz|버라이존 실적 발표",
@@ -1188,6 +1158,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/VZ/"
+    },
+    {
+      "id": "2026-10-26|실적|042700|한미반도체 실적 발표",
+      "date": "2026-10-26",
+      "title": "한미반도체 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "042700",
+      "name": "한미반도체",
+      "detail": "2026년 3분기 · 예상 EPS 889",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
     },
     {
       "id": "2026-10-27|실적|well|웰타워 실적 발표",
@@ -2990,21 +2975,6 @@
       "source_url": "https://finance.yahoo.com/quote/180640.KS/"
     },
     {
-      "id": "2026-11-17|실적|hd|홈디포 실적 발표",
-      "date": "2026-11-17",
-      "title": "홈디포 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "HD",
-      "name": "홈디포",
-      "detail": "예상 EPS 3.9538",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2026-11-17|실적|dis|월트 디즈니 실적 발표",
       "date": "2026-11-17",
       "title": "월트 디즈니 실적 발표",
@@ -3014,6 +2984,21 @@
       "symbol": "DIS",
       "name": "월트 디즈니",
       "detail": "예상 EPS 1.6963",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-11-17|실적|hd|홈디포 실적 발표",
+      "date": "2026-11-17",
+      "title": "홈디포 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 시작 전",
+      "symbol": "HD",
+      "name": "홈디포",
+      "detail": "예상 EPS 3.9538",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
@@ -3800,6 +3785,36 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2027-01-21|실적|pg|p&g(프록터 & 갬블) 실적 발표",
+      "date": "2027-01-21",
+      "title": "P&G(프록터 & 갬블) 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "PG",
+      "name": "P&G(프록터 & 갬블)",
+      "detail": "2027년 2분기 · 예상 EPS 1.85",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/PG/"
+    },
+    {
+      "id": "2027-01-21|실적|schw|찰스 슈왑 실적 발표",
+      "date": "2027-01-21",
+      "title": "찰스 슈왑 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "SCHW",
+      "name": "찰스 슈왑",
+      "detail": "2026년 4분기 · 예상 EPS 1.72",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/SCHW/"
+    },
+    {
       "id": "2027-01-21|실적|ge|ge 에어로스페이스 실적 발표",
       "date": "2027-01-21",
       "title": "GE 에어로스페이스 실적 발표",
@@ -3858,6 +3873,21 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2027-01-22|실적|isrg|인튜이티브 서지컬 실적 발표",
+      "date": "2027-01-22",
+      "title": "인튜이티브 서지컬 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "05:00 KST · 장 마감 후",
+      "symbol": "ISRG",
+      "name": "인튜이티브 서지컬",
+      "detail": "2026년 4분기 · 예상 EPS 2.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ISRG/"
     },
     {
       "id": "2027-01-28|금리|fomc 금리결정",
@@ -3957,7 +3987,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:184",
+    "Yahoo Finance": "ok:187",
     "Finnhub": "ok:32"
   }
 }
