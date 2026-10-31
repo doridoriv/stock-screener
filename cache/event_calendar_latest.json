@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-10-31 02:23 KST",
+  "collected_at": "2026-10-31 16:19 KST",
   "range_start": "2025-10-31",
   "range_end": "2027-10-31",
   "events": [
@@ -545,6 +545,21 @@
       "source_url": "https://www.bea.gov/news/schedule/full"
     },
     {
+      "id": "2026-10-01|실적|acn|액센추어 실적 발표",
+      "date": "2026-10-01",
+      "title": "액센추어 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ACN",
+      "name": "액센추어",
+      "detail": "예상 EPS 3.18",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ACN/"
+    },
+    {
       "id": "2026-10-02|고용|미국 고용보고서",
       "date": "2026-10-02",
       "title": "미국 고용보고서",
@@ -755,6 +770,21 @@
       "source_url": "https://finance.yahoo.com/quote/TSM/"
     },
     {
+      "id": "2026-10-15|실적|schw|찰스 슈왑 실적 발표",
+      "date": "2026-10-15",
+      "title": "찰스 슈왑 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "SCHW",
+      "name": "찰스 슈왑",
+      "detail": "예상 EPS 1.66",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/SCHW/"
+    },
+    {
       "id": "2026-10-20|실적|ge|ge 에어로스페이스 실적 발표",
       "date": "2026-10-20",
       "title": "GE 에어로스페이스 실적 발표",
@@ -903,21 +933,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ABT/"
-    },
-    {
-      "id": "2026-10-21|실적|isrg|인튜이티브 서지컬 실적 발표",
-      "date": "2026-10-21",
-      "title": "인튜이티브 서지컬 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "ISRG",
-      "name": "인튜이티브 서지컬",
-      "detail": "예상 EPS 2.64",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ISRG/"
     },
     {
       "id": "2026-10-21|실적|pm|필립 모리스 인터내셔널 실적 발표",
@@ -1213,7 +1228,7 @@
       "time_kst": "시간 미정",
       "symbol": "000660",
       "name": "SK하이닉스",
-      "detail": "예상 EPS 83,560",
+      "detail": "예상 EPS 83,402",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1263,21 +1278,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/V/"
-    },
-    {
-      "id": "2026-10-28|실적|stx|씨게이트 실적 발표",
-      "date": "2026-10-28",
-      "title": "씨게이트 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "STX",
-      "name": "씨게이트",
-      "detail": "예상 EPS 7.43",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/STX/"
     },
     {
       "id": "2026-10-28|실적|aph|암페놀 실적 발표",
@@ -1528,7 +1528,7 @@
       "time_kst": "시간 미정",
       "symbol": "GOOG",
       "name": "알파벳 Class C",
-      "detail": "예상 EPS 3.02",
+      "detail": "예상 EPS 3.04",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -1683,21 +1683,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/INTC/"
-    },
-    {
-      "id": "2026-10-30|실적|042700|한미반도체 실적 발표",
-      "date": "2026-10-30",
-      "title": "한미반도체 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "042700",
-      "name": "한미반도체",
-      "detail": "2026년 3분기 · 예상 EPS 976",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/042700.KS/"
     },
     {
       "id": "2026-11-02|실적|005490|posco홀딩스 실적 발표",
@@ -3020,6 +3005,21 @@
       "source_url": "https://finance.yahoo.com/quote/ORCL/"
     },
     {
+      "id": "2026-12-16|실적|acn|액센추어 실적 발표",
+      "date": "2026-12-16",
+      "title": "액센추어 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ACN",
+      "name": "액센추어",
+      "detail": "예상 EPS 3.9907",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-12-16|실적|mu|마이크론 테크놀로지 실적 발표",
       "date": "2026-12-16",
       "title": "마이크론 테크놀로지 실적 발표",
@@ -3033,6 +3033,21 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-12-17|실적|acn|액센추어 실적 발표",
+      "date": "2026-12-17",
+      "title": "액센추어 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "ACN",
+      "name": "액센추어",
+      "detail": "2027년 1분기 · 예상 EPS 3.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ACN/"
     },
     {
       "id": "2026-12-23|성장|미국 gdp 발표",
@@ -3290,6 +3305,21 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2027-01-19|실적|schw|찰스 슈왑 실적 발표",
+      "date": "2027-01-19",
+      "title": "찰스 슈왑 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 시작 전",
+      "symbol": "SCHW",
+      "name": "찰스 슈왑",
+      "detail": "예상 EPS 1.7506",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2027-01-20|실적|nflx|넷플릭스 실적 발표",
       "date": "2027-01-20",
       "title": "넷플릭스 실적 발표",
@@ -3348,6 +3378,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/PG/"
+    },
+    {
+      "id": "2027-01-21|실적|schw|찰스 슈왑 실적 발표",
+      "date": "2027-01-21",
+      "title": "찰스 슈왑 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "21:30 KST · 장 시작 전",
+      "symbol": "SCHW",
+      "name": "찰스 슈왑",
+      "detail": "2026년 4분기 · 예상 EPS 1.72",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/SCHW/"
     },
     {
       "id": "2027-01-21|실적|009150|삼성전기 실적 발표",
@@ -3410,36 +3455,6 @@
       "source_url": "https://finnhub.io/"
     },
     {
-      "id": "2027-01-21|실적|isrg|인튜이티브 서지컬 실적 발표",
-      "date": "2027-01-21",
-      "title": "인튜이티브 서지컬 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 마감 후",
-      "symbol": "ISRG",
-      "name": "인튜이티브 서지컬",
-      "detail": "예상 EPS 3.01",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
-      "id": "2027-01-22|실적|isrg|인튜이티브 서지컬 실적 발표",
-      "date": "2027-01-22",
-      "title": "인튜이티브 서지컬 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "ISRG",
-      "name": "인튜이티브 서지컬",
-      "detail": "2026년 4분기 · 예상 EPS 2.95",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ISRG/"
-    },
-    {
       "id": "2027-01-25|실적|011070|lg이노텍 실적 발표",
       "date": "2027-01-25",
       "title": "LG이노텍 실적 발표",
@@ -3453,21 +3468,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/011070.KS/"
-    },
-    {
-      "id": "2027-01-25|실적|stx|씨게이트 실적 발표",
-      "date": "2027-01-25",
-      "title": "씨게이트 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "STX",
-      "name": "씨게이트",
-      "detail": "예상 EPS 8.6687",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
     },
     {
       "id": "2027-01-26|실적|rtx|rtx 실적 발표",
@@ -3620,21 +3620,6 @@
       "source_url": "https://finnhub.io/"
     },
     {
-      "id": "2027-01-27|실적|stx|씨게이트 실적 발표",
-      "date": "2027-01-27",
-      "title": "씨게이트 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "05:00 KST · 장 마감 후",
-      "symbol": "STX",
-      "name": "씨게이트",
-      "detail": "2027년 2분기 · 예상 EPS 9.27",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/STX/"
-    },
-    {
       "id": "2027-01-27|실적|txn|텍사스 인스트루먼트 실적 발표",
       "date": "2027-01-27",
       "title": "텍사스 인스트루먼트 실적 발표",
@@ -3688,7 +3673,7 @@
       "time_kst": "21:30 KST · 장 시작 전",
       "symbol": "NEE",
       "name": "넥스트에라 에너지",
-      "detail": "2026년 4분기 · 예상 EPS 0.58",
+      "detail": "2026년 4분기 · 예상 EPS 0.57",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3793,7 +3778,7 @@
       "time_kst": "시간 미정",
       "symbol": "028260",
       "name": "삼성물산",
-      "detail": "2026년 4분기 · 예상 EPS 8,652",
+      "detail": "2026년 4분기 · 예상 EPS 8,843",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3808,7 +3793,7 @@
       "time_kst": "시간 미정",
       "symbol": "005930",
       "name": "삼성전자",
-      "detail": "2026년 4분기 · 예상 EPS 15,955",
+      "detail": "2026년 4분기 · 예상 EPS 16,183",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4100,21 +4085,6 @@
       "source_url": "https://finance.yahoo.com/quote/ABT/"
     },
     {
-      "id": "2027-01-28|실적|cat|캐터필러 실적 발표",
-      "date": "2027-01-28",
-      "title": "캐터필러 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "21:30 KST · 장 시작 전",
-      "symbol": "CAT",
-      "name": "캐터필러",
-      "detail": "2026년 4분기 · 예상 EPS 6.99",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CAT/"
-    },
-    {
       "id": "2027-01-28|실적|329180|hd현대중공업 실적 발표",
       "date": "2027-01-28",
       "title": "HD현대중공업 실적 발표",
@@ -4153,7 +4123,7 @@
       "time_kst": "시간 미정",
       "symbol": "018260",
       "name": "삼성에스디에스",
-      "detail": "2026년 4분기 · 예상 EPS 2,826",
+      "detail": "2026년 4분기 · 예상 EPS 2,721",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4198,7 +4168,7 @@
       "time_kst": "시간 미정",
       "symbol": "005380",
       "name": "현대차",
-      "detail": "2026년 4분기 · 예상 EPS 7,870",
+      "detail": "2026년 4분기 · 예상 EPS 7,092",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4258,7 +4228,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "KLAC",
       "name": "KLA",
-      "detail": "2027년 2분기 · 예상 EPS 1.43",
+      "detail": "2027년 2분기 · 예상 EPS 1.44",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4273,7 +4243,7 @@
       "time_kst": "05:00 KST · 장 마감 후",
       "symbol": "INTC",
       "name": "인텔",
-      "detail": "2026년 4분기 · 예상 EPS 0.45",
+      "detail": "2026년 4분기 · 예상 EPS 0.24",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4422,7 +4392,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:194",
+    "Yahoo Finance": "ok:192",
     "Finnhub": "ok:53"
   }
 }
