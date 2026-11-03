@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-03 06:09 KST",
+  "collected_at": "2026-11-03 17:16 KST",
   "range_start": "2025-11-03",
   "range_end": "2027-11-03",
   "events": [
@@ -808,7 +808,7 @@
       "time_kst": "시간 미정",
       "symbol": "SCCO",
       "name": "서던 코퍼",
-      "detail": "예상 EPS 2.00",
+      "detail": "예상 EPS 1.97",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -918,6 +918,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ABT/"
+    },
+    {
+      "id": "2026-10-21|실적|isrg|인튜이티브 서지컬 실적 발표",
+      "date": "2026-10-21",
+      "title": "인튜이티브 서지컬 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ISRG",
+      "name": "인튜이티브 서지컬",
+      "detail": "예상 EPS 2.64",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ISRG/"
     },
     {
       "id": "2026-10-21|실적|pm|필립 모리스 인터내셔널 실적 발표",
@@ -1550,6 +1565,21 @@
       "source_url": "https://finance.yahoo.com/quote/CAT/"
     },
     {
+      "id": "2026-10-29|실적|tte|토탈에너지스 실적 발표",
+      "date": "2026-10-29",
+      "title": "토탈에너지스 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "TTE",
+      "name": "토탈에너지스",
+      "detail": "예상 EPS 3.61",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/TTE/"
+    },
+    {
       "id": "2026-10-30|실적|gild|길리어드 사이언시스 실적 발표",
       "date": "2026-10-30",
       "title": "길리어드 사이언시스 실적 발표",
@@ -1685,36 +1715,6 @@
       "source_url": "https://finance.yahoo.com/quote/005490.KS/"
     },
     {
-      "id": "2026-11-03|실적|aapl|애플 실적 발표",
-      "date": "2026-11-03",
-      "title": "애플 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "AAPL",
-      "name": "애플",
-      "detail": "2026년 4분기 · 예상 EPS 1.99",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/AAPL/"
-    },
-    {
-      "id": "2026-11-03|실적|pltr|팔란티어 테크놀로지스 실적 발표",
-      "date": "2026-11-03",
-      "title": "팔란티어 테크놀로지스 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "PLTR",
-      "name": "팔란티어 테크놀로지스",
-      "detail": "2026년 3분기 · 예상 EPS 0.41",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/PLTR/"
-    },
-    {
       "id": "2026-11-03|실적|shop|쇼피파이 실적 발표",
       "date": "2026-11-03",
       "title": "쇼피파이 실적 발표",
@@ -1760,6 +1760,21 @@
       "source_url": "https://finance.yahoo.com/quote/373220.KS/"
     },
     {
+      "id": "2026-11-03|실적|aapl|애플 실적 발표",
+      "date": "2026-11-03",
+      "title": "애플 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "AAPL",
+      "name": "애플",
+      "detail": "예상 EPS 1.99",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/AAPL/"
+    },
+    {
       "id": "2026-11-03|실적|377300|카카오페이 실적 발표",
       "date": "2026-11-03",
       "title": "카카오페이 실적 발표",
@@ -1773,6 +1788,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/377300.KS/"
+    },
+    {
+      "id": "2026-11-03|실적|pltr|팔란티어 테크놀로지스 실적 발표",
+      "date": "2026-11-03",
+      "title": "팔란티어 테크놀로지스 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "PLTR",
+      "name": "팔란티어 테크놀로지스",
+      "detail": "예상 EPS 0.41",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/PLTR/"
     },
     {
       "id": "2026-11-04|실적|amd|amd(어드밴스드 마이크로 디바이시스) 실적 발표",
@@ -1948,7 +1978,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "COP",
       "name": "코노코필립스",
-      "detail": "2026년 3분기 · 예상 EPS 3.04",
+      "detail": "2026년 3분기 · 예상 EPS 3.05",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -2090,21 +2120,6 @@
       "source_url": "https://finance.yahoo.com/quote/035720.KS/"
     },
     {
-      "id": "2026-11-05|실적|161390|한국타이어앤테크놀로지 실적 발표",
-      "date": "2026-11-05",
-      "title": "한국타이어앤테크놀로지 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "161390",
-      "name": "한국타이어앤테크놀로지",
-      "detail": "2026년 3분기 · 예상 EPS 2,788",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/161390.KS/"
-    },
-    {
       "id": "2026-11-05|실적|000880|한화 실적 발표",
       "date": "2026-11-05",
       "title": "한화 실적 발표",
@@ -2163,6 +2178,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/021240.KS/"
+    },
+    {
+      "id": "2026-11-06|실적|161390|한국타이어앤테크놀로지 실적 발표",
+      "date": "2026-11-06",
+      "title": "한국타이어앤테크놀로지 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "detail": "2026년 3분기 · 예상 EPS 2,788",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/161390.KS/"
     },
     {
       "id": "2026-11-09|실적|263750|펄어비스 실적 발표",
@@ -2675,21 +2705,6 @@
       "source_url": "https://finnhub.io/"
     },
     {
-      "id": "2026-11-26|실적|mrvl|마벨 테크놀로지 그룹 실적 발표",
-      "date": "2026-11-26",
-      "title": "마벨 테크놀로지 그룹 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "MRVL",
-      "name": "마벨 테크놀로지 그룹",
-      "detail": "예상 EPS 1.1138",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2026-11-26|실적|de|디어 실적 발표",
       "date": "2026-11-26",
       "title": "디어 실적 발표",
@@ -2733,21 +2748,6 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
-    },
-    {
-      "id": "2026-12-02|실적|mrvl|마벨 테크놀로지 그룹 실적 발표",
-      "date": "2026-12-02",
-      "title": "마벨 테크놀로지 그룹 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "MRVL",
-      "name": "마벨 테크놀로지 그룹",
-      "detail": "2027년 3분기 · 예상 EPS 1.10",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MRVL/"
     },
     {
       "id": "2026-12-02|실적|crwd|크라우드 스트라이크 홀딩스 실적 발표",
@@ -3088,7 +3088,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "C",
       "name": "씨티그룹",
-      "detail": "2026년 4분기 · 예상 EPS 2.29",
+      "detail": "2026년 4분기 · 예상 EPS 2.30",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3103,7 +3103,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "WFC",
       "name": "웰스파고",
-      "detail": "2026년 4분기 · 예상 EPS 1.87",
+      "detail": "2026년 4분기 · 예상 EPS 1.86",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3118,7 +3118,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "JPM",
       "name": "제이피모간체이스",
-      "detail": "2026년 4분기 · 예상 EPS 5.90",
+      "detail": "2026년 4분기 · 예상 EPS 5.86",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3208,7 +3208,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "GS",
       "name": "골드만삭스",
-      "detail": "2026년 4분기 · 예상 EPS 15.68",
+      "detail": "2026년 4분기 · 예상 EPS 15.78",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3378,6 +3378,36 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2027-01-21|실적|isrg|인튜이티브 서지컬 실적 발표",
+      "date": "2027-01-21",
+      "title": "인튜이티브 서지컬 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "ISRG",
+      "name": "인튜이티브 서지컬",
+      "detail": "예상 EPS 3.01",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2027-01-22|실적|isrg|인튜이티브 서지컬 실적 발표",
+      "date": "2027-01-22",
+      "title": "인튜이티브 서지컬 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "06:00 KST · 장 마감 후",
+      "symbol": "ISRG",
+      "name": "인튜이티브 서지컬",
+      "detail": "2026년 4분기 · 예상 EPS 2.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ISRG/"
     },
     {
       "id": "2027-01-25|실적|011070|lg이노텍 실적 발표",
@@ -3763,7 +3793,7 @@
       "time_kst": "시간 미정",
       "symbol": "SCCO",
       "name": "서던 코퍼",
-      "detail": "2026년 4분기 · 예상 EPS 2.03",
+      "detail": "2026년 4분기 · 예상 EPS 2.01",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3958,7 +3988,7 @@
       "time_kst": "06:00 KST · 장 마감 후",
       "symbol": "MSFT",
       "name": "마이크로소프트",
-      "detail": "2027년 2분기 · 예상 EPS 4.86",
+      "detail": "2027년 2분기 · 예상 EPS 4.80",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4228,7 +4258,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "XOM",
       "name": "엑슨모빌 홀딩스",
-      "detail": "2026년 4분기 · 예상 EPS 4.18",
+      "detail": "2026년 4분기 · 예상 EPS 4.19",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4512,7 +4542,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:197",
+    "Yahoo Finance": "ok:199",
     "Finnhub": "ok:56"
   }
 }
