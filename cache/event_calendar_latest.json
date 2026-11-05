@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-05 03:55 KST",
+  "collected_at": "2026-11-05 17:12 KST",
   "range_start": "2025-11-05",
   "range_end": "2027-11-05",
   "events": [
@@ -1010,6 +1010,21 @@
       "source_url": "https://finance.yahoo.com/quote/META/"
     },
     {
+      "id": "2026-10-22|실적|bx|블랙스톤 실적 발표",
+      "date": "2026-10-22",
+      "title": "블랙스톤 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "BX",
+      "name": "블랙스톤",
+      "detail": "예상 EPS 1.26",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BX/"
+    },
+    {
       "id": "2026-10-22|실적|unp|유니온 퍼시픽 실적 발표",
       "date": "2026-10-22",
       "title": "유니온 퍼시픽 실적 발표",
@@ -1580,21 +1595,6 @@
       "source_url": "https://finance.yahoo.com/quote/GILD/"
     },
     {
-      "id": "2026-10-30|실적|sndk|샌디스크 실적 발표",
-      "date": "2026-10-30",
-      "title": "샌디스크 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "SNDK",
-      "name": "샌디스크",
-      "detail": "예상 EPS 46.41",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/SNDK/"
-    },
-    {
       "id": "2026-10-30|실적|cvx|셰브론 실적 발표",
       "date": "2026-10-30",
       "title": "셰브론 실적 발표",
@@ -1730,21 +1730,6 @@
       "source_url": "https://finance.yahoo.com/quote/AAPL/"
     },
     {
-      "id": "2026-11-03|실적|etn|이튼 실적 발표",
-      "date": "2026-11-03",
-      "title": "이튼 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "ETN",
-      "name": "이튼",
-      "detail": "예상 EPS 3.55",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ETN/"
-    },
-    {
       "id": "2026-11-03|실적|pltr|팔란티어 테크놀로지스 실적 발표",
       "date": "2026-11-03",
       "title": "팔란티어 테크놀로지스 실적 발표",
@@ -1835,34 +1820,19 @@
       "source_url": "https://finance.yahoo.com/quote/AMGN/"
     },
     {
-      "id": "2026-11-05|실적|arm|암 홀딩스 adr 실적 발표",
+      "id": "2026-11-05|실적|sony|소니 그룹 adr 실적 발표",
       "date": "2026-11-05",
-      "title": "암 홀딩스 ADR 실적 발표",
+      "title": "소니 그룹 ADR 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "ARM",
-      "name": "암 홀딩스 ADR",
-      "detail": "2027년 2분기 · 예상 EPS 0.48",
+      "time_kst": "22:30 KST · 장 시작 전",
+      "symbol": "SONY",
+      "name": "소니 그룹 ADR",
+      "detail": "2026년 2분기 · 예상 EPS 0.34",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ARM/"
-    },
-    {
-      "id": "2026-11-05|실적|qcom|퀄컴 실적 발표",
-      "date": "2026-11-05",
-      "title": "퀄컴 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "QCOM",
-      "name": "퀄컴",
-      "detail": "2026년 4분기 · 예상 EPS 2.16",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/QCOM/"
+      "source_url": "https://finance.yahoo.com/quote/SONY/"
     },
     {
       "id": "2026-11-05|실적|cop|코노코필립스 실적 발표",
@@ -1970,6 +1940,21 @@
       "source_url": "https://finance.yahoo.com/quote/326030.KS/"
     },
     {
+      "id": "2026-11-05|실적|arm|암 홀딩스 adr 실적 발표",
+      "date": "2026-11-05",
+      "title": "암 홀딩스 ADR 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ARM",
+      "name": "암 홀딩스 ADR",
+      "detail": "예상 EPS 0.48",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ARM/"
+    },
+    {
       "id": "2026-11-05|실적|247540|에코프로비엠 실적 발표",
       "date": "2026-11-05",
       "title": "에코프로비엠 실적 발표",
@@ -1998,6 +1983,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/035720.KS/"
+    },
+    {
+      "id": "2026-11-05|실적|qcom|퀄컴 실적 발표",
+      "date": "2026-11-05",
+      "title": "퀄컴 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "QCOM",
+      "name": "퀄컴",
+      "detail": "예상 EPS 2.16",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/QCOM/"
     },
     {
       "id": "2026-11-06|고용|미국 고용보고서",
@@ -2555,21 +2555,6 @@
       "source_url": "https://finance.yahoo.com/quote/DE/"
     },
     {
-      "id": "2026-12-02|실적|mrvl|마벨 테크놀로지 그룹 실적 발표",
-      "date": "2026-12-02",
-      "title": "마벨 테크놀로지 그룹 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "MRVL",
-      "name": "마벨 테크놀로지 그룹",
-      "detail": "2027년 3분기 · 예상 EPS 1.10",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/MRVL/"
-    },
-    {
       "id": "2026-12-02|실적|crwd|크라우드 스트라이크 홀딩스 실적 발표",
       "date": "2026-12-02",
       "title": "크라우드 스트라이크 홀딩스 실적 발표",
@@ -2750,6 +2735,21 @@
       "source_url": "https://finance.yahoo.com/quote/ORCL/"
     },
     {
+      "id": "2026-12-16|실적|acn|액센추어 실적 발표",
+      "date": "2026-12-16",
+      "title": "액센추어 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "ACN",
+      "name": "액센추어",
+      "detail": "예상 EPS 3.9902",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2026-12-16|실적|mu|마이크론 테크놀로지 실적 발표",
       "date": "2026-12-16",
       "title": "마이크론 테크놀로지 실적 발표",
@@ -2763,6 +2763,21 @@
       "status": "예상",
       "source": "Finnhub",
       "source_url": "https://finnhub.io/"
+    },
+    {
+      "id": "2026-12-17|실적|acn|액센추어 실적 발표",
+      "date": "2026-12-17",
+      "title": "액센추어 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "22:30 KST · 장 시작 전",
+      "symbol": "ACN",
+      "name": "액센추어",
+      "detail": "2027년 1분기 · 예상 EPS 3.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ACN/"
     },
     {
       "id": "2026-12-23|성장|미국 gdp 발표",
@@ -3560,21 +3575,6 @@
       "source_url": "https://finance.yahoo.com/quote/005930.KS/"
     },
     {
-      "id": "2027-01-27|실적|sndk|샌디스크 실적 발표",
-      "date": "2027-01-27",
-      "title": "샌디스크 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "SNDK",
-      "name": "샌디스크",
-      "detail": "예상 EPS 57.7568",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2027-01-27|실적|aapl|애플 실적 발표",
       "date": "2027-01-27",
       "title": "애플 실적 발표",
@@ -3995,6 +3995,21 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2027-01-28|실적|bx|블랙스톤 실적 발표",
+      "date": "2027-01-28",
+      "title": "블랙스톤 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "BX",
+      "name": "블랙스톤",
+      "detail": "예상 EPS 1.7723",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2027-01-28|실적|tmo|써모 피셔 사이언티픽 실적 발표",
       "date": "2027-01-28",
       "title": "써모 피셔 사이언티픽 실적 발표",
@@ -4289,21 +4304,6 @@
       "symbol": "AMGN",
       "name": "암젠",
       "detail": "예상 EPS 5.887",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
-      "id": "2027-02-02|실적|etn|이튼 실적 발표",
-      "date": "2027-02-02",
-      "title": "이튼 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 마감 후",
-      "symbol": "ETN",
-      "name": "이튼",
-      "detail": "예상 EPS 4.1119",
       "importance": "기업",
       "status": "예상",
       "source": "Finnhub",
