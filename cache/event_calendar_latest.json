@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-06 04:10 KST",
+  "collected_at": "2026-11-06 17:19 KST",
   "range_start": "2025-11-06",
   "range_end": "2027-11-06",
   "events": [
@@ -1010,21 +1010,6 @@
       "source_url": "https://finance.yahoo.com/quote/META/"
     },
     {
-      "id": "2026-10-22|실적|bx|블랙스톤 실적 발표",
-      "date": "2026-10-22",
-      "title": "블랙스톤 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "BX",
-      "name": "블랙스톤",
-      "detail": "예상 EPS 1.26",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BX/"
-    },
-    {
       "id": "2026-10-22|실적|unp|유니온 퍼시픽 실적 발표",
       "date": "2026-10-22",
       "title": "유니온 퍼시픽 실적 발표",
@@ -1505,6 +1490,21 @@
       "source_url": "https://finance.yahoo.com/quote/SHEL/"
     },
     {
+      "id": "2026-10-29|실적|bud|안호이저부시 인베브 adr 실적 발표",
+      "date": "2026-10-29",
+      "title": "안호이저부시 인베브 ADR 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "BUD",
+      "name": "안호이저부시 인베브 ADR",
+      "detail": "예상 EPS 1.17",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/BUD/"
+    },
+    {
       "id": "2026-10-29|실적|googl|알파벳 class a 실적 발표",
       "date": "2026-10-29",
       "title": "알파벳 Class A 실적 발표",
@@ -1923,21 +1923,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/096530.KQ/"
-    },
-    {
-      "id": "2026-11-06|실적|021240|코웨이 실적 발표",
-      "date": "2026-11-06",
-      "title": "코웨이 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "021240",
-      "name": "코웨이",
-      "detail": "2026년 3분기 · 예상 EPS 2,514",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/021240.KS/"
     },
     {
       "id": "2026-11-06|실적|161390|한국타이어앤테크놀로지 실적 발표",
@@ -3118,7 +3103,7 @@
       "time_kst": "시간 미정",
       "symbol": "010950",
       "name": "S-Oil",
-      "detail": "2026년 4분기 · 예상 EPS 11,802",
+      "detail": "2026년 4분기 · 예상 EPS 19,149",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3875,21 +3860,6 @@
       "source_url": "https://finnhub.io/"
     },
     {
-      "id": "2027-01-28|실적|bx|블랙스톤 실적 발표",
-      "date": "2027-01-28",
-      "title": "블랙스톤 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "장 마감 후",
-      "symbol": "BX",
-      "name": "블랙스톤",
-      "detail": "예상 EPS 1.7723",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Finnhub",
-      "source_url": "https://finnhub.io/"
-    },
-    {
       "id": "2027-01-28|실적|tmo|써모 피셔 사이언티픽 실적 발표",
       "date": "2027-01-28",
       "title": "써모 피셔 사이언티픽 실적 발표",
@@ -4258,7 +4228,7 @@
       "time_kst": "06:00 KST · 장 마감 후",
       "symbol": "AMD",
       "name": "AMD(어드밴스드 마이크로 디바이시스)",
-      "detail": "2026년 4분기 · 예상 EPS 2.95",
+      "detail": "2026년 4분기 · 예상 EPS 2.94",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4632,7 +4602,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:207",
-    "Finnhub": "ok:58"
+    "Yahoo Finance": "ok:205",
+    "Finnhub": "ok:57"
   }
 }
