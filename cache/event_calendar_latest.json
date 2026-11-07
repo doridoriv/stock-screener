@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-07 03:31 KST",
+  "collected_at": "2026-11-07 16:33 KST",
   "range_start": "2025-11-07",
   "range_end": "2027-11-07",
   "events": [
@@ -800,6 +800,21 @@
       "source_url": "https://finance.yahoo.com/quote/RTX/"
     },
     {
+      "id": "2026-10-21|실적|t|at&t 실적 발표",
+      "date": "2026-10-21",
+      "title": "AT&T 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "T",
+      "name": "AT&T",
+      "detail": "예상 EPS 0.60",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/T/"
+    },
+    {
       "id": "2026-10-21|실적|sap|sap adr 실적 발표",
       "date": "2026-10-21",
       "title": "SAP ADR 실적 발표",
@@ -1490,21 +1505,6 @@
       "source_url": "https://finance.yahoo.com/quote/SHEL/"
     },
     {
-      "id": "2026-10-29|실적|bud|안호이저부시 인베브 adr 실적 발표",
-      "date": "2026-10-29",
-      "title": "안호이저부시 인베브 ADR 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "시간 미정",
-      "symbol": "BUD",
-      "name": "안호이저부시 인베브 ADR",
-      "detail": "예상 EPS 1.17",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/BUD/"
-    },
-    {
       "id": "2026-10-29|실적|googl|알파벳 class a 실적 발표",
       "date": "2026-10-29",
       "title": "알파벳 Class A 실적 발표",
@@ -1923,21 +1923,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/096530.KQ/"
-    },
-    {
-      "id": "2026-11-06|실적|161390|한국타이어앤테크놀로지 실적 발표",
-      "date": "2026-11-06",
-      "title": "한국타이어앤테크놀로지 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "161390",
-      "name": "한국타이어앤테크놀로지",
-      "detail": "2026년 3분기 · 예상 EPS 2,788",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/161390.KS/"
     },
     {
       "id": "2026-11-09|실적|263750|펄어비스 실적 발표",
@@ -3470,6 +3455,21 @@
       "source_url": "https://finance.yahoo.com/quote/012330.KS/"
     },
     {
+      "id": "2027-01-27|실적|t|at&t 실적 발표",
+      "date": "2027-01-27",
+      "title": "AT&T 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "T",
+      "name": "AT&T",
+      "detail": "예상 EPS 0.5519",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2027-01-27|실적|ibm|ibm 실적 발표",
       "date": "2027-01-27",
       "title": "IBM 실적 발표",
@@ -4618,7 +4618,7 @@
       "time_kst": "시간 미정",
       "symbol": "032640",
       "name": "LG유플러스",
-      "detail": "2026년 4분기 · 예상 EPS 293",
+      "detail": "2026년 4분기 · 예상 EPS 323",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4978,6 +4978,6 @@
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
     "Yahoo Finance": "ok:231",
-    "Finnhub": "ok:57"
+    "Finnhub": "ok:58"
   }
 }
