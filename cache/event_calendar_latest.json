@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-14 03:49 KST",
+  "collected_at": "2026-11-14 16:51 KST",
   "range_start": "2025-11-14",
   "range_end": "2027-11-14",
   "events": [
@@ -1895,21 +1895,6 @@
       "source_url": "https://finance.yahoo.com/quote/012450.KS/"
     },
     {
-      "id": "2026-11-13|실적|011200|hmm 실적 발표",
-      "date": "2026-11-13",
-      "title": "HMM 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "011200",
-      "name": "HMM",
-      "detail": "2026년 3분기",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/011200.KS/"
-    },
-    {
       "id": "2026-11-13|실적|373220|lg에너지솔루션 실적 발표",
       "date": "2026-11-13",
       "title": "LG에너지솔루션 실적 발표",
@@ -1925,34 +1910,19 @@
       "source_url": "https://finance.yahoo.com/quote/373220.KS/"
     },
     {
-      "id": "2026-11-13|실적|034730|sk 실적 발표",
+      "id": "2026-11-13|실적|035420|naver 실적 발표",
       "date": "2026-11-13",
-      "title": "SK 실적 발표",
+      "title": "NAVER 실적 발표",
       "category": "실적",
       "market": "코스피",
       "time_kst": "시간 미정",
-      "symbol": "034730",
-      "name": "SK",
-      "detail": "2026년 3분기 · 예상 EPS 51,142",
+      "symbol": "035420",
+      "name": "NAVER",
+      "detail": "예상 EPS 3,273",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/034730.KS/"
-    },
-    {
-      "id": "2026-11-13|실적|402340|sk스퀘어 실적 발표",
-      "date": "2026-11-13",
-      "title": "SK스퀘어 실적 발표",
-      "category": "실적",
-      "market": "코스피",
-      "time_kst": "시간 미정",
-      "symbol": "402340",
-      "name": "SK스퀘어",
-      "detail": "2026년 3분기 · 예상 EPS 84,663",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/402340.KS/"
+      "source_url": "https://finance.yahoo.com/quote/035420.KS/"
     },
     {
       "id": "2026-11-13|실적|mufg|미쓰비시 ufj 파이낸셜 그룹 adr 실적 발표",
@@ -2028,6 +1998,36 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/319660.KQ/"
+    },
+    {
+      "id": "2026-11-16|실적|034730|sk 실적 발표",
+      "date": "2026-11-16",
+      "title": "SK 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "034730",
+      "name": "SK",
+      "detail": "2026년 3분기 · 예상 EPS 51,142",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/034730.KS/"
+    },
+    {
+      "id": "2026-11-16|실적|402340|sk스퀘어 실적 발표",
+      "date": "2026-11-16",
+      "title": "SK스퀘어 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "402340",
+      "name": "SK스퀘어",
+      "detail": "2026년 3분기 · 예상 EPS 84,663",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/402340.KS/"
     },
     {
       "id": "2026-11-17|실적|dis|월트 디즈니 실적 발표",
@@ -3898,7 +3898,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "LLY",
       "name": "일라이 릴리",
-      "detail": "2026년 4분기 · 예상 EPS 11.23",
+      "detail": "2026년 4분기 · 예상 EPS 11.22",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4063,7 +4063,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "LIN",
       "name": "린드",
-      "detail": "2026년 4분기 · 예상 EPS 4.67",
+      "detail": "2026년 4분기 · 예상 EPS 2.70",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4730,6 +4730,21 @@
       "source_url": "https://finance.yahoo.com/quote/078930.KS/"
     },
     {
+      "id": "2027-02-10|실적|011200|hmm 실적 발표",
+      "date": "2027-02-10",
+      "title": "HMM 실적 발표",
+      "category": "실적",
+      "market": "코스피",
+      "time_kst": "시간 미정",
+      "symbol": "011200",
+      "name": "HMM",
+      "detail": "2026년 4분기",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/011200.KS/"
+    },
+    {
       "id": "2027-02-10|실적|030200|kt 실적 발표",
       "date": "2027-02-10",
       "title": "KT 실적 발표",
@@ -4738,7 +4753,7 @@
       "time_kst": "시간 미정",
       "symbol": "030200",
       "name": "KT",
-      "detail": "2026년 4분기 · 예상 EPS 943",
+      "detail": "2026년 4분기 · 예상 EPS 940",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4888,7 +4903,7 @@
       "time_kst": "06:00 KST · 장 마감 후",
       "symbol": "CSCO",
       "name": "시스코 시스템즈",
-      "detail": "2027년 2분기 · 예상 EPS 1.25",
+      "detail": "2027년 2분기 · 예상 EPS 1.35",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5023,7 +5038,7 @@
       "time_kst": "06:00 KST · 장 마감 후",
       "symbol": "AMAT",
       "name": "어플라이드 머티어리얼즈",
-      "detail": "2027년 1분기 · 예상 EPS 4.26",
+      "detail": "2027년 1분기 · 예상 EPS 4.34",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5127,7 +5142,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:248",
+    "Yahoo Finance": "ok:249",
     "Finnhub": "ok:50"
   }
 }
