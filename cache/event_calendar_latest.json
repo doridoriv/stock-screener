@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-18 05:16 KST",
+  "collected_at": "2026-11-18 17:55 KST",
   "range_start": "2025-11-18",
   "range_end": "2027-11-18",
   "events": [
@@ -738,6 +738,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ISRG/"
+    },
+    {
+      "id": "2026-10-21|실적|cb|처브 실적 발표",
+      "date": "2026-10-21",
+      "title": "처브 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "CB",
+      "name": "처브",
+      "detail": "예상 EPS 6.80",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/CB/"
     },
     {
       "id": "2026-10-21|실적|pm|필립 모리스 인터내셔널 실적 발표",
@@ -3160,10 +3175,10 @@
       "title": "엔비디아 실적 발표",
       "category": "실적",
       "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
+      "time_kst": "시간 미정",
       "symbol": "NVDA",
       "name": "엔비디아",
-      "detail": "2027년 3분기 · 예상 EPS 2.47",
+      "detail": "예상 EPS 2.47",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -3438,21 +3453,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/ORCL/"
-    },
-    {
-      "id": "2026-12-17|실적|acn|액센추어 실적 발표",
-      "date": "2026-12-17",
-      "title": "액센추어 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "22:30 KST · 장 시작 전",
-      "symbol": "ACN",
-      "name": "액센추어",
-      "detail": "2027년 1분기 · 예상 EPS 3.95",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/ACN/"
     },
     {
       "id": "2026-12-23|성장|미국 gdp 발표",
@@ -4685,6 +4685,21 @@
       "source_url": "https://finnhub.io/"
     },
     {
+      "id": "2027-02-02|실적|cb|처브 실적 발표",
+      "date": "2027-02-02",
+      "title": "처브 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "장 마감 후",
+      "symbol": "CB",
+      "name": "처브",
+      "detail": "예상 EPS 7.58",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Finnhub",
+      "source_url": "https://finnhub.io/"
+    },
+    {
       "id": "2027-02-02|실적|pltr|팔란티어 테크놀로지스 실적 발표",
       "date": "2027-02-02",
       "title": "팔란티어 테크놀로지스 실적 발표",
@@ -4788,6 +4803,21 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/AMGN/"
+    },
+    {
+      "id": "2027-02-03|실적|cb|처브 실적 발표",
+      "date": "2027-02-03",
+      "title": "처브 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "06:00 KST · 장 마감 후",
+      "symbol": "CB",
+      "name": "처브",
+      "detail": "2026년 4분기 · 예상 EPS 7.33",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/CB/"
     },
     {
       "id": "2027-02-03|실적|ubs|ubs 그룹 ag 실적 발표",
@@ -6177,7 +6207,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:326",
-    "Finnhub": "ok:38"
+    "Yahoo Finance": "ok:327",
+    "Finnhub": "ok:39"
   }
 }
