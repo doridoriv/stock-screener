@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-24 08:01 KST",
+  "collected_at": "2026-11-24 20:23 KST",
   "range_start": "2025-11-24",
   "range_end": "2027-11-24",
   "events": [
@@ -1835,6 +1835,21 @@
       "source_url": "https://finance.yahoo.com/quote/278470.KS/"
     },
     {
+      "id": "2026-11-13|실적|290650|엘앤씨바이오 실적 발표",
+      "date": "2026-11-13",
+      "title": "엘앤씨바이오 실적 발표",
+      "category": "실적",
+      "market": "코스닥",
+      "time_kst": "시간 미정",
+      "symbol": "290650",
+      "name": "엘앤씨바이오",
+      "detail": "예상 EPS -88.28",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/290650.KQ/"
+    },
+    {
       "id": "2026-11-13|실적|232140|와이씨 실적 발표",
       "date": "2026-11-13",
       "title": "와이씨 실적 발표",
@@ -3440,6 +3455,21 @@
       "source_url": "https://finance.yahoo.com/quote/009150.KS/"
     },
     {
+      "id": "2027-01-22|실적|isrg|인튜이티브 서지컬 실적 발표",
+      "date": "2027-01-22",
+      "title": "인튜이티브 서지컬 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "06:00 KST · 장 마감 후",
+      "symbol": "ISRG",
+      "name": "인튜이티브 서지컬",
+      "detail": "2026년 4분기 · 예상 EPS 2.95",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/ISRG/"
+    },
+    {
       "id": "2027-01-22|실적|pg|p&g(프록터 & 갬블) 실적 발표",
       "date": "2027-01-22",
       "title": "P&G(프록터 & 갬블) 실적 발표",
@@ -4383,21 +4413,6 @@
       "status": "예상",
       "source": "Yahoo Finance",
       "source_url": "https://finance.yahoo.com/quote/AMGN/"
-    },
-    {
-      "id": "2027-02-03|실적|cb|처브 실적 발표",
-      "date": "2027-02-03",
-      "title": "처브 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "CB",
-      "name": "처브",
-      "detail": "2026년 4분기 · 예상 EPS 7.33",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/CB/"
     },
     {
       "id": "2027-02-03|실적|ubs|ubs 그룹 ag 실적 발표",
@@ -5937,7 +5952,7 @@
     "BEA official schedule": "ok:12",
     "BLS": "error:HTTPError",
     "BEA": "ok:0",
-    "Yahoo Finance": "ok:317",
+    "Yahoo Finance": "ok:318",
     "Finnhub": "ok:24"
   }
 }
