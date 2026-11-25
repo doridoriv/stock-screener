@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-25 06:44 KST",
+  "collected_at": "2026-11-25 19:09 KST",
   "range_start": "2025-11-25",
   "range_end": "2027-11-25",
   "events": [
@@ -2975,21 +2975,6 @@
       "source_url": "https://finance.yahoo.com/quote/ADI/"
     },
     {
-      "id": "2026-11-25|실적|dell|델테크놀로지 실적 발표",
-      "date": "2026-11-25",
-      "title": "델테크놀로지 실적 발표",
-      "category": "실적",
-      "market": "미국",
-      "time_kst": "06:00 KST · 장 마감 후",
-      "symbol": "DELL",
-      "name": "델테크놀로지",
-      "detail": "2027년 3분기 · 예상 EPS 6.59",
-      "importance": "기업",
-      "status": "예상",
-      "source": "Yahoo Finance",
-      "source_url": "https://finance.yahoo.com/quote/DELL/"
-    },
-    {
       "id": "2026-11-25|성장|미국 gdp 발표",
       "date": "2026-11-25",
       "title": "미국 GDP 발표",
@@ -3035,6 +3020,21 @@
       "source_url": "https://finance.yahoo.com/quote/DE/"
     },
     {
+      "id": "2026-11-25|실적|dell|델테크놀로지 실적 발표",
+      "date": "2026-11-25",
+      "title": "델테크놀로지 실적 발표",
+      "category": "실적",
+      "market": "미국",
+      "time_kst": "시간 미정",
+      "symbol": "DELL",
+      "name": "델테크놀로지",
+      "detail": "예상 EPS 6.59",
+      "importance": "기업",
+      "status": "예상",
+      "source": "Yahoo Finance",
+      "source_url": "https://finance.yahoo.com/quote/DELL/"
+    },
+    {
       "id": "2026-12-03|실적|crm|세일즈포스 실적 발표",
       "date": "2026-12-03",
       "title": "세일즈포스 실적 발표",
@@ -3058,7 +3058,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "RY",
       "name": "로열 뱅크 오브 캐나다",
-      "detail": "2026년 4분기 · 예상 EPS 4.14",
+      "detail": "2026년 4분기 · 예상 EPS 4.13",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -4798,7 +4798,7 @@
       "time_kst": "시간 미정",
       "symbol": "068270",
       "name": "셀트리온",
-      "detail": "2026년 4분기 · 예상 EPS 2,076",
+      "detail": "2026년 4분기 · 예상 EPS 2,133",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
@@ -5683,7 +5683,7 @@
       "time_kst": "시간 미정",
       "symbol": "259960",
       "name": "크래프톤",
-      "detail": "2026년 4분기 · 예상 EPS 2,758",
+      "detail": "2026년 4분기 · 예상 EPS 2,448",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
