@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "collected_at": "2026-11-27 05:37 KST",
+  "collected_at": "2026-11-27 19:00 KST",
   "range_start": "2025-11-27",
   "range_end": "2027-11-27",
   "events": [
@@ -5638,7 +5638,7 @@
       "time_kst": "22:30 KST · 장 시작 전",
       "symbol": "TJX",
       "name": "TJX 컴퍼니스",
-      "detail": "2027년 4분기 · 예상 EPS 1.48",
+      "detail": "2027년 4분기 · 예상 EPS 1.47",
       "importance": "기업",
       "status": "예상",
       "source": "Yahoo Finance",
