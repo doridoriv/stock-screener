@@ -2,841 +2,841 @@
   "AAPL": {
     "rank": 1,
     "name": "애플",
-    "market_cap": 5167353275560.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 5210368534280.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MSFT": {
     "rank": 2,
     "name": "마이크로소프트",
-    "market_cap": 3638315496861.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 3659999984953.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "NVDA": {
     "rank": 3,
     "name": "엔비디아",
-    "market_cap": 3598130000000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 3626809000000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "AMZN": {
     "rank": 4,
     "name": "아마존닷컴",
-    "market_cap": 2643055396136.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 2747834706321.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "GOOGL": {
     "rank": 5,
     "name": "알파벳 Class A",
-    "market_cap": 1833866500000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1846356400000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "TSM": {
     "rank": 6,
     "name": "TSMC ADR",
-    "market_cap": 1775537166820.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1832588367700.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SPCX": {
     "rank": 7,
     "name": "스페이스X",
-    "market_cap": 1730770759075.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1814294300885.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "META": {
     "rank": 8,
     "name": "메타",
-    "market_cap": 1583411179778.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "GOOG": {
-    "rank": 9,
-    "name": "알파벳 Class C",
-    "market_cap": 1511797420000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1632921175348.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "TSLA": {
-    "rank": 10,
+    "rank": 9,
     "name": "테슬라",
-    "market_cap": 1502601405592.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1581103178400.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "GOOG": {
+    "rank": 10,
+    "name": "알파벳 Class C",
+    "market_cap": 1519942760000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "AVGO": {
     "rank": 11,
     "name": "브로드컴",
-    "market_cap": 1436194281184.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1490995552034.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "LLY": {
     "rank": 12,
     "name": "일라이 릴리",
-    "market_cap": 1309724047059.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1309874566264.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ANT": {
     "rank": 13,
     "name": "앤트로픽",
-    "market_cap": 1094454183864.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1214620732135.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "WMT": {
     "rank": 14,
     "name": "월마트",
-    "market_cap": 1046778479037.9999,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 1056219637063.9999,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "JPM": {
     "rank": 15,
     "name": "제이피모간체이스",
-    "market_cap": 841137755881.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 857655647027.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SKHY": {
     "rank": 16,
     "name": "SK하이닉스 ADR",
-    "market_cap": 790334984794.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "V": {
-    "rank": 17,
-    "name": "비자",
-    "market_cap": 786983402481.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 849784332220.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MU": {
-    "rank": 18,
+    "rank": 17,
     "name": "마이크론 테크놀로지",
-    "market_cap": 770161755691.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 828700453795.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "V": {
+    "rank": 18,
+    "name": "비자",
+    "market_cap": 796570584533.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "AMD": {
     "rank": 19,
     "name": "AMD(어드밴스드 마이크로 디바이시스)",
-    "market_cap": 665924626524.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 696282641540.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "JNJ": {
     "rank": 20,
     "name": "존슨앤드존슨",
-    "market_cap": 659458574268.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 663238051386.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "XOM": {
     "rank": 21,
     "name": "엑슨모빌 홀딩스",
-    "market_cap": 644843483948.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 653409851080.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MA": {
     "rank": 22,
     "name": "마스터카드",
-    "market_cap": 574950099957.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 581039620993.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ABBV": {
     "rank": 23,
     "name": "애브비",
-    "market_cap": 520527649791.00006,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 515931847395.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ASML": {
     "rank": 24,
     "name": "ASML 홀딩 ADR",
-    "market_cap": 502230050908.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 510994448610.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "COST": {
     "rank": 25,
     "name": "코스트코 홀세일",
-    "market_cap": 481597407787.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 486471830626.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "KO": {
     "rank": 26,
     "name": "코카콜라",
-    "market_cap": 419822648873.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 419005287429.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "CVX": {
     "rank": 27,
     "name": "셰브론",
-    "market_cap": 414605704662.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "PG": {
-    "rank": 28,
-    "name": "P&G(프록터 & 갬블)",
-    "market_cap": 401509573862.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 417553837191.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "PLTR": {
-    "rank": 29,
+    "rank": 28,
     "name": "팔란티어 테크놀로지스",
-    "market_cap": 394169691772.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 414843180099.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "PG": {
+    "rank": 29,
+    "name": "P&G(프록터 & 갬블)",
+    "market_cap": 400651994099.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "CSCO": {
     "rank": 30,
     "name": "시스코 시스템즈",
-    "market_cap": 371378618933.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 382575171775.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "HD": {
     "rank": 31,
     "name": "홈디포",
-    "market_cap": 360484102751.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 361372191251.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MRK": {
     "rank": 32,
     "name": "머크 앤 코",
-    "market_cap": 345849317570.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 348388520628.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BAC": {
     "rank": 33,
     "name": "뱅크오브아메리카",
-    "market_cap": 334936145151.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 338593255924.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "GE": {
     "rank": 34,
     "name": "GE 에어로스페이스",
-    "market_cap": 327551891919.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 334744021289.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ORCL": {
     "rank": 35,
     "name": "오라클",
-    "market_cap": 323059901537.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 333167185711.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "UNH": {
     "rank": 36,
     "name": "유나이티드헬스 그룹",
-    "market_cap": 310194067702.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 314871305732.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "NVS": {
+  "INTC": {
     "rank": 37,
-    "name": "노바티스 ADR",
-    "market_cap": 293284354496.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "인텔",
+    "market_cap": 305081000000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "PANW": {
     "rank": 38,
     "name": "팔로 알토 네트웍스",
-    "market_cap": 292390940000.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "INTC": {
-    "rank": 39,
-    "name": "인텔",
-    "market_cap": 289508050000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 301109960000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "PM": {
-    "rank": 40,
+    "rank": 39,
     "name": "필립 모리스 인터내셔널",
-    "market_cap": 287291405537.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "AZN": {
-    "rank": 41,
-    "name": "아스트라제네카",
-    "market_cap": 285721727308.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 292715527126.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SMFG": {
-    "rank": 42,
+    "rank": 40,
     "name": "스미토모 미쓰이 파이낸셜그룹 ADR",
-    "market_cap": 285342819080.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 291153252758.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "NVS": {
+    "rank": 41,
+    "name": "노바티스 ADR",
+    "market_cap": 290999119974.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "HSBC": {
-    "rank": 43,
+    "rank": 42,
     "name": "HSBC 홀딩스 ADR",
-    "market_cap": 280086542735.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 285420723969.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "AZN": {
+    "rank": 43,
+    "name": "아스트라제네카",
+    "market_cap": 284915173385.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SHEL": {
     "rank": 44,
     "name": "쉘 ADR",
-    "market_cap": 266769246233.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 270364321012.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "RTX": {
     "rank": 45,
     "name": "RTX",
-    "market_cap": 264746741112.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "RY": {
-    "rank": 46,
-    "name": "로열 뱅크 오브 캐나다",
-    "market_cap": 262649671607.00003,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 267836959966.99997,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MS": {
-    "rank": 47,
+    "rank": 46,
     "name": "모간스탠리",
-    "market_cap": 261887999580.99997,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 267092935651.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "TMO": {
-    "rank": 48,
-    "name": "써모 피셔 사이언티픽",
-    "market_cap": 253996037831.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "AMGN": {
-    "rank": 49,
-    "name": "암젠",
-    "market_cap": 253817307568.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "TM": {
-    "rank": 50,
-    "name": "토요타자동차 ADR",
-    "market_cap": 253188137852.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "CAT": {
-    "rank": 51,
-    "name": "캐터필러",
-    "market_cap": 248789376462.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "AMAT": {
-    "rank": 52,
-    "name": "어플라이드 머티어리얼즈",
-    "market_cap": 246951652313.0,
-    "market_cap_as_of": "2026-11-25",
+  "RY": {
+    "rank": 47,
+    "name": "로열 뱅크 오브 캐나다",
+    "market_cap": 262524877655.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "TXN": {
-    "rank": 53,
+    "rank": 48,
     "name": "텍사스 인스트루먼트",
-    "market_cap": 246891601680.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 257546163564.99997,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "CAT": {
+    "rank": 49,
+    "name": "캐터필러",
+    "market_cap": 257048951303.00003,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "AMGN": {
+    "rank": 50,
+    "name": "암젠",
+    "market_cap": 256435319178.99997,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "AMAT": {
+    "rank": 51,
+    "name": "어플라이드 머티어리얼즈",
+    "market_cap": 255570120544.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "TMO": {
+    "rank": 52,
+    "name": "써모 피셔 사이언티픽",
+    "market_cap": 253077158479.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "TM": {
+    "rank": 53,
+    "name": "토요타자동차 ADR",
+    "market_cap": 252272957595.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "NFLX": {
     "rank": 54,
     "name": "넷플릭스",
-    "market_cap": 243956821897.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 250198437270.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "WFC": {
     "rank": 55,
     "name": "웰스파고",
-    "market_cap": 242969764658.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 246992244083.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SAP": {
     "rank": 56,
     "name": "SAP ADR",
-    "market_cap": 241655740054.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 246595734167.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "LIN": {
     "rank": 57,
     "name": "린드",
-    "market_cap": 240839941301.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 244512611533.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "LRCX": {
     "rank": 58,
     "name": "램 리서치",
-    "market_cap": 231109126710.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "GS": {
-    "rank": 59,
-    "name": "골드만삭스",
-    "market_cap": 231044754020.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 240702759990.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "IBM": {
-    "rank": 60,
+    "rank": 59,
     "name": "IBM",
-    "market_cap": 230108562393.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 234465569304.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "GS": {
+    "rank": 60,
+    "name": "골드만삭스",
+    "market_cap": 234459819483.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MUFG": {
     "rank": 61,
     "name": "미쓰비시 UFJ 파이낸셜 그룹 ADR",
-    "market_cap": 220217132200.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "GILD": {
-    "rank": 62,
-    "name": "길리어드 사이언시스",
-    "market_cap": 219217446638.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 225396062712.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "CRWD": {
-    "rank": 63,
+    "rank": 62,
     "name": "크라우드 스트라이크 홀딩스",
-    "market_cap": 215703851845.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 223845564361.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BABA": {
-    "rank": 64,
+    "rank": 63,
     "name": "알리바바 그룹 홀딩 ADR",
-    "market_cap": 214592878438.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "DIS": {
-    "rank": 65,
-    "name": "월트 디즈니",
-    "market_cap": 214528526301.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "AXP": {
-    "rank": 66,
-    "name": "아메리칸 익스프레스",
-    "market_cap": 209473744903.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 223100966130.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ANET": {
-    "rank": 67,
+    "rank": 64,
     "name": "아리스타 네트웍스",
-    "market_cap": 207185348917.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 220754289995.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "GILD": {
+    "rank": 65,
+    "name": "길리어드 사이언시스",
+    "market_cap": 219539934678.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "DIS": {
+    "rank": 66,
+    "name": "월트 디즈니",
+    "market_cap": 217329694956.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "AXP": {
+    "rank": 67,
+    "name": "아메리칸 익스프레스",
+    "market_cap": 212162658495.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "DELL": {
+    "rank": 68,
+    "name": "델테크놀로지",
+    "market_cap": 201527209240.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MCD": {
-    "rank": 68,
+    "rank": 69,
     "name": "맥도날드",
-    "market_cap": 200089974924.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 199468884349.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "PEP": {
-    "rank": 69,
+    "rank": 70,
     "name": "펩시코",
-    "market_cap": 196139325372.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 197052361903.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "VZ": {
-    "rank": 70,
+    "rank": 71,
     "name": "버라이존",
-    "market_cap": 195956609326.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 197034204893.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "TTE": {
-    "rank": 71,
-    "name": "토탈에너지스",
-    "market_cap": 195286998151.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "TD": {
     "rank": 72,
-    "name": "토론토 도미니언 은행",
-    "market_cap": 190897308401.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "토탈에너지스",
+    "market_cap": 195834595763.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "GEV": {
     "rank": 73,
     "name": "GE 버노바",
-    "market_cap": 189244102190.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 194619693400.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "DELL": {
+  "TD": {
     "rank": 74,
-    "name": "델테크놀로지",
-    "market_cap": 188874535515.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "토론토 도미니언 은행",
+    "market_cap": 192278953577.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "QCOM": {
+    "rank": 75,
+    "name": "퀄컴",
+    "market_cap": 191818900000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "C": {
-    "rank": 75,
-    "name": "씨티그룹",
-    "market_cap": 187583816000.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "ABT": {
     "rank": 76,
-    "name": "애보트 래보라토리",
-    "market_cap": 187049692908.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "씨티그룹",
+    "market_cap": 191324568000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BLK": {
     "rank": 77,
     "name": "블랙록",
-    "market_cap": 185015973167.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 189082934902.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "WELL": {
+  "BHP": {
     "rank": 78,
-    "name": "웰타워",
-    "market_cap": 180600076073.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "BHP 그룹 ADR",
+    "market_cap": 187205188528.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "QCOM": {
+  "ABT": {
     "rank": 79,
-    "name": "퀄컴",
-    "market_cap": 180466200000.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "애보트 래보라토리",
+    "market_cap": 187170928820.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "APH": {
     "rank": 80,
     "name": "암페놀",
-    "market_cap": 180453607619.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "BHP": {
-    "rank": 81,
-    "name": "BHP 그룹 ADR",
-    "market_cap": 179860320284.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "NEE": {
-    "rank": 82,
-    "name": "넥스트에라 에너지",
-    "market_cap": 179130909645.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "UNP": {
-    "rank": 83,
-    "name": "유니온 퍼시픽",
-    "market_cap": 177312439126.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "TMUS": {
-    "rank": 84,
-    "name": "T-모바일 US",
-    "market_cap": 176104064929.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "KLAC": {
-    "rank": 85,
-    "name": "KLA",
-    "market_cap": 174857558777.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "DE": {
-    "rank": 86,
-    "name": "디어",
-    "market_cap": 172835281600.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 185540285666.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ARM": {
-    "rank": 87,
+    "rank": 81,
     "name": "암 홀딩스 ADR",
-    "market_cap": 172815700000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 183558500000.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "KLAC": {
+    "rank": 82,
+    "name": "KLA",
+    "market_cap": 183535288594.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "WELL": {
+    "rank": 83,
+    "name": "웰타워",
+    "market_cap": 183175046692.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SHOP": {
-    "rank": 88,
+    "rank": 84,
     "name": "쇼피파이",
-    "market_cap": 171622036401.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 182403090861.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "SONY": {
-    "rank": 89,
-    "name": "소니 그룹 ADR",
-    "market_cap": 166225695996.0,
-    "market_cap_as_of": "2026-11-25",
+  "TMUS": {
+    "rank": 85,
+    "name": "T-모바일 US",
+    "market_cap": 180277598858.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "CRM": {
-    "rank": 90,
-    "name": "세일즈포스",
-    "market_cap": 162303830000.0,
-    "market_cap_as_of": "2026-11-25",
+  "NEE": {
+    "rank": 86,
+    "name": "넥스트에라 에너지",
+    "market_cap": 178166148863.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "UNP": {
+    "rank": 87,
+    "name": "유니온 퍼시픽",
+    "market_cap": 177021256422.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "DE": {
+    "rank": 88,
+    "name": "디어",
+    "market_cap": 176399729547.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "SAN": {
-    "rank": 91,
+    "rank": 89,
     "name": "방코 산탄데르 ADR",
-    "market_cap": 162256930000.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "PFE": {
-    "rank": 92,
-    "name": "화이자",
-    "market_cap": 162217837241.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "SCHW": {
-    "rank": 93,
-    "name": "찰스 슈왑",
-    "market_cap": 161295420032.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 170563110000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ADI": {
-    "rank": 94,
+    "rank": 90,
     "name": "애널로그 디바이시스",
-    "market_cap": 160781926552.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 167006038898.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "TJX": {
+  "SONY": {
+    "rank": 91,
+    "name": "소니 그룹 ADR",
+    "market_cap": 163191741559.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "CRM": {
+    "rank": 92,
+    "name": "세일즈포스",
+    "market_cap": 163126830000.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "PFE": {
+    "rank": 93,
+    "name": "화이자",
+    "market_cap": 162559828465.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "SCHW": {
+    "rank": 94,
+    "name": "찰스 슈왑",
+    "market_cap": 162348284732.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "COP": {
     "rank": 95,
-    "name": "TJX 컴퍼니스",
-    "market_cap": 160695210571.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "코노코필립스",
+    "market_cap": 161743435798.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "DHR": {
     "rank": 96,
     "name": "다나허",
-    "market_cap": 159947730790.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 161031168245.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "COP": {
+  "TJX": {
     "rank": 97,
-    "name": "코노코필립스",
-    "market_cap": 159638879396.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "TJX 컴퍼니스",
+    "market_cap": 158143270750.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "T": {
     "rank": 98,
     "name": "AT&T",
-    "market_cap": 154736794756.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 156353548380.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "UBS": {
     "rank": 99,
     "name": "UBS 그룹 AG",
-    "market_cap": 148812354446.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 149599027685.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ISRG": {
     "rank": 100,
     "name": "인튜이티브 서지컬",
-    "market_cap": 148079263455.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 149119194609.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "HDB": {
     "rank": 101,
     "name": "HDFC 뱅크 ADR",
-    "market_cap": 145848519498.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "CB": {
-    "rank": 102,
-    "name": "처브",
-    "market_cap": 145384964763.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "UL": {
-    "rank": 103,
-    "name": "유니레버 ADR",
-    "market_cap": 144016912702.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "VRTX": {
-    "rank": 104,
-    "name": "버텍스 파마슈티컬",
-    "market_cap": 143025672657.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 146774541844.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BX": {
-    "rank": 105,
+    "rank": 102,
     "name": "블랙스톤",
-    "market_cap": 142121169286.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 145717509930.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "CB": {
+    "rank": 103,
+    "name": "처브",
+    "market_cap": 145579825166.0,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "UL": {
+    "rank": 104,
+    "name": "유니레버 ADR",
+    "market_cap": 143090551110.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "ACN": {
-    "rank": 106,
+    "rank": 105,
     "name": "액센추어",
-    "market_cap": 142066455363.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 142863950954.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "LMT": {
-    "rank": 107,
+    "rank": 106,
     "name": "록히드 마틴",
-    "market_cap": 138427220474.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "BUD": {
-    "rank": 108,
-    "name": "안호이저부시 인베브 ADR",
-    "market_cap": 138262244995.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 139961091283.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "PGR": {
-    "rank": 109,
+    "rank": 107,
     "name": "프로그레시브",
-    "market_cap": 137896990000.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 138151178000.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "NVO": {
-    "rank": 110,
+    "rank": 108,
     "name": "노보 노디스크 ADR",
-    "market_cap": 136863567679.99998,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 137197625692.99998,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "UBER": {
-    "rank": 111,
+    "rank": 109,
     "name": "우버",
-    "market_cap": 135479936944.99998,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 136051668404.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "SPGI": {
-    "rank": 112,
-    "name": "S&P 글로벌",
-    "market_cap": 133568525999.99998,
-    "market_cap_as_of": "2026-11-25",
+  "BUD": {
+    "rank": 110,
+    "name": "안호이저부시 인베브 ADR",
+    "market_cap": 135634605430.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "LOW": {
-    "rank": 113,
-    "name": "로우스 컴퍼니",
-    "market_cap": 132199649999.99998,
-    "market_cap_as_of": "2026-11-25",
+  "VRTX": {
+    "rank": 111,
+    "name": "버텍스 파마슈티컬",
+    "market_cap": 135533634390.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BBVA": {
-    "rank": 114,
+    "rank": 112,
     "name": "방코 빌바오 비스카야 아르헨타리아 ADR",
-    "market_cap": 132099785781.00002,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 134245513246.99998,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
-  "IBN": {
+  "SPGI": {
+    "rank": 113,
+    "name": "S&P 글로벌",
+    "market_cap": 133713476000.00002,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "IBKR": {
+    "rank": 114,
+    "name": "인터랙티브 브로커스 그룹",
+    "market_cap": 133291466957.00002,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "LOW": {
     "rank": 115,
-    "name": "ICICI 뱅크 ADR",
-    "market_cap": 131124839458.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "로우스 컴퍼니",
+    "market_cap": 132665390217.00002,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BA": {
     "rank": 116,
     "name": "보잉",
-    "market_cap": 130381788628.00002,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 132529327966.00002,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "APP": {
+    "rank": 117,
+    "name": "앱러빈",
+    "market_cap": 132267082765.99998,
+    "market_cap_as_of": "2026-11-27",
+    "market_cap_source": "Naver exchange listing (USD)"
+  },
+  "IBN": {
+    "rank": 118,
+    "name": "ICICI 뱅크 ADR",
+    "market_cap": 130386894858.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "BTI": {
-    "rank": 117,
-    "name": "브리티쉬 아메리칸 토바코 ADR",
-    "market_cap": 130102807719.0,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "SNY": {
-    "rank": 118,
-    "name": "사노피 ADR",
-    "market_cap": 129637846290.99998,
-    "market_cap_as_of": "2026-11-25",
-    "market_cap_source": "Naver exchange listing (USD)"
-  },
-  "IBKR": {
     "rank": 119,
-    "name": "인터랙티브 브로커스 그룹",
-    "market_cap": 127345062513.0,
-    "market_cap_as_of": "2026-11-25",
+    "name": "브리티쉬 아메리칸 토바코 ADR",
+    "market_cap": 130038219199.99998,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   },
   "MO": {
     "rank": 120,
     "name": "알트리아그룹",
-    "market_cap": 126886967876.0,
-    "market_cap_as_of": "2026-11-25",
+    "market_cap": 127901664394.0,
+    "market_cap_as_of": "2026-11-27",
     "market_cap_source": "Naver exchange listing (USD)"
   }
 }
